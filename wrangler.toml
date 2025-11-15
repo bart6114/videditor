@@ -1,0 +1,62 @@
+name = "videditor"
+main = "workers/index.ts"
+compatibility_date = "2025-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Account details (add your account_id here)
+# account_id = "your-account-id"
+
+# Workers AI binding
+[ai]
+binding = "AI"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "videditor-db"
+database_id = "e617417c-6309-4272-abfa-9bc048c06225" # Will be created with: wrangler d1 create videditor-db
+
+# R2 Storage binding for video uploads
+[[r2_buckets]]
+binding = "VIDEOS_BUCKET"
+bucket_name = "videditor-videos"
+
+# R2 Storage binding for generated shorts
+[[r2_buckets]]
+binding = "SHORTS_BUCKET"
+bucket_name = "videditor-shorts"
+
+# Queue for background processing jobs
+[[queues.producers]]
+binding = "VIDEO_QUEUE"
+queue = "video-processing-queue"
+
+[[queues.consumers]]
+queue = "video-processing-queue"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+
+# Durable Objects for job tracking and real-time updates
+[[durable_objects.bindings]]
+name = "JOB_TRACKER"
+class_name = "JobTracker"
+script_name = "videditor"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["JobTracker"]
+
+# Environment variables (secrets should be set via: wrangler secret put SECRET_NAME)
+[vars]
+ENVIRONMENT = "development"
+
+# Production environment
+[env.production]
+name = "videditor-production"
+vars = { ENVIRONMENT = "production" }
+
+# KV namespace for sessions (optional, if not using Clerk's built-in session management)
+# [[kv_namespaces]]
+# binding = "SESSIONS"
+# id = "your-kv-namespace-id"

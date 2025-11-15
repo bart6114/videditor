@@ -25,9 +25,14 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.dev.vars
 
 # vercel
 .vercel
+
+# wrangler
+.wrangler/
+wrangler.toml.local
 
 # typescript
 *.tsbuildinfo

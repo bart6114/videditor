@@ -1,59 +1,97 @@
 import Stripe from 'stripe'
 
-// Initialize Stripe (will be used when payments are enabled)
-export const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2025-02-24.acacia',
-    })
-  : null
+// Initialize Stripe with Workers-compatible HTTP client
+export function createStripeClient(secretKey: string): Stripe {
+  return new Stripe(secretKey, {
+    apiVersion: '2025-02-24.acacia',
+    httpClient: Stripe.createFetchHttpClient(),
+  })
+}
 
-export async function createCustomer(email: string, userId: string) {
-  if (!stripe) {
-    console.warn('Stripe not configured')
-    return null
-  }
+/**
+ * Create Stripe customer
+ */
+export async function createCustomer(
+  stripe: Stripe,
+  email: string,
+  userId: string,
+  name?: string
+): Promise<string> {
+  const customer = await stripe.customers.create({
+    email,
+    name,
+    metadata: {
+      userId,
+    },
+  })
+  return customer.id
+}
 
-  try {
-    const customer = await stripe.customers.create({
-      email,
-      metadata: {
-        userId,
+/**
+ * Create checkout session for subscription
+ */
+export async function createCheckoutSession(
+  stripe: Stripe,
+  userId: string,
+  email: string,
+  priceId: string,
+  successUrl: string,
+  cancelUrl: string
+): Promise<Stripe.Checkout.Session> {
+  const session = await stripe.checkout.sessions.create({
+    mode: 'subscription',
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
       },
-    })
-    return customer.id
-  } catch (error) {
-    console.error('Failed to create Stripe customer:', error)
-    return null
-  }
-}
-
-export async function calculateVideoCost(durationInSeconds: number): Promise<number> {
-  // $0.01 per second
-  return Math.round(durationInSeconds) * 0.01
-}
-
-export async function createPaymentIntent(
-  amount: number,
-  customerId: string,
-  metadata: Record<string, string>
-) {
-  if (!stripe) {
-    throw new Error('Stripe not configured')
-  }
-
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: Math.round(amount * 100), // Convert to cents
-    currency: 'usd',
-    customer: customerId,
-    metadata,
-    automatic_payment_methods: {
-      enabled: true,
+    ],
+    customer_email: email,
+    client_reference_id: userId,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata: {
+      userId,
     },
   })
 
-  return paymentIntent
+  return session
 }
 
-// Placeholder for future payment processing
-export const PAYMENT_ENABLED = false
+/**
+ * Create billing portal session
+ */
+export async function createBillingPortalSession(
+  stripe: Stripe,
+  customerId: string,
+  returnUrl: string
+): Promise<Stripe.BillingPortal.Session> {
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: returnUrl,
+  })
+
+  return session
+}
+
+/**
+ * Cancel subscription
+ */
+export async function cancelSubscription(
+  stripe: Stripe,
+  subscriptionId: string
+): Promise<Stripe.Subscription> {
+  return await stripe.subscriptions.cancel(subscriptionId)
+}
+
+/**
+ * Calculate cost for video processing
+ */
+export function calculateVideoCost(durationInSeconds: number): number {
+  // $0.01 per second
+  return Math.round(durationInSeconds) * PRICE_PER_SECOND
+}
+
+// Configuration
+export const PAYMENT_ENABLED = true // Enable payments
 export const PRICE_PER_SECOND = 0.01

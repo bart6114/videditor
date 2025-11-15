@@ -1,29 +1,10 @@
 import Head from 'next/head'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { Video, Scissors, Sparkles, Zap } from 'lucide-react'
 
 export default function Home() {
-  const [session, setSession] = useState<any>(null)
-
-  useEffect(() => {
-    // Only import and use Supabase on the client side
-    import('@/lib/supabase/client').then(({ createClient }) => {
-      const supabase = createClient()
-
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        setSession(user)
-      })
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session?.user ?? null)
-      })
-
-      return () => subscription.unsubscribe()
-    })
-  }, [])
+  const { isSignedIn } = useUser()
 
   return (
     <>
@@ -42,7 +23,7 @@ export default function Home() {
             <h1 className="text-2xl font-bold">VidEditor</h1>
           </div>
           <div className="flex gap-4">
-            {session ? (
+            {isSignedIn ? (
               <Link
                 href="/projects"
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -52,13 +33,13 @@ export default function Home() {
             ) : (
               <>
                 <Link
-                  href="/auth/login"
+                  href="/sign-in"
                   className="px-6 py-2 text-gray-700 hover:text-blue-600 transition"
                 >
                   Login
                 </Link>
                 <Link
-                  href="/auth/signup"
+                  href="/sign-up"
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                 >
                   Sign Up
@@ -81,7 +62,7 @@ export default function Home() {
             Create, preview, and download multiple shorts in minutes.
           </p>
           <Link
-            href={session ? '/projects' : '/auth/signup'}
+            href={isSignedIn ? '/projects' : '/sign-up'}
             className="inline-block px-8 py-4 bg-blue-600 text-white text-lg rounded-lg hover:bg-blue-700 transition shadow-lg"
           >
             Get Started Free

@@ -3,9 +3,9 @@ import { useDropzone } from 'react-dropzone'
 import { Upload, FileVideo, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { createClient } from '@/lib/supabase/client'
-import { formatFileSize, formatDuration } from '@/lib/utils'
-import type { Database } from '@/types/database'
+import { useApi } from '@/lib/api/client'
+import { useUser } from '@clerk/nextjs'
+import { formatFileSize } from '@/lib/utils'
 
 interface VideoUploadProps {
   onUploadComplete: (projectId: string) => void
@@ -16,7 +16,8 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
   const [progress, setProgress] = useState(0)
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
+  const { call } = useApi()
+  const { user } = useUser()
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -63,78 +64,78 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
   }
 
   const uploadVideo = async () => {
-    if (!file) return
+    if (!file || !user) return
 
     setUploading(true)
     setProgress(0)
     setError(null)
 
     try {
-      // Get user
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
       // Get video duration
       const duration = await getVideoDuration(file)
 
-      // Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`
+      // Request presigned upload URL from Worker
+      const { projectId, uploadUrl, objectKey } = await call<{
+        projectId: string
+        uploadUrl: string
+        objectKey: string
+      }>('/api/upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          filename: file.name,
+          fileSize: file.size,
+          contentType: file.type,
+        }),
+      })
 
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) return prev
-          return prev + 10
+      // Upload directly to R2 using presigned URL
+      setProgress(10)
+
+      // For now, we'll use a simple XMLHttpRequest to track progress
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 90 + 10
+            setProgress(Math.round(percentComplete))
+          }
         })
-      }, 200)
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false,
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`))
+          }
         })
 
-      clearInterval(progressInterval)
+        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+
+        // Note: R2 multipart upload would be needed for large files
+        // For now, direct PUT should work for files under 500MB
+        xhr.open('PUT', uploadUrl, true)
+        xhr.setRequestHeader('Content-Type', file.type)
+        xhr.send(file)
+      })
+
       setProgress(100)
 
-      if (uploadError) throw uploadError
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('videos')
-        .getPublicUrl(fileName)
-
-      // Create project in database
-      const projectData = {
-        user_id: user.id,
-        title: file.name.replace(/\.[^/.]+$/, ''),
-        video_url: publicUrl,
-        duration,
-        file_size: file.size,
-        status: 'processing' as const,
-      }
-
-      const { data: projectResult, error: projectError } = await (supabase as any)
-        .from('projects')
-        .insert(projectData)
-        .select()
-        .single()
-
-      if (projectError) throw projectError
-      const project = projectResult
+      // Update project with duration
+      await call(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ duration }),
+      })
 
       // Trigger transcription
-      await fetch('/api/transcribe', {
+      await call('/api/transcribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: project.id }),
+        body: JSON.stringify({ projectId }),
       })
 
       setFile(null)
       setProgress(0)
-      onUploadComplete(project.id)
+      onUploadComplete(projectId)
     } catch (error: any) {
       console.error('Upload error:', error)
       setError(error.message || 'Failed to upload video')
