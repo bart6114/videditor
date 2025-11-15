@@ -21,7 +21,7 @@ export interface Env {
   ENVIRONMENT: string;
   CLERK_PUBLISHABLE_KEY: string;
   CLERK_SECRET_KEY: string;
-  CLERK_JWT_KEY: string;
+  CLERK_JWT_KEY?: string; // Optional: for networkless verification (faster)
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
   CLOUDFLARE_STREAM_API_KEY: string;

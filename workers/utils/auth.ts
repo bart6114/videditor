@@ -14,15 +14,12 @@ export async function verifyClerkAuth(request: Request, env: Env): Promise<strin
   const token = authHeader.substring(7);
 
   try {
-    // Networkless JWT verification using Clerk's public key
-    // This is optimal for edge environments - no external API calls needed
+    // Verify JWT using Clerk's JWKS (auto-fetched from Clerk API)
+    // The verifyToken function will automatically fetch JWKS using the secretKey
     const result = await verifyToken(token, {
-      jwtKey: env.CLERK_JWT_KEY, // PEM public key from Clerk Dashboard
-      secretKey: env.CLERK_SECRET_KEY, // Fallback to secret key if jwtKey fails
-      authorizedParties: [
-        'http://localhost:3000', // Development
-        'https://your-app.com', // Production (update with your actual domain)
-      ],
+      secretKey: env.CLERK_SECRET_KEY,
+      // Optional: provide jwtKey for networkless verification (faster)
+      // jwtKey: env.CLERK_JWT_KEY,
     });
 
     return result.sub; // User ID from JWT claims
