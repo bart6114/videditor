@@ -1,0 +1,61 @@
+# ===================================
+# Cloudflare Worker Development Environment Variables
+# ===================================
+#
+# This file is loaded by Wrangler during local development (wrangler dev)
+#
+# SETUP INSTRUCTIONS:
+# 1. Copy this file to .dev.vars: cp .dev.vars.example .dev.vars
+# 2. Fill in your actual values below
+# 3. .dev.vars is gitignored and will NOT be committed
+#
+# For production, use: wrangler secret put <KEY_NAME>
+#
+# NOTE: Bindings (D1, R2, Queues, Durable Objects, AI) are configured in wrangler.toml
+# and do NOT need to be added here.
+# ===================================
+
+# -----------------
+# Environment
+# -----------------
+ENVIRONMENT=development
+
+# -----------------
+# Clerk Authentication
+# -----------------
+# Get from: https://dashboard.clerk.com → API Keys
+CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+
+# Optional: JWT public key for networkless verification (faster, recommended for production)
+# Get from: https://dashboard.clerk.com → API Keys → Advanced → JWT Public Key
+# CLERK_JWT_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+
+# -----------------
+# Stripe Payments
+# -----------------
+# Get from: https://dashboard.stripe.com/apikeys
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# -----------------
+# Cloudflare Account
+# -----------------
+# Get from: https://dash.cloudflare.com → Account ID (top right)
+CLOUDFLARE_ACCOUNT_ID=your-account-id
+
+# -----------------
+# Cloudflare Stream
+# -----------------
+# Get from: https://dash.cloudflare.com → Stream → API Token
+# Create a token with "Stream:Edit" permission
+CLOUDFLARE_STREAM_API_KEY=your-stream-api-key
+
+# -----------------
+# R2 Storage Credentials
+# -----------------
+# Get from: https://dash.cloudflare.com → R2 → Manage R2 API Tokens
+# Create a token with "Object Read & Write" permission for your buckets
+R2_ACCESS_KEY_ID=your-r2-access-key-id
+R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
+R2_ACCOUNT_ID=your-r2-account-id
