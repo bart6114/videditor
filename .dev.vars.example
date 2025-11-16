@@ -44,6 +44,14 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Get from: https://dash.cloudflare.com → Account ID (top right)
 CLOUDFLARE_ACCOUNT_ID=your-account-id
 
+# Cloudflare API Token (for Drizzle Kit migrations)
+# Get from: https://dash.cloudflare.com → My Profile → API Tokens → Create Token
+# Use "Edit Cloudflare Workers" template or create custom with "D1:Edit" permission
+CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
+
+# D1 Database ID (from wrangler.toml)
+CLOUDFLARE_D1_DATABASE_ID=e617417c-6309-4272-abfa-9bc048c06225
+
 # -----------------
 # Cloudflare Stream
 # -----------------
@@ -59,3 +67,4 @@ CLOUDFLARE_STREAM_API_KEY=your-stream-api-key
 R2_ACCESS_KEY_ID=your-r2-access-key-id
 R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
 R2_ACCOUNT_ID=your-r2-account-id
+R2_BUCKET_NAME=videditor-videos

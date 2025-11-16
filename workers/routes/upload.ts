@@ -1,5 +1,8 @@
 import { Env } from '../env';
-import { generateVideoKey } from '../../lib/r2';
+import { generateVideoKey, createR2Client, generatePresignedUploadUrl } from '../../lib/r2';
+import { corsResponse, corsError } from '../utils/cors';
+import { createDb } from '../../db';
+import { createProject } from '../../db/queries/projects';
 
 interface UploadRequest {
   filename: string;
@@ -17,10 +20,7 @@ export async function handleUploadRequest(
   userId: string
 ): Promise<Response> {
   if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return corsError('Method not allowed', { status: 405, env });
   }
 
   try {
@@ -29,60 +29,60 @@ export async function handleUploadRequest(
 
     // Validate input
     if (!filename || !fileSize) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsError('Missing required fields', { status: 400, env });
     }
 
-    // Check file size limit (500MB)
-    const MAX_FILE_SIZE = 500 * 1024 * 1024;
+    // Check file size limit (1GB)
+    const MAX_FILE_SIZE = 1024 * 1024 * 1024;
     if (fileSize > MAX_FILE_SIZE) {
-      return new Response(
-        JSON.stringify({ error: 'File size exceeds 500MB limit' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return corsError('File size exceeds 1GB limit', { status: 400, env });
     }
 
-    // Generate R2 object key
-    const objectKey = generateVideoKey(userId, filename);
-
-    // Generate presigned URL for upload
-    const uploadUrl = await env.VIDEOS_BUCKET.createMultipartUpload(objectKey);
-
-    // Create project record in D1
+    // Generate project ID first (needed for R2 object key)
     const projectId = crypto.randomUUID();
-    await env.DB.prepare(
-      `INSERT INTO projects (id, user_id, title, video_url, duration, file_size, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'uploading', datetime('now'), datetime('now'))`
-    )
-      .bind(projectId, userId, filename, objectKey, 0, fileSize)
-      .run();
 
-    return new Response(
-      JSON.stringify({
-        projectId,
-        uploadUrl: uploadUrl.key, // This will be used for multipart upload
-        objectKey,
-      }),
+    // Generate R2 object key with project ID
+    const objectKey = generateVideoKey(userId, projectId, filename, env.ENVIRONMENT);
+
+    // Create R2 client and generate presigned URL for direct upload
+    const r2Client = createR2Client(
+      env.R2_ACCOUNT_ID,
+      env.R2_ACCESS_KEY_ID,
+      env.R2_SECRET_ACCESS_KEY
+    );
+
+    const bucketName = 'videditor-videos'; // Or use env.R2_BUCKET_NAME if available
+    const uploadUrl = await generatePresignedUploadUrl(
+      r2Client,
+      bucketName,
+      objectKey,
+      contentType, // Pass actual content type for signature matching
+      3600 // 1 hour expiration
+    );
+    const db = createDb(env.DB);
+    await createProject(db, {
+      id: projectId,
+      userId,
+      title: filename,
+      videoUrl: objectKey,
+      duration: 0,
+      fileSize,
+      status: 'uploading',
+    });
+
+    return corsResponse(
       {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
+        projectId,
+        uploadUrl, // Full presigned URL for direct client upload
+        objectKey,
+      },
+      { status: 200, env }
     );
   } catch (error) {
     console.error('Upload error:', error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Upload failed',
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
+    return corsError(
+      error instanceof Error ? error.message : 'Upload failed',
+      { status: 500, env }
     );
   }
 }

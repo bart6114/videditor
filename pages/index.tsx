@@ -15,18 +15,18 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <main className="min-h-screen bg-background">
         {/* Header */}
         <nav className="container mx-auto px-4 py-6 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Scissors className="w-8 h-8 text-blue-600" />
-            <h1 className="text-2xl font-bold">VidEditor</h1>
+            <Scissors className="w-8 h-8 text-primary" />
+            <h1 className="text-2xl font-bold text-foreground">VidEditor</h1>
           </div>
           <div className="flex gap-4">
             {isSignedIn ? (
               <Link
                 href="/projects"
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/80 transition-colors duration-200"
               >
                 Dashboard
               </Link>
@@ -34,13 +34,13 @@ export default function Home() {
               <>
                 <Link
                   href="/sign-in"
-                  className="px-6 py-2 text-gray-700 hover:text-blue-600 transition"
+                  className="px-6 py-2 text-muted-foreground hover:text-primary transition-colors duration-200"
                 >
                   Login
                 </Link>
                 <Link
                   href="/sign-up"
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/80 transition-colors duration-200"
                 >
                   Sign Up
                 </Link>
@@ -51,19 +51,19 @@ export default function Home() {
 
         {/* Hero Section */}
         <div className="container mx-auto px-4 py-20 text-center">
-          <div className="inline-block px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-semibold mb-6">
+          <div className="inline-block px-4 py-2 bg-primary/20 text-primary rounded-full text-sm font-semibold mb-6">
             🎉 Free Beta - No Payment Required
           </div>
-          <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h2 className="text-5xl font-bold mb-6 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
             Transform Videos into Viral Shorts
           </h2>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Upload your long-form content and let AI find the most engaging moments.
             Create, preview, and download multiple shorts in minutes.
           </p>
           <Link
             href={isSignedIn ? '/projects' : '/sign-up'}
-            className="inline-block px-8 py-4 bg-blue-600 text-white text-lg rounded-lg hover:bg-blue-700 transition shadow-lg"
+            className="inline-block px-8 py-4 bg-primary text-primary-foreground text-lg rounded-lg hover:bg-primary/80 transition-colors duration-200 shadow-lg"
           >
             Get Started Free
           </Link>
@@ -72,24 +72,24 @@ export default function Home() {
         {/* Features */}
         <div className="container mx-auto px-4 py-20">
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-8 bg-white rounded-xl shadow-sm border border-gray-100">
-              <Video className="w-12 h-12 text-blue-600 mb-4" />
-              <h3 className="text-xl font-bold mb-2">AI-Powered Transcription</h3>
-              <p className="text-gray-600">
+            <div className="p-8 bg-card rounded-xl shadow-sm border border-border hover:border-primary transition-colors duration-200">
+              <Video className="w-12 h-12 text-primary mb-4" />
+              <h3 className="text-xl font-bold mb-2 text-foreground">AI-Powered Transcription</h3>
+              <p className="text-muted-foreground">
                 Automatic transcription using Whisper AI to understand every word in your video.
               </p>
             </div>
-            <div className="p-8 bg-white rounded-xl shadow-sm border border-gray-100">
-              <Sparkles className="w-12 h-12 text-purple-600 mb-4" />
-              <h3 className="text-xl font-bold mb-2">Smart Short Detection</h3>
-              <p className="text-gray-600">
+            <div className="p-8 bg-card rounded-xl shadow-sm border border-border hover:border-primary transition-colors duration-200">
+              <Sparkles className="w-12 h-12 text-primary mb-4" />
+              <h3 className="text-xl font-bold mb-2 text-foreground">Smart Short Detection</h3>
+              <p className="text-muted-foreground">
                 GPT-5 analyzes your content and suggests the most engaging clips automatically.
               </p>
             </div>
-            <div className="p-8 bg-white rounded-xl shadow-sm border border-gray-100">
-              <Zap className="w-12 h-12 text-yellow-600 mb-4" />
-              <h3 className="text-xl font-bold mb-2">Instant Preview & Download</h3>
-              <p className="text-gray-600">
+            <div className="p-8 bg-card rounded-xl shadow-sm border border-border hover:border-primary transition-colors duration-200">
+              <Zap className="w-12 h-12 text-primary mb-4" />
+              <h3 className="text-xl font-bold mb-2 text-foreground">Instant Preview & Download</h3>
+              <p className="text-muted-foreground">
                 Preview all suggested shorts and download them individually or in bulk.
               </p>
             </div>
@@ -97,8 +97,8 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="container mx-auto px-4 py-8 text-center text-gray-600 border-t">
-          <p>&copy; 2024 VidEditor. Built with Next.js, Supabase & AI.</p>
+        <footer className="container mx-auto px-4 py-8 text-center text-muted-foreground border-t border-border">
+          <p>&copy; 2024 VidEditor. Built with Next.js, Cloudflare & AI.</p>
         </footer>
       </main>
     </>

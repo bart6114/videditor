@@ -1,0 +1,13 @@
+{
+  "rules": [
+    {
+      "allowed": {
+        "methods": ["GET", "PUT", "POST"],
+        "origins": ["http://localhost:3000"],
+        "headers": ["content-type", "content-length"]
+      },
+      "exposeHeaders": ["ETag"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

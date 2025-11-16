@@ -1,5 +1,14 @@
 import { Env } from '../env';
 import { Project } from '../../types/d1';
+import { corsResponse, corsError } from '../utils/cors';
+import { createDb } from '../../db';
+import {
+  listUserProjects,
+  getProjectWithRelations,
+  getProjectById,
+  deleteProject as deleteProjectQuery,
+  updateProject as updateProjectQuery,
+} from '../../db/queries/projects';
 
 /**
  * Handle projects-related requests
@@ -31,122 +40,61 @@ export async function handleProjectsRequest(
     return updateProject(env, userId, projectIdMatch[1], request);
   }
 
-  return new Response(JSON.stringify({ error: 'Not found' }), {
-    status: 404,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return corsError('Not found', { status: 404, env });
 }
 
 async function listProjects(env: Env, userId: string): Promise<Response> {
   try {
-    const { results } = await env.DB.prepare(
-      `SELECT * FROM projects
-       WHERE user_id = ?
-       ORDER BY created_at DESC
-       LIMIT 100`
-    )
-      .bind(userId)
-      .all<Project>();
-
-    return new Response(JSON.stringify({ projects: results }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const db = createDb(env.DB);
+    const projects = await listUserProjects(db, userId);
+    return corsResponse({ projects }, { env });
   } catch (error) {
     console.error('List projects error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to list projects' }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return corsError('Failed to list projects', { status: 500, env });
   }
 }
 
 async function getProject(env: Env, userId: string, projectId: string): Promise<Response> {
   try {
-    const project = await env.DB.prepare(
-      'SELECT * FROM projects WHERE id = ? AND user_id = ?'
-    )
-      .bind(projectId, userId)
-      .first<Project>();
+    const db = createDb(env.DB);
+    const result = await getProjectWithRelations(db, projectId, userId);
 
-    if (!project) {
-      return new Response(JSON.stringify({ error: 'Project not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    if (!result) {
+      return corsError('Project not found', { status: 404, env });
     }
 
-    // Also get transcription if exists
-    const transcription = await env.DB.prepare(
-      'SELECT * FROM transcriptions WHERE project_id = ?'
-    )
-      .bind(projectId)
-      .first();
-
-    // Get shorts if exist
-    const { results: shorts } = await env.DB.prepare(
-      'SELECT * FROM shorts WHERE project_id = ? ORDER BY created_at DESC'
-    )
-      .bind(projectId)
-      .all();
-
-    return new Response(
-      JSON.stringify({
-        project,
-        transcription,
-        shorts,
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return corsResponse(result, { env });
   } catch (error) {
     console.error('Get project error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to get project' }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return corsError('Failed to get project', { status: 500, env });
   }
 }
 
 async function deleteProject(env: Env, userId: string, projectId: string): Promise<Response> {
   try {
-    // Verify ownership
-    const project = await env.DB.prepare(
-      'SELECT * FROM projects WHERE id = ? AND user_id = ?'
-    )
-      .bind(projectId, userId)
-      .first<Project>();
+    const db = createDb(env.DB);
 
+    // Verify ownership
+    const project = await getProjectById(db, projectId, userId);
     if (!project) {
-      return new Response(JSON.stringify({ error: 'Project not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsError('Project not found', { status: 404, env });
     }
 
     // Delete from R2
     try {
-      await env.VIDEOS_BUCKET.delete(project.video_url);
+      await env.VIDEOS_BUCKET.delete(project.videoUrl);
     } catch (error) {
       console.error('Failed to delete from R2:', error);
     }
 
     // Delete from Stream if exists
-    if (project.stream_id) {
+    if (project.streamId) {
       try {
         const { deleteStreamVideo } = await import('../../lib/stream');
         await deleteStreamVideo(
           env.CLOUDFLARE_ACCOUNT_ID,
           env.CLOUDFLARE_STREAM_API_KEY,
-          project.stream_id
+          project.streamId
         );
       } catch (error) {
         console.error('Failed to delete from Stream:', error);
@@ -154,23 +102,12 @@ async function deleteProject(env: Env, userId: string, projectId: string): Promi
     }
 
     // Delete from database (cascade will handle related records)
-    await env.DB.prepare('DELETE FROM projects WHERE id = ?')
-      .bind(projectId)
-      .run();
+    await deleteProjectQuery(db, projectId, userId);
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return corsResponse({ success: true }, { env });
   } catch (error) {
     console.error('Delete project error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to delete project' }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return corsError('Failed to delete project', { status: 500, env });
   }
 }
 
@@ -181,70 +118,44 @@ async function updateProject(
   request: Request
 ): Promise<Response> {
   try {
+    const db = createDb(env.DB);
     const updates = await request.json() as Partial<Project>;
 
     // Verify ownership
-    const existing = await env.DB.prepare(
-      'SELECT * FROM projects WHERE id = ? AND user_id = ?'
-    )
-      .bind(projectId, userId)
-      .first();
-
+    const existing = await getProjectById(db, projectId, userId);
     if (!existing) {
-      return new Response(JSON.stringify({ error: 'Project not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsError('Project not found', { status: 404, env });
     }
 
-    // Build update query dynamically
-    const allowedFields = ['title', 'status', 'stream_id', 'thumbnail_url', 'duration', 'error_message'];
-    const updateFields: string[] = [];
-    const values: unknown[] = [];
+    // Filter allowed fields
+    const allowedFields: (keyof Project)[] = [
+      'title',
+      'status',
+      'streamId',
+      'thumbnailUrl',
+      'duration',
+      'errorMessage',
+    ];
 
-    for (const [key, value] of Object.entries(updates)) {
-      if (allowedFields.includes(key)) {
-        updateFields.push(`${key} = ?`);
-        values.push(value);
+    const filteredUpdates: Partial<Project> = {};
+    for (const field of allowedFields) {
+      if (field in updates) {
+        filteredUpdates[field] = updates[field];
       }
     }
 
-    if (updateFields.length === 0) {
-      return new Response(JSON.stringify({ error: 'No valid fields to update' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    if (Object.keys(filteredUpdates).length === 0) {
+      return corsError('No valid fields to update', { status: 400, env });
     }
 
-    // Add updated_at
-    updateFields.push(`updated_at = datetime('now')`);
-    values.push(projectId);
-
-    await env.DB.prepare(
-      `UPDATE projects SET ${updateFields.join(', ')} WHERE id = ?`
-    )
-      .bind(...values)
-      .run();
+    // Update project
+    await updateProjectQuery(db, projectId, userId, filteredUpdates);
 
     // Fetch updated project
-    const updated = await env.DB.prepare(
-      'SELECT * FROM projects WHERE id = ?'
-    )
-      .bind(projectId)
-      .first<Project>();
-
-    return new Response(JSON.stringify({ project: updated }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const updated = await getProjectById(db, projectId, userId);
+    return corsResponse({ project: updated }, { env });
   } catch (error) {
     console.error('Update project error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to update project' }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return corsError('Failed to update project', { status: 500, env });
   }
 }

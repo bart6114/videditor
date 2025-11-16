@@ -18,7 +18,9 @@ export async function processAnalysis(
   env: Env,
   message: VideoProcessingMessage
 ): Promise<void> {
-  const { projectId } = message;
+  const { projectId, metadata } = message;
+  const shortsCount = (metadata?.shortsCount as number) ?? 3;
+  const customPrompt = metadata?.customPrompt as string | undefined;
 
   try {
     // Get transcription
@@ -51,7 +53,7 @@ export async function processAnalysis(
       .run();
 
     // Create prompt for AI
-    const prompt = `You are a video editor AI. Analyze this video transcript and suggest 3 compelling short clips (15-60 seconds each) that would work well on social media.
+    const defaultPrompt = `You are a video editor AI. Analyze this video transcript and suggest ${shortsCount} compelling short clips (15-60 seconds each) that would work well on social media.
 
 Transcript:
 ${transcription.text}
@@ -78,6 +80,30 @@ Focus on:
 - Clips between 15-60 seconds
 
 Return ONLY the JSON array, no other text.`;
+
+    // Use custom prompt if provided, otherwise use default
+    const prompt = customPrompt
+      ? `${customPrompt}
+
+Transcript:
+${transcription.text}
+
+Segment timestamps:
+${segments.map((s, i) => `[${i}] ${s.start.toFixed(1)}s - ${s.end.toFixed(1)}s: ${s.text}`).join('\n')}
+
+Return your suggestions as JSON array with this exact format:
+[
+  {
+    "title": "Catchy title for the clip",
+    "description": "Brief description of what makes this clip engaging",
+    "startTime": 10.5,
+    "endTime": 35.2,
+    "reasoning": "Why this segment would make a good short"
+  }
+]
+
+Return ONLY the JSON array, no other text.`
+      : defaultPrompt;
 
     // Use Workers AI for text generation
     const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
@@ -114,8 +140,8 @@ Return ONLY the JSON array, no other text.`;
       .run();
 
     // Save suggestions as shorts
-    for (const suggestion of suggestions.slice(0, 5)) {
-      // Limit to 5 suggestions
+    for (const suggestion of suggestions.slice(0, shortsCount)) {
+      // Limit to requested count
       const shortId = crypto.randomUUID();
       await env.DB.prepare(
         `INSERT INTO shorts (id, project_id, title, description, start_time, end_time, status, created_at, updated_at)

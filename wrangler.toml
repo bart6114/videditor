@@ -15,6 +15,7 @@ binding = "AI"
 binding = "DB"
 database_name = "videditor-db"
 database_id = "e617417c-6309-4272-abfa-9bc048c06225" # Will be created with: wrangler d1 create videditor-db
+migrations_dir = "drizzle/migrations" # Drizzle ORM generated migrations
 
 # R2 Storage binding for video uploads
 [[r2_buckets]]

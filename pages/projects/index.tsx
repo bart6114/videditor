@@ -3,9 +3,10 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { useApi } from '@/lib/api/client'
 import { VideoUpload } from '@/components/video-upload'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import WorkspaceLayout from '@/components/layout/WorkspaceLayout'
-import { Video, Clock, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { Video, Clock, Loader2, CheckCircle, AlertCircle, FileText, Film } from 'lucide-react'
 import { formatFileSize } from '@/lib/utils'
 import type { Project } from '@/types/d1'
 
@@ -41,7 +42,9 @@ export default function Projects() {
   async function loadProjects() {
     try {
       const data = await call<{ projects: Project[] }>('/api/projects')
-      setProjects(data.projects || [])
+      // Filter out uploading projects - only show after upload completes
+      const completedUploads = (data.projects || []).filter(p => p.status !== 'uploading')
+      setProjects(completedUploads)
     } catch (error) {
       console.error('Error loading projects:', error)
     } finally {
@@ -51,12 +54,12 @@ export default function Projects() {
 
   function getStatusBadge(status: Project['status']) {
     const statusConfig = {
-      uploading: { icon: Loader2, color: 'text-blue-400 bg-blue-500/10', label: 'Uploading' },
-      processing: { icon: Loader2, color: 'text-purple-400 bg-purple-500/10', label: 'Processing' },
-      transcribing: { icon: Loader2, color: 'text-yellow-400 bg-yellow-500/10', label: 'Transcribing' },
-      analyzing: { icon: Loader2, color: 'text-indigo-400 bg-indigo-500/10', label: 'Analyzing' },
-      completed: { icon: CheckCircle, color: 'text-[#37b680] bg-[#37b680]/10', label: 'Completed' },
-      error: { icon: AlertCircle, color: 'text-red-400 bg-red-500/10', label: 'Error' },
+      uploading: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Uploading' },
+      processing: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Processing' },
+      transcribing: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Transcribing' },
+      analyzing: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Analyzing' },
+      completed: { icon: CheckCircle, color: 'text-primary bg-primary/10', label: 'Completed' },
+      error: { icon: AlertCircle, color: 'text-destructive bg-destructive/10', label: 'Error' },
     }
 
     const config = statusConfig[status]
@@ -78,70 +81,91 @@ export default function Projects() {
 
       <WorkspaceLayout title="Projects">
         {/* Upload Section */}
-        <Card className="mb-8 bg-[#0f1419] border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-white">Upload New Video</CardTitle>
-            <CardDescription className="text-gray-400">
-              Upload your video and we&apos;ll transcribe it and suggest viral shorts automatically
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <VideoUpload onUploadComplete={() => loadProjects()} />
-          </CardContent>
-        </Card>
+        <div className="mb-8">
+          <VideoUpload onUploadComplete={() => loadProjects()} />
+        </div>
 
-        {/* Projects List */}
+        {/* Projects Grid */}
         <div>
-          <h2 className="text-2xl font-bold mb-4 text-white">Your Projects</h2>
+          <h2 className="text-2xl font-bold mb-4 text-foreground">Your Projects</h2>
 
           {loading ? (
             <div className="text-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[#37b680]" />
-              <p className="text-gray-400">Loading projects...</p>
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
+              <p className="text-muted-foreground">Loading projects...</p>
             </div>
           ) : projects.length === 0 ? (
-            <Card className="bg-[#0f1419] border-gray-800">
+            <Card className="bg-card border-border">
               <CardContent className="py-12 text-center">
-                <Video className="w-12 h-12 mx-auto mb-4 text-gray-600" />
-                <p className="text-gray-400 mb-2">No projects yet</p>
-                <p className="text-sm text-gray-500">Upload your first video to get started</p>
+                <Video className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-foreground mb-2">No projects yet</p>
+                <p className="text-sm text-muted-foreground">Upload a video to get started. Projects appear here after upload completes.</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {projects.map((project) => (
                 <Card
                   key={project.id}
-                  className="bg-[#0f1419] border-gray-800 hover:border-gray-700 transition-all cursor-pointer"
-                  onClick={() => {
-                    if (project.status === 'completed') {
-                      router.push(`/projects/${project.id}`)
-                    }
-                  }}
+                  className="bg-card border-border hover:border-primary transition-all cursor-pointer group overflow-hidden"
+                  onClick={() => router.push(`/projects/${project.id}`)}
                 >
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4 flex-1">
-                        <div className="w-24 h-16 bg-gray-800 rounded flex items-center justify-center">
-                          <Video className="w-8 h-8 text-gray-600" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1 text-white">{project.title}</h3>
-                          <div className="flex items-center gap-4 text-sm text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-4 h-4" />
-                              {formatDuration(project.duration)}
-                            </span>
-                            <span>{formatFileSize(project.file_size)}</span>
-                            <span>{new Date(project.created_at).toLocaleDateString()}</span>
-                          </div>
-                          {project.error_message && (
-                            <p className="text-sm text-red-400 mt-2">{project.error_message}</p>
-                          )}
-                        </div>
+                  {/* Thumbnail */}
+                  <div className="relative aspect-video bg-muted">
+                    {project.thumbnail_url ? (
+                      <img
+                        src={project.thumbnail_url}
+                        alt={project.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Video className="w-12 h-12 text-muted-foreground group-hover:text-primary transition-colors" />
                       </div>
+                    )}
+                    {/* Status Badge Overlay */}
+                    <div className="absolute top-2 right-2">
                       {getStatusBadge(project.status)}
                     </div>
+                  </div>
+
+                  <CardContent className="p-4">
+                    {/* Title */}
+                    <h3 className="font-semibold text-base mb-2 text-foreground truncate group-hover:text-primary transition-colors">
+                      {project.title}
+                    </h3>
+
+                    {/* Metadata Row */}
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDuration(project.duration)}
+                      </span>
+                      <span>{formatFileSize(project.file_size)}</span>
+                    </div>
+
+                    {/* Transcription & Shorts Status */}
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={project.hasTranscription ? "default" : "secondary"}
+                        className="text-xs"
+                      >
+                        <FileText className="w-3 h-3 mr-1" />
+                        {project.hasTranscription ? 'Transcribed' : 'No transcript'}
+                      </Badge>
+                      <Badge
+                        variant={project.shortsCount && project.shortsCount > 0 ? "default" : "secondary"}
+                        className="text-xs"
+                      >
+                        <Film className="w-3 h-3 mr-1" />
+                        {project.shortsCount || 0} shorts
+                      </Badge>
+                    </div>
+
+                    {/* Error Message */}
+                    {project.error_message && (
+                      <p className="text-xs text-destructive mt-2 line-clamp-2">{project.error_message}</p>
+                    )}
                   </CardContent>
                 </Card>
               ))}

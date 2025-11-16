@@ -36,6 +36,9 @@ export interface Project {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  // Enriched fields from API (not in DB)
+  shortsCount?: number;
+  hasTranscription?: boolean;
 }
 
 export interface TranscriptSegment {

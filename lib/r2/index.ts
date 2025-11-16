@@ -24,12 +24,13 @@ export async function generatePresignedUploadUrl(
   client: S3Client,
   bucket: string,
   key: string,
+  contentType: string,
   expiresIn: number = 3600
 ): Promise<string> {
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: key,
-    ContentType: 'video/*',
+    ContentType: contentType,
   });
 
   return getSignedUrl(client, command, { expiresIn });
@@ -55,15 +56,26 @@ export async function generatePresignedDownloadUrl(
 /**
  * Generate R2 object key for video upload
  */
-export function generateVideoKey(userId: string, filename: string): string {
-  const timestamp = Date.now();
+export function generateVideoKey(
+  userId: string,
+  projectId: string,
+  filename: string,
+  environment: string
+): string {
   const sanitized = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-  return `videos/${userId}/${timestamp}-${sanitized}`;
+  const envPrefix = environment === 'production' ? 'videditor-prod' : 'videditor-dev';
+  return `${envPrefix}/${userId}/videos/${projectId}/${sanitized}`;
 }
 
 /**
  * Generate R2 object key for short video
  */
-export function generateShortKey(userId: string, projectId: string, shortId: string): string {
-  return `shorts/${userId}/${projectId}/${shortId}.mp4`;
+export function generateShortKey(
+  userId: string,
+  projectId: string,
+  shortId: string,
+  environment: string
+): string {
+  const envPrefix = environment === 'production' ? 'videditor-prod' : 'videditor-dev';
+  return `${envPrefix}/${userId}/videos/${projectId}/shorts/${shortId}.mp4`;
 }

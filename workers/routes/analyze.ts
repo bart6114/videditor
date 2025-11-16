@@ -1,8 +1,14 @@
 import { Env, VideoProcessingMessage } from '../env';
-import { Project } from '../../types/d1';
+import { corsResponse, corsError } from '../utils/cors';
+import { createDb } from '../../db';
+import { getProjectById, updateProjectStatus } from '../../db/queries/projects';
+import { getTranscriptionByProjectId } from '../../db/queries/transcriptions';
+import { createJob } from '../../db/queries/jobs';
 
 interface AnalyzeRequest {
   projectId: string;
+  shortsCount?: number;
+  customPrompt?: string;
 }
 
 /**
@@ -15,93 +21,70 @@ export async function handleAnalyzeRequest(
   userId: string
 ): Promise<Response> {
   if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return corsError('Method not allowed', { status: 405, env });
   }
 
   try {
     const body = await request.json() as AnalyzeRequest;
-    const { projectId } = body;
+    const { projectId, shortsCount = 3, customPrompt } = body;
+    const db = createDb(env.DB);
 
     // Verify project ownership
-    const project = await env.DB.prepare(
-      'SELECT * FROM projects WHERE id = ? AND user_id = ?'
-    )
-      .bind(projectId, userId)
-      .first<Project>();
-
+    const project = await getProjectById(db, projectId, userId);
     if (!project) {
-      return new Response(JSON.stringify({ error: 'Project not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsError('Project not found', { status: 404, env });
     }
 
     // Check if transcription exists
-    const transcription = await env.DB.prepare(
-      'SELECT id FROM transcriptions WHERE project_id = ?'
-    )
-      .bind(projectId)
-      .first();
-
+    const transcription = await getTranscriptionByProjectId(db, projectId);
     if (!transcription) {
-      return new Response(
-        JSON.stringify({ error: 'Transcription required for analysis' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return corsError('Transcription required for analysis', { status: 400, env });
     }
 
     // Update project status
-    await env.DB.prepare(
-      `UPDATE projects SET status = 'analyzing', updated_at = datetime('now') WHERE id = ?`
-    )
-      .bind(projectId)
-      .run();
+    await updateProjectStatus(db, projectId, 'analyzing');
 
     // Create processing job
     const jobId = crypto.randomUUID();
-    await env.DB.prepare(
-      `INSERT INTO processing_jobs (id, project_id, type, status, progress, created_at, updated_at)
-       VALUES (?, ?, 'analysis', 'pending', 0, datetime('now'), datetime('now'))`
-    )
-      .bind(jobId, projectId)
-      .run();
+    await createJob(db, {
+      id: jobId,
+      projectId,
+      type: 'analysis',
+      status: 'pending',
+      progress: 0,
+    });
+
+    // Validate shortsCount
+    if (shortsCount < 1 || shortsCount > 10) {
+      return corsError('shortsCount must be between 1 and 10', { status: 400, env });
+    }
 
     // Queue analysis job
     const message: VideoProcessingMessage = {
       type: 'analyze',
       projectId,
       userId,
+      metadata: {
+        shortsCount,
+        customPrompt,
+      },
     };
 
     await env.VIDEO_QUEUE.send(message);
 
-    return new Response(
-      JSON.stringify({
+    return corsResponse(
+      {
         success: true,
         jobId,
         message: 'Analysis job queued',
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
+      },
+      { status: 200, env }
     );
   } catch (error) {
     console.error('Analyze error:', error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Analysis failed',
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
+    return corsError(
+      error instanceof Error ? error.message : 'Analysis failed',
+      { status: 500, env }
     );
   }
 }

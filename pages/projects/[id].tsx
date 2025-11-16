@@ -7,12 +7,16 @@ import WorkspaceLayout from '@/components/layout/WorkspaceLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import {
   Sparkles,
   Download,
   Play,
   Clock,
   Loader2,
+  FileText,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import type { Project, Short, Transcription } from '@/types/d1'
 
@@ -39,9 +43,11 @@ export default function ProjectDetail() {
   const [transcription, setTranscription] = useState<Transcription | null>(null)
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [shortsCount, setShortsCount] = useState(3)
   const [customPrompt, setCustomPrompt] = useState('')
   const [currentTime, setCurrentTime] = useState(0)
   const [selectedShort, setSelectedShort] = useState<Short | null>(null)
+  const [transcriptionExpanded, setTranscriptionExpanded] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -78,12 +84,15 @@ export default function ProjectDetail() {
         method: 'POST',
         body: JSON.stringify({
           projectId: id,
+          shortsCount,
+          customPrompt: customPrompt.trim() || undefined,
         }),
       })
 
       await loadProjectData()
     } catch (error) {
       console.error('Error analyzing:', error)
+      alert(error instanceof Error ? error.message : 'Failed to generate shorts')
     } finally {
       setAnalyzing(false)
     }
@@ -114,7 +123,7 @@ export default function ProjectDetail() {
     return (
       <WorkspaceLayout>
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-[#37b680]" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       </WorkspaceLayout>
     )
@@ -124,7 +133,7 @@ export default function ProjectDetail() {
     return (
       <WorkspaceLayout>
         <div className="flex items-center justify-center py-12">
-          <p className="text-gray-400">Project not found</p>
+          <p className="text-muted-foreground">Project not found</p>
         </div>
       </WorkspaceLayout>
     )
@@ -137,156 +146,208 @@ export default function ProjectDetail() {
       </Head>
 
       <WorkspaceLayout title={project.title}>
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Video Player */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="bg-[#0f1419] border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">{project.title}</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Duration: {formatDuration(project.duration)}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                  <ReactPlayer
-                    url={project.video_url}
-                    controls
-                    width="100%"
-                    height="100%"
-                    onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Transcription */}
-            {transcription && (
-              <Card className="bg-[#0f1419] border-gray-800">
-                <CardHeader>
-                  <CardTitle className="text-white">Transcription</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-300 leading-relaxed">
-                    {transcription.text}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Shorts Panel */}
-          <div className="space-y-6">
-            {/* Analysis */}
-            {transcription && shorts.length === 0 && (
-              <Card className="bg-[#0f1419] border-gray-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Sparkles className="w-5 h-5 text-[#37b680]" />
-                    Generate Shorts
-                  </CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Use AI to find the most engaging moments
+        <div className="space-y-6">
+          {/* Video Player Section */}
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle className="text-foreground">{project.title}</CardTitle>
+                  <CardDescription className="text-muted-foreground">
+                    Duration: {formatDuration(project.duration)} • Status: <Badge variant={project.status === 'completed' ? 'default' : 'secondary'}>{project.status}</Badge>
                   </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block text-gray-400">
-                      Custom Instructions (optional)
-                    </label>
-                    <Input
-                      placeholder="e.g., Focus on educational content"
-                      value={customPrompt}
-                      onChange={(e) => setCustomPrompt(e.target.value)}
-                      disabled={analyzing}
-                      className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleAnalyze}
-                    disabled={analyzing}
-                    className="w-full bg-[#37b680] hover:bg-[#37b680]/90 text-white"
-                  >
-                    {analyzing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Analyze with AI
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <ReactPlayer
+                  url={project.video_url}
+                  controls
+                  width="100%"
+                  height="100%"
+                  onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds)}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Shorts List */}
-            {shorts.length > 0 && (
-              <Card className="bg-[#0f1419] border-gray-800">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-white">Suggested Shorts</CardTitle>
-                      <CardDescription className="text-gray-400">{shorts.length} clips found</CardDescription>
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Left Column: Transcription + Shorts Generation */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Transcription Section */}
+              {transcription && (
+                <Card className="bg-card border-border">
+                  <CardHeader
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setTranscriptionExpanded(!transcriptionExpanded)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-primary" />
+                        <CardTitle className="text-foreground">Transcription</CardTitle>
+                        <Badge>Ready</Badge>
+                      </div>
+                      {transcriptionExpanded ? (
+                        <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                      )}
                     </div>
-                    <Button size="sm" onClick={handleDownloadAll} className="bg-[#37b680] hover:bg-[#37b680]/90 text-white">
-                      <Download className="w-4 h-4 mr-2" />
-                      All
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {shorts.map((short) => (
-                    <Card
-                      key={short.id}
-                      className="bg-gray-800 border-gray-700 cursor-pointer hover:border-[#37b680]/50 transition-all"
-                      onClick={() => setSelectedShort(short)}
+                  </CardHeader>
+                  {transcriptionExpanded && (
+                    <CardContent className="pt-0">
+                      <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                        {transcription.text}
+                      </p>
+                    </CardContent>
+                  )}
+                </Card>
+              )}
+
+              {/* Shorts Generation Section */}
+              {transcription && (
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-foreground">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      Generate Shorts
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground">
+                      Use AI to find the most engaging moments from your video
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block text-foreground">
+                        Number of Shorts
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={shortsCount}
+                        onChange={(e) => setShortsCount(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                        disabled={analyzing}
+                        className="bg-background border-input text-foreground"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block text-foreground">
+                        Custom Prompt (optional)
+                      </label>
+                      <textarea
+                        placeholder="e.g., Focus on educational content and actionable tips..."
+                        value={customPrompt}
+                        onChange={(e) => setCustomPrompt(e.target.value)}
+                        disabled={analyzing}
+                        rows={4}
+                        className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Leave empty to use the default prompt
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleAnalyze}
+                      disabled={analyzing || !transcription}
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-medium text-sm text-white">{short.title}</h4>
-                          <span className="text-xs text-gray-400 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {formatDuration(short.end_time - short.start_time)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-400 mb-3">
-                          {short.description}
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              seekToTime(short.start_time)
-                            }}
-                            className="flex-1 bg-transparent border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
-                          >
-                            <Play className="w-3 h-3 mr-1" />
-                            Preview
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDownloadShort(short)
-                            }}
-                            className="flex-1 bg-[#37b680] hover:bg-[#37b680]/90 text-white"
-                          >
-                            <Download className="w-3 h-3 mr-1" />
-                            Download
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
+                      {analyzing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating {shortsCount} shorts...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate {shortsCount} Shorts with AI
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Right Column: Generated Shorts */}
+            <div className="space-y-6">
+              {shorts.length > 0 && (
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-foreground">Generated Shorts</CardTitle>
+                        <CardDescription className="text-muted-foreground">{shorts.length} clips</CardDescription>
+                      </div>
+                      <Button size="sm" onClick={handleDownloadAll} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                        <Download className="w-4 h-4 mr-2" />
+                        All
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {shorts.map((short) => (
+                      <Card
+                        key={short.id}
+                        className="bg-muted border-border cursor-pointer hover:border-primary transition-all"
+                        onClick={() => setSelectedShort(short)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-medium text-sm text-foreground">{short.title}</h4>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatDuration(short.end_time - short.start_time)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-3">
+                            {short.description}
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                seekToTime(short.start_time)
+                              }}
+                              className="flex-1"
+                            >
+                              <Play className="w-3 h-3 mr-1" />
+                              Preview
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDownloadShort(short)
+                              }}
+                              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+                            >
+                              <Download className="w-3 h-3 mr-1" />
+                              Download
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {!transcription && (
+                <Card className="bg-card border-border">
+                  <CardContent className="py-8 text-center">
+                    <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-foreground mb-1">No transcription yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Upload this video to generate a transcription
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
       </WorkspaceLayout>

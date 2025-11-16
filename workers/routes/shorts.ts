@@ -1,5 +1,13 @@
 import { Env, ShortCutMessage } from '../env';
-import { Short } from '../../types/d1';
+import { corsResponse, corsError } from '../utils/cors';
+import { createDb } from '../../db';
+import { getProjectById } from '../../db/queries/projects';
+import {
+  createShort as createShortQuery,
+  getShortById,
+  deleteShort as deleteShortQuery,
+} from '../../db/queries/shorts';
+import { createJob } from '../../db/queries/jobs';
 
 interface CreateShortRequest {
   projectId: string;
@@ -40,10 +48,7 @@ export async function handleShortsRequest(
     return downloadShort(env, userId, downloadMatch[1]);
   }
 
-  return new Response(JSON.stringify({ error: 'Not found' }), {
-    status: 404,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return corsError('Not found', { status: 404, env });
 }
 
 async function createShort(
@@ -54,56 +59,45 @@ async function createShort(
   try {
     const body = await request.json() as CreateShortRequest;
     const { projectId, title, description, startTime, endTime } = body;
+    const db = createDb(env.DB);
 
     // Validate input
     if (!projectId || !title || startTime === undefined || endTime === undefined) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsError('Missing required fields', { status: 400, env });
     }
 
     if (startTime >= endTime) {
-      return new Response(
-        JSON.stringify({ error: 'Start time must be before end time' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return corsError('Start time must be before end time', { status: 400, env });
     }
 
     // Verify project ownership
-    const project = await env.DB.prepare(
-      'SELECT * FROM projects WHERE id = ? AND user_id = ?'
-    )
-      .bind(projectId, userId)
-      .first();
-
+    const project = await getProjectById(db, projectId, userId);
     if (!project) {
-      return new Response(JSON.stringify({ error: 'Project not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsError('Project not found', { status: 404, env });
     }
 
     // Create short record
     const shortId = crypto.randomUUID();
-    await env.DB.prepare(
-      `INSERT INTO shorts (id, project_id, title, description, start_time, end_time, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', datetime('now'), datetime('now'))`
-    )
-      .bind(shortId, projectId, title, description, startTime, endTime)
-      .run();
+    await createShortQuery(db, {
+      id: shortId,
+      projectId,
+      title,
+      description,
+      startTime,
+      endTime,
+      status: 'pending',
+    });
 
     // Create processing job
     const jobId = crypto.randomUUID();
-    await env.DB.prepare(
-      `INSERT INTO processing_jobs (id, project_id, type, status, progress, metadata, created_at, updated_at)
-       VALUES (?, ?, 'video_cut', 'pending', 0, ?, datetime('now'), datetime('now'))`
-    )
-      .bind(jobId, projectId, JSON.stringify({ shortId }))
-      .run();
+    await createJob(db, {
+      id: jobId,
+      projectId,
+      type: 'video_cut',
+      status: 'pending',
+      progress: 0,
+      metadata: JSON.stringify({ shortId }),
+    });
 
     // Queue video cutting job
     const message: ShortCutMessage = {
@@ -116,92 +110,59 @@ async function createShort(
 
     await env.VIDEO_QUEUE.send(message);
 
-    return new Response(
-      JSON.stringify({
+    return corsResponse(
+      {
         success: true,
         shortId,
         jobId,
         message: 'Short creation job queued',
-      }),
-      {
-        status: 201,
-        headers: { 'Content-Type': 'application/json' },
-      }
+      },
+      { status: 201, env }
     );
   } catch (error) {
     console.error('Create short error:', error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Failed to create short',
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
+    return corsError(
+      error instanceof Error ? error.message : 'Failed to create short',
+      { status: 500, env }
     );
   }
 }
 
 async function getShort(env: Env, userId: string, shortId: string): Promise<Response> {
   try {
-    // Get short and verify ownership through project
-    const short = await env.DB.prepare(
-      `SELECT s.* FROM shorts s
-       JOIN projects p ON s.project_id = p.id
-       WHERE s.id = ? AND p.user_id = ?`
-    )
-      .bind(shortId, userId)
-      .first<Short>();
+    const db = createDb(env.DB);
 
+    // Get short and verify ownership through project
+    const short = await getShortById(db, shortId, userId);
     if (!short) {
-      return new Response(JSON.stringify({ error: 'Short not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsError('Short not found', { status: 404, env });
     }
 
-    return new Response(JSON.stringify({ short }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return corsResponse({ short }, { status: 200, env });
   } catch (error) {
     console.error('Get short error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to get short' }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return corsError('Failed to get short', { status: 500, env });
   }
 }
 
 async function deleteShort(env: Env, userId: string, shortId: string): Promise<Response> {
   try {
-    // Verify ownership
-    const short = await env.DB.prepare(
-      `SELECT s.* FROM shorts s
-       JOIN projects p ON s.project_id = p.id
-       WHERE s.id = ? AND p.user_id = ?`
-    )
-      .bind(shortId, userId)
-      .first<Short>();
+    const db = createDb(env.DB);
 
+    // Verify ownership
+    const short = await getShortById(db, shortId, userId);
     if (!short) {
-      return new Response(JSON.stringify({ error: 'Short not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsError('Short not found', { status: 404, env });
     }
 
     // Delete from Stream if exists
-    if (short.stream_clip_id) {
+    if (short.streamClipId) {
       try {
         const { deleteStreamVideo } = await import('../../lib/stream');
         await deleteStreamVideo(
           env.CLOUDFLARE_ACCOUNT_ID,
           env.CLOUDFLARE_STREAM_API_KEY,
-          short.stream_clip_id
+          short.streamClipId
         );
       } catch (error) {
         console.error('Failed to delete clip from Stream:', error);
@@ -209,72 +170,38 @@ async function deleteShort(env: Env, userId: string, shortId: string): Promise<R
     }
 
     // Delete from database
-    await env.DB.prepare('DELETE FROM shorts WHERE id = ?')
-      .bind(shortId)
-      .run();
+    await deleteShortQuery(db, shortId, userId);
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return corsResponse({ success: true }, { status: 200, env });
   } catch (error) {
     console.error('Delete short error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to delete short' }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return corsError('Failed to delete short', { status: 500, env });
   }
 }
 
 async function downloadShort(env: Env, userId: string, shortId: string): Promise<Response> {
   try {
-    // Get short and verify ownership
-    const short = await env.DB.prepare(
-      `SELECT s.* FROM shorts s
-       JOIN projects p ON s.project_id = p.id
-       WHERE s.id = ? AND p.user_id = ?`
-    )
-      .bind(shortId, userId)
-      .first<Short>();
+    const db = createDb(env.DB);
 
+    // Get short and verify ownership
+    const short = await getShortById(db, shortId, userId);
     if (!short) {
-      return new Response(JSON.stringify({ error: 'Short not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsError('Short not found', { status: 404, env });
     }
 
-    if (short.status !== 'completed' || !short.video_url) {
-      return new Response(
-        JSON.stringify({ error: 'Short is not ready for download' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+    if (short.status !== 'completed' || !short.videoUrl) {
+      return corsError('Short is not ready for download', { status: 400, env });
     }
 
     // Return the Stream playback URL (already public)
-    return new Response(
-      JSON.stringify({
-        downloadUrl: short.video_url,
-      }),
+    return corsResponse(
       {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
+        downloadUrl: short.videoUrl,
+      },
+      { status: 200, env }
     );
   } catch (error) {
     console.error('Download short error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to generate download link' }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return corsError('Failed to generate download link', { status: 500, env });
   }
 }

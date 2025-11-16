@@ -8,7 +8,7 @@ interface WorkspaceLayoutProps {
 
 export default function WorkspaceLayout({ children, title }: WorkspaceLayoutProps) {
   return (
-    <div className="flex h-screen bg-[#1a1f2e] overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
       <Sidebar />
 
@@ -16,8 +16,8 @@ export default function WorkspaceLayout({ children, title }: WorkspaceLayoutProp
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Minimal Top Bar */}
         {title && (
-          <div className="h-16 bg-[#0f1419] border-b border-gray-800 flex items-center px-8">
-            <h1 className="text-xl font-semibold text-white">{title}</h1>
+          <div className="h-16 bg-card border-b border-border flex items-center px-8">
+            <h1 className="text-xl font-semibold text-foreground">{title}</h1>
           </div>
         )}
 

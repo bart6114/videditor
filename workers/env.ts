@@ -29,6 +29,7 @@ export interface Env {
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
   R2_ACCOUNT_ID: string;
+  R2_BUCKET_NAME?: string; // Optional: defaults to 'videditor-videos' if not set
 }
 
 // Queue message types

@@ -4,7 +4,7 @@ import { Upload, FileVideo, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useApi } from '@/lib/api/client'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useAuth } from '@clerk/nextjs'
 import { formatFileSize } from '@/lib/utils'
 
 interface VideoUploadProps {
@@ -18,6 +18,7 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
   const [error, setError] = useState<string | null>(null)
   const { call } = useApi()
   const { user } = useUser()
+  const { getToken } = useAuth()
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -29,9 +30,9 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
         return
       }
 
-      // Validate file size (500MB max)
-      if (videoFile.size > 500 * 1024 * 1024) {
-        setError('File size must be less than 500MB')
+      // Validate file size (1GB max)
+      if (videoFile.size > 1024 * 1024 * 1024) {
+        setError('File size must be less than 1GB')
         return
       }
 
@@ -74,12 +75,13 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
       // Get video duration
       const duration = await getVideoDuration(file)
 
-      // Request presigned upload URL from Worker
-      const { projectId, uploadUrl, objectKey } = await call<{
+      // Request presigned upload URL from Worker (does NOT create project yet)
+      const { projectId, uploadUrl, objectKey, filename } = await call<{
         projectId: string
         uploadUrl: string
         objectKey: string
-      }>('/api/upload', {
+        filename: string
+      }>('/api/upload/presign', {
         method: 'POST',
         body: JSON.stringify({
           filename: file.name,
@@ -90,6 +92,12 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
 
       // Upload directly to R2 using presigned URL
       setProgress(10)
+
+      // Get auth token for Worker endpoint (needed in dev mode)
+      const token = await getToken()
+      if (!token) {
+        throw new Error('Authentication token not available')
+      }
 
       // For now, we'll use a simple XMLHttpRequest to track progress
       await new Promise<void>((resolve, reject) => {
@@ -106,31 +114,44 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
           if (xhr.status >= 200 && xhr.status < 300) {
             resolve()
           } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`))
+            console.error('R2 Upload failed:', {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              response: xhr.responseText,
+              uploadUrl: uploadUrl.substring(0, 100) + '...' // Truncated for security
+            })
+            reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`))
           }
         })
 
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+        xhr.addEventListener('error', () => {
+          console.error('R2 Upload network error:', {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            response: xhr.responseText
+          })
+          reject(new Error('Upload failed: Network error'))
+        })
 
-        // Note: R2 multipart upload would be needed for large files
-        // For now, direct PUT should work for files under 500MB
+        // Note: R2 multipart upload would be needed for very large files
+        // For now, direct PUT should work for files under 1GB
         xhr.open('PUT', uploadUrl, true)
         xhr.setRequestHeader('Content-Type', file.type)
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
         xhr.send(file)
       })
 
       setProgress(100)
 
-      // Update project with duration
-      await call(`/api/projects/${projectId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ duration }),
-      })
-
-      // Trigger transcription
-      await call('/api/transcribe', {
+      // Signal upload completion - creates project in DB after R2 verification
+      await call('/api/upload/complete', {
         method: 'POST',
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify({
+          projectId,
+          duration,
+          filename,
+          objectKey,
+        }),
       })
 
       setFile(null)
@@ -149,40 +170,51 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
       {!file ? (
         <div
           {...getRootProps()}
-          className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
-            isDragActive
-              ? 'border-blue-600 bg-blue-50'
-              : 'border-gray-300 hover:border-blue-400'
-          } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`
+            group relative border-2 border-dashed rounded-lg cursor-pointer transition-all duration-300
+            ${isDragActive
+              ? 'border-primary bg-primary/10 p-12'
+              : 'border-border hover:border-primary p-3 hover:p-12'
+            }
+            ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
+          `}
         >
           <input {...getInputProps()} />
-          <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-          {isDragActive ? (
-            <p className="text-lg text-blue-600">Drop your video here...</p>
-          ) : (
-            <>
-              <p className="text-lg mb-2">Drag & drop your video here</p>
-              <p className="text-sm text-gray-500 mb-4">or click to browse</p>
-              <p className="text-xs text-gray-400">
-                Supports MP4, MOV, AVI, MKV, WebM (max 500MB)
-              </p>
-            </>
-          )}
+          <div className="text-center">
+            <Upload className={`mx-auto text-muted-foreground transition-all duration-300 ${
+              isDragActive ? 'w-12 h-12 mb-4 text-primary' : 'w-6 h-6 group-hover:w-12 group-hover:h-12 group-hover:mb-4 group-hover:text-primary'
+            }`} />
+            {isDragActive ? (
+              <p className="text-lg text-primary">Drop your video here...</p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground group-hover:text-lg group-hover:mb-2 transition-all duration-300">
+                  Upload Video
+                </p>
+                <p className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-300 max-h-0 group-hover:max-h-20 group-hover:mb-4 overflow-hidden">
+                  or drag & drop
+                </p>
+                <p className="text-xs text-muted-foreground/70 opacity-0 group-hover:opacity-100 transition-all duration-300 max-h-0 group-hover:max-h-20 overflow-hidden">
+                  MP4, MOV, AVI, MKV, WebM (max 1GB)
+                </p>
+              </>
+            )}
+          </div>
         </div>
       ) : (
-        <div className="border rounded-lg p-6">
+        <div className="border border-border rounded-lg p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <FileVideo className="w-10 h-10 text-blue-600" />
+              <FileVideo className="w-10 h-10 text-primary" />
               <div>
-                <p className="font-medium">{file.name}</p>
-                <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
+                <p className="font-medium text-foreground">{file.name}</p>
+                <p className="text-sm text-muted-foreground">{formatFileSize(file.size)}</p>
               </div>
             </div>
             {!uploading && (
               <button
                 onClick={() => setFile(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground hover:text-foreground transition-colors duration-200"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -192,28 +224,28 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
           {uploading && (
             <div className="space-y-2">
               <Progress value={progress} />
-              <p className="text-sm text-gray-600 text-center">
+              <p className="text-sm text-muted-foreground text-center">
                 Uploading... {Math.round(progress)}%
               </p>
             </div>
           )}
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
               {error}
             </div>
           )}
 
           {!uploading && (
             <Button onClick={uploadVideo} className="w-full mt-4">
-              Upload & Transcribe
+              Upload & Start Processing
             </Button>
           )}
         </div>
       )}
 
       {error && !file && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+        <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
           {error}
         </div>
       )}

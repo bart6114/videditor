@@ -1,5 +1,6 @@
 import { Env } from '../env';
 import Stripe from 'stripe';
+import { corsResponse, corsError } from '../utils/cors';
 
 /**
  * Handle webhook requests (Stripe, Stream, etc.)
@@ -17,10 +18,7 @@ export async function handleWebhookRequest(
     return handleStreamWebhook(request, env);
   }
 
-  return new Response(JSON.stringify({ error: 'Not found' }), {
-    status: 404,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return corsError('Not found', { status: 404, env });
 }
 
 /**
@@ -29,10 +27,7 @@ export async function handleWebhookRequest(
 async function handleStripeWebhook(request: Request, env: Env): Promise<Response> {
   const signature = request.headers.get('stripe-signature');
   if (!signature) {
-    return new Response(JSON.stringify({ error: 'Missing signature' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return corsError('Missing signature', { status: 400, env });
   }
 
   try {
@@ -79,20 +74,12 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
       }
     }
 
-    return new Response(JSON.stringify({ received: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return corsResponse({ received: true }, { status: 200, env });
   } catch (error) {
     console.error('Stripe webhook error:', error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Webhook failed',
-      }),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      }
+    return corsError(
+      error instanceof Error ? error.message : 'Webhook failed',
+      { status: 400, env }
     );
   }
 }
@@ -180,10 +167,7 @@ async function handleStreamWebhook(request: Request, env: Env): Promise<Response
 
     if (!projectId) {
       console.error('No project ID in Stream webhook');
-      return new Response(JSON.stringify({ received: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return corsResponse({ received: true }, { status: 200, env });
     }
 
     // Update project with Stream ID and status
@@ -213,18 +197,9 @@ async function handleStreamWebhook(request: Request, env: Env): Promise<Response
       console.error('Stream processing failed for project:', projectId);
     }
 
-    return new Response(JSON.stringify({ received: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return corsResponse({ received: true }, { status: 200, env });
   } catch (error) {
     console.error('Stream webhook error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Webhook processing failed' }),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return corsError('Webhook processing failed', { status: 400, env });
   }
 }

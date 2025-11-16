@@ -1,10 +1,9 @@
 import { Env, VideoProcessingMessage } from '../../env';
 import { Project, TranscriptSegment } from '../../../types/d1';
-import { getStreamVideo } from '../../../lib/stream';
 
 /**
  * Process transcription job
- * Uses Workers AI (Whisper) to transcribe audio
+ * Uses Workers AI (Whisper) to transcribe audio directly from R2
  */
 export async function processTranscription(
   env: Env,
@@ -24,8 +23,8 @@ export async function processTranscription(
       throw new Error('Project not found');
     }
 
-    if (!project.stream_id) {
-      throw new Error('Project must be uploaded to Stream first');
+    if (!project.video_url) {
+      throw new Error('Project video URL not found');
     }
 
     // Update status
@@ -43,34 +42,15 @@ export async function processTranscription(
       .bind(projectId)
       .run();
 
-    // Get Stream video details
-    const streamVideo = await getStreamVideo(
-      env.CLOUDFLARE_ACCOUNT_ID,
-      env.CLOUDFLARE_STREAM_API_KEY,
-      project.stream_id
-    );
+    // Fetch video from R2
+    const r2Object = await env.VIDEOS_BUCKET.get(project.video_url);
 
-    if (streamVideo.status.state !== 'ready') {
-      throw new Error('Stream video not ready');
+    if (!r2Object) {
+      throw new Error('Video file not found in R2 storage');
     }
 
-    // Download audio from Stream
-    // Note: Stream doesn't provide direct audio download, so we'll need to extract it
-    // For now, we'll use a simplified approach with the video URL
-    const audioUrl = `https://customer-${env.CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com/${project.stream_id}/downloads/default.mp4`;
-
-    // Fetch audio data
-    const audioResponse = await fetch(audioUrl, {
-      headers: {
-        'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_KEY}`,
-      },
-    });
-
-    if (!audioResponse.ok) {
-      throw new Error('Failed to fetch audio from Stream');
-    }
-
-    const audioBlob = await audioResponse.arrayBuffer();
+    // Get video data as array buffer
+    const audioBlob = await r2Object.arrayBuffer();
 
     // Process in chunks (Whisper works best with ~30s chunks)
     const duration = project.duration || 0;
