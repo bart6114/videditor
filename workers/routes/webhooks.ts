@@ -156,45 +156,74 @@ async function handleSubscriptionUpdated(
  */
 async function handleStreamWebhook(request: Request, env: Env): Promise<Response> {
   try {
+    // TODO: Verify webhook signature when Stream webhook secret is configured
+    // const signature = request.headers.get('webhook-signature');
+    // if (signature && env.STREAM_WEBHOOK_SECRET) {
+    //   const body = await request.text();
+    //   const isValid = await verifyStreamWebhook(body, signature, env.STREAM_WEBHOOK_SECRET);
+    //   if (!isValid) {
+    //     return corsError('Invalid signature', { status: 401, env });
+    //   }
+    // }
+
     const body = await request.json() as {
       uid: string;
       status: { state: string };
       meta?: Record<string, string>;
+      duration?: number;
+      size?: number;
+      thumbnail?: string;
     };
 
-    const { uid, status, meta } = body;
-    const projectId = meta?.projectId;
+    const { uid, status, meta, duration, size, thumbnail } = body;
 
-    if (!projectId) {
-      console.error('No project ID in Stream webhook');
+    // Find project by video UID
+    const { createDb } = await import('../../db');
+    const { projects } = await import('../../db/schema');
+    const { eq } = await import('drizzle-orm');
+    const db = createDb(env.DB);
+
+    const project = await db.select().from(projects).where(eq(projects.videoUid, uid)).get();
+
+    if (!project) {
+      console.error('Project not found for Stream video:', uid);
       return corsResponse({ received: true }, { status: 200, env });
     }
 
-    // Update project with Stream ID and status
+    // Update project based on Stream status
     if (status.state === 'ready') {
-      await env.DB.prepare(
-        `UPDATE projects
-         SET stream_id = ?,
-             status = 'completed',
-             updated_at = datetime('now')
-         WHERE id = ?`
-      )
-        .bind(uid, projectId)
-        .run();
+      // Update project with video metadata
+      await db
+        .update(projects)
+        .set({
+          status: 'processing',
+          duration: duration || null,
+          fileSize: size || null,
+          thumbnailUrl: thumbnail || null,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(projects.id, project.id));
 
-      console.log('Stream video ready:', uid, 'for project:', projectId);
+      // Queue transcription job
+      await env.VIDEO_QUEUE.send({
+        type: 'transcribe',
+        projectId: project.id,
+        userId: project.userId,
+        videoUid: uid,
+      });
+
+      console.log('Stream video ready:', uid, '- queued transcription for project:', project.id);
     } else if (status.state === 'error') {
-      await env.DB.prepare(
-        `UPDATE projects
-         SET status = 'error',
-             error_message = 'Stream processing failed',
-             updated_at = datetime('now')
-         WHERE id = ?`
-      )
-        .bind(projectId)
-        .run();
+      await db
+        .update(projects)
+        .set({
+          status: 'error',
+          errorMessage: 'Stream processing failed',
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(projects.id, project.id));
 
-      console.error('Stream processing failed for project:', projectId);
+      console.error('Stream processing failed for project:', project.id);
     }
 
     return corsResponse({ received: true }, { status: 200, env });

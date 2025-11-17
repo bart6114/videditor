@@ -4,8 +4,9 @@ import { Upload, FileVideo, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useApi } from '@/lib/api/client'
-import { useUser, useAuth } from '@clerk/nextjs'
+import { useUser } from '@clerk/nextjs'
 import { formatFileSize } from '@/lib/utils'
+import * as tus from 'tus-js-client'
 
 interface VideoUploadProps {
   onUploadComplete: (projectId: string) => void
@@ -50,20 +51,6 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
     disabled: uploading,
   })
 
-  const getVideoDuration = (file: File): Promise<number> => {
-    return new Promise((resolve) => {
-      const video = document.createElement('video')
-      video.preload = 'metadata'
-
-      video.onloadedmetadata = () => {
-        window.URL.revokeObjectURL(video.src)
-        resolve(video.duration)
-      }
-
-      video.src = URL.createObjectURL(file)
-    })
-  }
-
   const uploadVideo = async () => {
     if (!file || !user) return
 
@@ -72,88 +59,46 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
     setError(null)
 
     try {
-      // Get video duration
-      const duration = await getVideoDuration(file)
-
-      // Request presigned upload URL from Worker (does NOT create project yet)
-      const { projectId, uploadUrl, objectKey, filename } = await call<{
+      // Request TUS upload URL from Worker
+      const { projectId, uploadUrl, videoUid } = await call<{
         projectId: string
         uploadUrl: string
-        objectKey: string
-        filename: string
-      }>('/api/upload/presign', {
+        videoUid: string
+      }>('/api/upload/init', {
         method: 'POST',
         body: JSON.stringify({
-          filename: file.name,
-          fileSize: file.size,
-          contentType: file.type,
+          title: file.name.replace(/\.[^/.]+$/, ''), // Remove file extension
         }),
       })
 
-      // Upload directly to R2 using presigned URL
-      setProgress(10)
-
-      // Get auth token for Worker endpoint (needed in dev mode)
-      const token = await getToken()
-      if (!token) {
-        throw new Error('Authentication token not available')
-      }
-
-      // For now, we'll use a simple XMLHttpRequest to track progress
+      // Upload to Stream using TUS protocol (resumable)
       await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            const percentComplete = (e.loaded / e.total) * 90 + 10
-            setProgress(Math.round(percentComplete))
-          }
-        })
-
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
+        const upload = new tus.Upload(file, {
+          endpoint: uploadUrl,
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          metadata: {
+            filename: file.name,
+            filetype: file.type,
+          },
+          onError: (error) => {
+            console.error('TUS upload error:', error)
+            reject(error)
+          },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const percentage = Math.round((bytesUploaded / bytesTotal) * 100)
+            setProgress(percentage)
+          },
+          onSuccess: () => {
+            console.log('TUS upload complete for project:', projectId)
             resolve()
-          } else {
-            console.error('R2 Upload failed:', {
-              status: xhr.status,
-              statusText: xhr.statusText,
-              response: xhr.responseText,
-              uploadUrl: uploadUrl.substring(0, 100) + '...' // Truncated for security
-            })
-            reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`))
-          }
+          },
         })
 
-        xhr.addEventListener('error', () => {
-          console.error('R2 Upload network error:', {
-            status: xhr.status,
-            statusText: xhr.statusText,
-            response: xhr.responseText
-          })
-          reject(new Error('Upload failed: Network error'))
-        })
-
-        // Note: R2 multipart upload would be needed for very large files
-        // For now, direct PUT should work for files under 1GB
-        xhr.open('PUT', uploadUrl, true)
-        xhr.setRequestHeader('Content-Type', file.type)
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
-        xhr.send(file)
+        // Start the upload
+        upload.start()
       })
 
-      setProgress(100)
-
-      // Signal upload completion - creates project in DB after R2 verification
-      await call('/api/upload/complete', {
-        method: 'POST',
-        body: JSON.stringify({
-          projectId,
-          duration,
-          filename,
-          objectKey,
-        }),
-      })
-
+      // Upload complete - Stream will process and send webhook
       setFile(null)
       setProgress(0)
       onUploadComplete(projectId)
@@ -195,7 +140,7 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
                   or drag & drop
                 </p>
                 <p className="text-xs text-muted-foreground/70 opacity-0 group-hover:opacity-100 transition-all duration-300 max-h-0 group-hover:max-h-20 overflow-hidden">
-                  MP4, MOV, AVI, MKV, WebM (max 1GB)
+                  MP4, MOV, AVI, MKV, WebM • Resumable upload for any file size
                 </p>
               </>
             )}

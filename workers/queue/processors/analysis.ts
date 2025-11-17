@@ -1,6 +1,13 @@
 import { Env, VideoProcessingMessage } from '../../env';
 import { Transcription, TranscriptSegment } from '../../../types/d1';
 import { parseJsonField } from '../../../types/d1';
+import {
+  logInfo,
+  logError,
+  logAICall,
+  createErrorMetadata,
+  createSuccessMetadata,
+} from '../../utils/logger';
 
 interface ShortSuggestion {
   title: string;
@@ -16,11 +23,13 @@ interface ShortSuggestion {
  */
 export async function processAnalysis(
   env: Env,
-  message: VideoProcessingMessage
+  message: VideoProcessingMessage,
+  attempt: number = 1
 ): Promise<void> {
-  const { projectId, metadata } = message;
+  const { projectId, userId, metadata } = message;
   const shortsCount = (metadata?.shortsCount as number) ?? 3;
   const customPrompt = metadata?.customPrompt as string | undefined;
+  const startTime = Date.now();
 
   try {
     // Get transcription
@@ -36,6 +45,19 @@ export async function processAnalysis(
 
     // Parse segments
     const segments = parseJsonField<TranscriptSegment[]>(transcription.segments as unknown as string) || [];
+
+    const context = {
+      type: 'analyze',
+      projectId,
+      userId,
+      attempt,
+      shortsCount,
+      transcriptionLength: transcription.text.length,
+      segmentsCount: segments.length,
+      hasCustomPrompt: !!customPrompt,
+    };
+
+    logInfo('Starting analysis', context);
 
     // Update status
     await env.DB.prepare(
@@ -105,18 +127,51 @@ Return your suggestions as JSON array with this exact format:
 Return ONLY the JSON array, no other text.`
       : defaultPrompt;
 
-    // Use Workers AI for text generation
-    const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }) as { response: string };
+    // Log AI call with prompt details
+    logAICall('@cf/meta/llama-3.1-8b-instruct', 'start', {
+      ...context,
+      promptLength: prompt.length,
+      promptType: customPrompt ? 'custom' : 'default',
+    });
+
+    // Log full prompt in dev for debugging (truncated in logger, but let's log it separately)
+    console.log('[ANALYSIS] Full prompt:', prompt.substring(0, 500) + '...');
+
+    let result: { response: string };
+    try {
+      // Use Workers AI for text generation
+      result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }) as { response: string };
+
+      logAICall('@cf/meta/llama-3.1-8b-instruct', 'success', {
+        ...context,
+        responseLength: result.response.length,
+      });
+
+      // Log raw AI response for debugging
+      console.log('[ANALYSIS] Raw AI response:', result.response.substring(0, 500) + '...');
+    } catch (aiError) {
+      logAICall('@cf/meta/llama-3.1-8b-instruct', 'error', {
+        ...context,
+        promptLength: prompt.length,
+      });
+
+      throw new Error(
+        `Llama AI failed (prompt: ${prompt.length} chars): ${
+          aiError instanceof Error ? aiError.message : String(aiError)
+        }`
+      );
+    }
 
     // Parse AI response
     let suggestions: ShortSuggestion[];
+    let usedFallback = false;
     try {
       // Extract JSON from response
       const jsonMatch = result.response.match(/\[[\s\S]*\]/);
@@ -124,10 +179,18 @@ Return ONLY the JSON array, no other text.`
         throw new Error('No valid JSON found in AI response');
       }
       suggestions = JSON.parse(jsonMatch[0]) as ShortSuggestion[];
+
+      logInfo('AI response parsed successfully', {
+        ...context,
+        suggestionsCount: suggestions.length,
+      });
     } catch (error) {
-      console.error('Failed to parse AI response:', error);
+      logError('Failed to parse AI response, using fallback', error, context);
+      console.log('[ANALYSIS] Problematic AI response:', result.response);
+
       // Fallback to simple suggestions based on segments
       suggestions = generateFallbackSuggestions(segments);
+      usedFallback = true;
     }
 
     // Update progress
@@ -165,17 +228,46 @@ Return ONLY the JSON array, no other text.`
       .bind(projectId)
       .run();
 
+    const duration = Date.now() - startTime;
+    const successMetadata = createSuccessMetadata({
+      ...context,
+      duration,
+      suggestionsCount: suggestions.length,
+      usedFallback,
+      savedShortsCount: suggestions.slice(0, shortsCount).length,
+    });
+
     await env.DB.prepare(
       `UPDATE processing_jobs
-       SET status = 'completed', progress = 100, updated_at = datetime('now')
+       SET status = 'completed', progress = 100, metadata = ?, updated_at = datetime('now')
        WHERE project_id = ? AND type = 'analysis'`
     )
-      .bind(projectId)
+      .bind(successMetadata, projectId)
       .run();
 
-    console.log('Analysis completed for project:', projectId, 'with', suggestions.length, 'suggestions');
+    logInfo('Analysis completed', {
+      ...context,
+      duration: `${duration}ms`,
+      suggestionsCount: suggestions.length,
+      usedFallback,
+      savedShortsCount: suggestions.slice(0, shortsCount).length,
+    });
   } catch (error) {
-    console.error('Analysis failed:', error);
+    const duration = Date.now() - startTime;
+
+    const errorContext = {
+      type: 'analyze',
+      projectId,
+      userId,
+      attempt,
+      duration,
+      shortsCount,
+    };
+
+    logError('Analysis failed', error, errorContext);
+
+    const errorMessage = error instanceof Error ? error.message : 'Analysis failed';
+    const errorMetadata = createErrorMetadata(error, errorContext);
 
     // Update status to error
     await env.DB.prepare(
@@ -185,17 +277,18 @@ Return ONLY the JSON array, no other text.`
            updated_at = datetime('now')
        WHERE id = ?`
     )
-      .bind(error instanceof Error ? error.message : 'Analysis failed', projectId)
+      .bind(errorMessage, projectId)
       .run();
 
     await env.DB.prepare(
       `UPDATE processing_jobs
        SET status = 'error',
            error_message = ?,
+           metadata = ?,
            updated_at = datetime('now')
        WHERE project_id = ? AND type = 'analysis'`
     )
-      .bind(error instanceof Error ? error.message : 'Analysis failed', projectId)
+      .bind(errorMessage, errorMetadata, projectId)
       .run();
 
     throw error;

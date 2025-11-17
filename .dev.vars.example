@@ -11,7 +11,7 @@
 #
 # For production, use: wrangler secret put <KEY_NAME>
 #
-# NOTE: Bindings (D1, R2, Queues, Durable Objects, AI) are configured in wrangler.toml
+# NOTE: Bindings (D1, Queues, Durable Objects, AI) are configured in wrangler.toml
 # and do NOT need to be added here.
 # ===================================
 
@@ -39,14 +39,14 @@ STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
 # -----------------
-# Cloudflare Account
+# Cloudflare Account & API
 # -----------------
 # Get from: https://dash.cloudflare.com → Account ID (top right)
 CLOUDFLARE_ACCOUNT_ID=your-account-id
 
-# Cloudflare API Token (for Drizzle Kit migrations)
+# Cloudflare API Token (for Stream, D1 migrations, etc.)
 # Get from: https://dash.cloudflare.com → My Profile → API Tokens → Create Token
-# Use "Edit Cloudflare Workers" template or create custom with "D1:Edit" permission
+# Required permissions: "Stream:Edit", "D1:Edit", "Workers:Edit"
 CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
 
 # D1 Database ID (from wrangler.toml)
@@ -55,16 +55,6 @@ CLOUDFLARE_D1_DATABASE_ID=e617417c-6309-4272-abfa-9bc048c06225
 # -----------------
 # Cloudflare Stream
 # -----------------
-# Get from: https://dash.cloudflare.com → Stream → API Token
-# Create a token with "Stream:Edit" permission
-CLOUDFLARE_STREAM_API_KEY=your-stream-api-key
-
-# -----------------
-# R2 Storage Credentials
-# -----------------
-# Get from: https://dash.cloudflare.com → R2 → Manage R2 API Tokens
-# Create a token with "Object Read & Write" permission for your buckets
-R2_ACCESS_KEY_ID=your-r2-access-key-id
-R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
-R2_ACCOUNT_ID=your-r2-account-id
-R2_BUCKET_NAME=videditor-videos
+# Optional: Webhook secret for verifying Stream webhook signatures
+# Set this in Stream dashboard → Webhooks → Create webhook → Copy secret
+# STREAM_WEBHOOK_SECRET=your-stream-webhook-secret

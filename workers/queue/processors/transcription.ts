@@ -1,15 +1,24 @@
 import { Env, VideoProcessingMessage } from '../../env';
 import { Project, TranscriptSegment } from '../../../types/d1';
+import {
+  logInfo,
+  logError,
+  logAICall,
+  createErrorMetadata,
+  createSuccessMetadata,
+} from '../../utils/logger';
 
 /**
  * Process transcription job
- * Uses Workers AI (Whisper) to transcribe audio directly from R2
+ * Uses Workers AI (Whisper) to transcribe audio from Cloudflare Stream
  */
 export async function processTranscription(
   env: Env,
-  message: VideoProcessingMessage
+  message: VideoProcessingMessage,
+  attempt: number = 1
 ): Promise<void> {
-  const { projectId } = message;
+  const { projectId, userId } = message;
+  const startTime = Date.now();
 
   try {
     // Get project
@@ -23,9 +32,20 @@ export async function processTranscription(
       throw new Error('Project not found');
     }
 
-    if (!project.video_url) {
-      throw new Error('Project video URL not found');
+    if (!project.video_uid) {
+      throw new Error('Project video UID not found');
     }
+
+    const context = {
+      type: 'transcribe',
+      projectId,
+      userId,
+      attempt,
+      videoUid: project.video_uid,
+      duration: project.duration,
+    };
+
+    logInfo('Starting transcription', context);
 
     // Update status
     await env.DB.prepare(
@@ -42,20 +62,46 @@ export async function processTranscription(
       .bind(projectId)
       .run();
 
-    // Fetch video from R2
-    const r2Object = await env.VIDEOS_BUCKET.get(project.video_url);
+    // Create audio download from Stream
+    logInfo('Requesting audio download from Stream', { ...context });
+    const { createAudioDownload, pollAudioDownload } = await import('../../../lib/stream');
 
-    if (!r2Object) {
-      throw new Error('Video file not found in R2 storage');
+    await createAudioDownload(
+      env.CLOUDFLARE_ACCOUNT_ID,
+      env.CLOUDFLARE_API_TOKEN,
+      project.video_uid
+    );
+
+    // Poll for audio download to be ready
+    logInfo('Polling for audio download readiness', { ...context });
+    const audioDownloadUrl = await pollAudioDownload(
+      env.CLOUDFLARE_ACCOUNT_ID,
+      env.CLOUDFLARE_API_TOKEN,
+      project.video_uid
+    );
+
+    // Fetch audio file (M4A format)
+    logInfo('Downloading audio from Stream', { ...context, audioUrl: audioDownloadUrl });
+    const audioResponse = await fetch(audioDownloadUrl);
+
+    if (!audioResponse.ok) {
+      throw new Error(`Failed to download audio: ${audioResponse.statusText}`);
     }
 
-    // Get video data as array buffer
-    const audioBlob = await r2Object.arrayBuffer();
+    // Get audio data as array buffer
+    const audioBlob = await audioResponse.arrayBuffer();
+    const audioSizeMB = (audioBlob.byteLength / 1024 / 1024).toFixed(2);
+
+    logInfo('Audio downloaded from Stream', {
+      ...context,
+      audioSize: `${audioSizeMB}MB`,
+      contentType: audioResponse.headers.get('content-type') || 'unknown',
+    });
 
     // Process in chunks (Whisper works best with ~30s chunks)
-    const duration = project.duration || 0;
+    const videoDuration = project.duration || 0;
     const chunkDuration = 30; // seconds
-    const chunks = Math.ceil(duration / chunkDuration);
+    const chunks = Math.ceil(videoDuration / chunkDuration);
 
     const segments: TranscriptSegment[] = [];
     let fullText = '';
@@ -74,14 +120,50 @@ export async function processTranscription(
       // For simplicity, we'll transcribe the whole audio at once
       // In production, you'd chunk it properly
       if (i === 0) {
-        const result = await env.AI.run('@cf/openai/whisper', {
-          audio: Array.from(new Uint8Array(audioBlob)),
-        }) as {
-          text: string;
-          words?: Array<{ word: string; start: number; end: number }>;
-        };
+        const audioArray = Array.from(new Uint8Array(audioBlob));
 
-        fullText = result.text;
+        logAICall('@cf/openai/whisper', 'start', {
+          ...context,
+          chunkIndex: i + 1,
+          totalChunks: Math.min(chunks, 10),
+          inputSize: audioArray.length,
+          audioSizeMB,
+        });
+
+        try {
+          const result = await env.AI.run('@cf/openai/whisper', {
+            audio: audioArray,
+          }) as {
+            text: string;
+            words?: Array<{ word: string; start: number; end: number }>;
+          };
+
+          fullText = result.text;
+
+          logAICall('@cf/openai/whisper', 'success', {
+            ...context,
+            chunkIndex: i + 1,
+            totalChunks: Math.min(chunks, 10),
+            outputSize: result.text.length,
+            hasWords: !!result.words,
+            wordCount: result.words?.length || 0,
+          });
+        } catch (aiError) {
+          logAICall('@cf/openai/whisper', 'error', {
+            ...context,
+            chunkIndex: i + 1,
+            totalChunks: Math.min(chunks, 10),
+            inputSize: audioArray.length,
+            audioSizeMB,
+          });
+
+          // Re-throw with additional context
+          throw new Error(
+            `Whisper AI failed (chunk ${i + 1}/${Math.min(chunks, 10)}, ${audioSizeMB}MB): ${
+              aiError instanceof Error ? aiError.message : String(aiError)
+            }`
+          );
+        }
 
         // Create segments from words if available
         if (result.words) {
@@ -123,7 +205,7 @@ export async function processTranscription(
           // No word-level timestamps, create single segment
           segments.push({
             start: 0,
-            end: duration,
+            end: videoDuration,
             text: fullText,
           });
         }
@@ -148,17 +230,43 @@ export async function processTranscription(
       .bind(projectId)
       .run();
 
+    const processingDuration = Date.now() - startTime;
+    const successMetadata = createSuccessMetadata({
+      ...context,
+      duration: processingDuration,
+      segmentsCount: segments.length,
+      textLength: fullText.length,
+    });
+
     await env.DB.prepare(
       `UPDATE processing_jobs
-       SET status = 'completed', progress = 100, updated_at = datetime('now')
+       SET status = 'completed', progress = 100, metadata = ?, updated_at = datetime('now')
        WHERE project_id = ? AND type = 'transcription'`
     )
-      .bind(projectId)
+      .bind(successMetadata, projectId)
       .run();
 
-    console.log('Transcription completed for project:', projectId);
+    logInfo('Transcription completed', {
+      ...context,
+      duration: `${processingDuration}ms`,
+      segmentsCount: segments.length,
+      textLength: fullText.length,
+    });
   } catch (error) {
-    console.error('Transcription failed:', error);
+    const processingDuration = Date.now() - startTime;
+
+    const errorContext = {
+      type: 'transcribe',
+      projectId,
+      userId,
+      attempt,
+      duration: processingDuration,
+    };
+
+    logError('Transcription failed', error, errorContext);
+
+    const errorMessage = error instanceof Error ? error.message : 'Transcription failed';
+    const errorMetadata = createErrorMetadata(error, errorContext);
 
     // Update status to error
     await env.DB.prepare(
@@ -168,17 +276,18 @@ export async function processTranscription(
            updated_at = datetime('now')
        WHERE id = ?`
     )
-      .bind(error instanceof Error ? error.message : 'Transcription failed', projectId)
+      .bind(errorMessage, projectId)
       .run();
 
     await env.DB.prepare(
       `UPDATE processing_jobs
        SET status = 'error',
            error_message = ?,
+           metadata = ?,
            updated_at = datetime('now')
        WHERE project_id = ? AND type = 'transcription'`
     )
-      .bind(error instanceof Error ? error.message : 'Transcription failed', projectId)
+      .bind(errorMessage, errorMetadata, projectId)
       .run();
 
     throw error;

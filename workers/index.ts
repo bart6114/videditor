@@ -1,9 +1,7 @@
 import { Env } from './env';
 import { JobTracker } from './durable-objects/JobTracker';
 import { handleUploadRequest } from './routes/upload';
-import { handleUploadPresignRequest } from './routes/upload-presign';
-import { handleDirectUpload } from './routes/upload-direct';
-import { handleUploadComplete } from './routes/upload-complete';
+import { handleStreamUploadInit } from './routes/stream-upload';
 import { handleProjectsRequest } from './routes/projects';
 import { handleTranscribeRequest } from './routes/transcribe';
 import { handleAnalyzeRequest } from './routes/analyze';
@@ -43,16 +41,8 @@ export default {
       await ensureUserExists(env, user.userId, user.email, user.fullName, user.imageUrl);
 
       // Route handling
-      if (url.pathname === '/api/upload/presign') {
-        return handleUploadPresignRequest(request, env, user.userId);
-      }
-
-      if (url.pathname === '/api/upload/direct') {
-        return handleDirectUpload(request, env, user.userId);
-      }
-
-      if (url.pathname === '/api/upload/complete') {
-        return handleUploadComplete(request, env, user.userId);
+      if (url.pathname === '/api/upload/init') {
+        return handleStreamUploadInit(request, env);
       }
 
       if (url.pathname.startsWith('/api/upload')) {

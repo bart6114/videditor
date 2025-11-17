@@ -4,10 +4,6 @@ export interface Env {
   // D1 Database
   DB: D1Database;
 
-  // R2 Buckets
-  VIDEOS_BUCKET: R2Bucket;
-  SHORTS_BUCKET: R2Bucket;
-
   // Cloudflare AI
   AI: Ai;
 
@@ -24,19 +20,17 @@ export interface Env {
   CLERK_JWT_KEY?: string; // Optional: for networkless verification (faster)
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
-  CLOUDFLARE_STREAM_API_KEY: string;
+  CLOUDFLARE_API_TOKEN: string; // Cloudflare API token for Stream operations
   CLOUDFLARE_ACCOUNT_ID: string;
-  R2_ACCESS_KEY_ID: string;
-  R2_SECRET_ACCESS_KEY: string;
-  R2_ACCOUNT_ID: string;
-  R2_BUCKET_NAME?: string; // Optional: defaults to 'videditor-videos' if not set
+  STREAM_WEBHOOK_SECRET?: string; // Optional: for verifying Stream webhook signatures
 }
 
 // Queue message types
 export interface VideoProcessingMessage {
-  type: 'upload_to_stream' | 'transcribe' | 'analyze' | 'cut_video';
+  type: 'transcribe' | 'analyze' | 'cut_video';
   projectId: string;
   userId: string;
+  videoUid?: string; // Stream video UID
   metadata?: Record<string, unknown>;
 }
 

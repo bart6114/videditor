@@ -80,21 +80,14 @@ async function deleteProject(env: Env, userId: string, projectId: string): Promi
       return corsError('Project not found', { status: 404, env });
     }
 
-    // Delete from R2
-    try {
-      await env.VIDEOS_BUCKET.delete(project.videoUrl);
-    } catch (error) {
-      console.error('Failed to delete from R2:', error);
-    }
-
-    // Delete from Stream if exists
-    if (project.streamId) {
+    // Delete from Stream
+    if (project.videoUid) {
       try {
         const { deleteStreamVideo } = await import('../../lib/stream');
         await deleteStreamVideo(
           env.CLOUDFLARE_ACCOUNT_ID,
-          env.CLOUDFLARE_STREAM_API_KEY,
-          project.streamId
+          env.CLOUDFLARE_API_TOKEN,
+          project.videoUid
         );
       } catch (error) {
         console.error('Failed to delete from Stream:', error);

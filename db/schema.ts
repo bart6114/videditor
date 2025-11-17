@@ -69,11 +69,10 @@ export const projects = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
-    videoUrl: text('video_url').notNull(), // R2 object key
-    streamId: text('stream_id'), // Cloudflare Stream ID
+    videoUid: text('video_uid').notNull(), // Cloudflare Stream video UID
     thumbnailUrl: text('thumbnail_url'),
-    duration: real('duration').notNull(), // seconds as decimal
-    fileSize: integer('file_size').notNull(), // bytes
+    duration: real('duration'), // seconds as decimal (nullable until Stream processes)
+    fileSize: integer('file_size'), // bytes (nullable until Stream processes)
     status: text('status', {
       enum: ['uploading', 'processing', 'transcribing', 'analyzing', 'completed', 'error'],
     }).notNull(),
