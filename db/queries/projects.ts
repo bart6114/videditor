@@ -11,7 +11,7 @@ export async function listUserProjects(db: DB, userId: string, limit: number = 1
     .select({
       project: projects,
       shortsCount: count(shorts.id),
-      hasTranscription: sql<number>`CASE WHEN ${transcriptions.id} IS NOT NULL THEN 1 ELSE 0 END`,
+      hasTranscription: sql<boolean>`CASE WHEN ${transcriptions.id} IS NOT NULL THEN true ELSE false END`,
     })
     .from(projects)
     .leftJoin(shorts, eq(projects.id, shorts.projectId))
@@ -19,14 +19,13 @@ export async function listUserProjects(db: DB, userId: string, limit: number = 1
     .where(eq(projects.userId, userId))
     .groupBy(projects.id, transcriptions.id)
     .orderBy(desc(projects.createdAt))
-    .limit(limit)
-    .all();
+    .limit(limit);
 
   // Map to enriched project objects
   return results.map((row) => ({
     ...row.project,
     shortsCount: row.shortsCount,
-    hasTranscription: row.hasTranscription === 1,
+    hasTranscription: row.hasTranscription,
   }));
 }
 
@@ -34,11 +33,12 @@ export async function listUserProjects(db: DB, userId: string, limit: number = 1
  * Get project by ID (with ownership verification)
  */
 export async function getProjectById(db: DB, projectId: string, userId: string) {
-  return db
+  const [project] = await db
     .select()
     .from(projects)
     .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
-    .get();
+    .limit(1);
+  return project ?? null;
 }
 
 /**
@@ -46,30 +46,29 @@ export async function getProjectById(db: DB, projectId: string, userId: string) 
  */
 export async function getProjectWithRelations(db: DB, projectId: string, userId: string) {
   // Get project
-  const project = await db
+  const [project] = await db
     .select()
     .from(projects)
     .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
-    .get();
+    .limit(1);
 
   if (!project) {
     return null;
   }
 
   // Get transcription
-  const transcription = await db
+  const [transcription] = await db
     .select()
     .from(transcriptions)
     .where(eq(transcriptions.projectId, projectId))
-    .get();
+    .limit(1);
 
   // Get shorts
   const projectShorts = await db
     .select()
     .from(shorts)
     .where(eq(shorts.projectId, projectId))
-    .orderBy(desc(shorts.createdAt))
-    .all();
+    .orderBy(desc(shorts.createdAt));
 
   return {
     project,
@@ -82,7 +81,8 @@ export async function getProjectWithRelations(db: DB, projectId: string, userId:
  * Create new project
  */
 export async function createProject(db: DB, project: NewProject) {
-  return db.insert(projects).values(project).run();
+  const [created] = await db.insert(projects).values(project).returning();
+  return created;
 }
 
 /**
@@ -94,24 +94,26 @@ export async function updateProject(
   userId: string,
   updates: Partial<Project>
 ) {
-  return db
+  const [updated] = await db
     .update(projects)
     .set({
       ...updates,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(),
     })
     .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
-    .run();
+    .returning();
+  return updated ?? null;
 }
 
 /**
  * Delete project (with ownership verification)
  */
 export async function deleteProject(db: DB, projectId: string, userId: string) {
-  return db
+  const [deleted] = await db
     .delete(projects)
     .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
-    .run();
+    .returning({ id: projects.id });
+  return deleted ?? null;
 }
 
 /**
@@ -123,13 +125,14 @@ export async function updateProjectStatus(
   status: Project['status'],
   errorMessage?: string
 ) {
-  return db
+  const [updated] = await db
     .update(projects)
     .set({
       status,
       errorMessage: errorMessage ?? null,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(),
     })
     .where(eq(projects.id, projectId))
-    .run();
+    .returning();
+  return updated ?? null;
 }

@@ -1,14 +1,15 @@
 import { defineConfig } from 'drizzle-kit';
 
+if (!process.env.DATABASE_URL) {
+  console.warn('DATABASE_URL is not set. Drizzle Kit commands may fail until it is configured.');
+}
+
 export default defineConfig({
   schema: './db/schema.ts',
   out: './drizzle/migrations',
-  dialect: 'sqlite',
-  driver: 'd1-http',
+  dialect: 'postgresql',
   dbCredentials: {
-    accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-    databaseId: process.env.CLOUDFLARE_D1_DATABASE_ID!,
-    token: process.env.CLOUDFLARE_API_TOKEN!,
+    url: process.env.DATABASE_URL ?? '',
   },
   verbose: true,
   strict: true,

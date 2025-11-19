@@ -5,7 +5,7 @@
  *
  * Tests the complete flow:
  * 1. Authenticate with Clerk
- * 2. Upload test video to R2
+ * 2. Upload test video to Tigris
  * 3. Signal upload completion
  * 4. Poll for transcription completion
  *
@@ -14,7 +14,7 @@
  *
  * Environment variables required:
  *   CLERK_SECRET_KEY - From .env.local
- *   NEXT_PUBLIC_WORKER_URL - Worker API URL (default: http://localhost:8787)
+ *   NEXT_PUBLIC_API_URL - API URL (defaults to http://localhost:4000)
  *   TEST_USER_ID - Optional test user ID (default: test_user_123)
  */
 
@@ -22,7 +22,8 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuration
-const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:8787';
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:4000';
+const API_URL = RAW_API_URL.endsWith('/') ? RAW_API_URL : `${RAW_API_URL}/`;
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 const TEST_USER_ID = process.env.TEST_USER_ID || 'test_user_123';
 const TEST_VIDEO_PATH = path.join(__dirname, 'test-video.mp4');
@@ -74,15 +75,25 @@ function generateTestToken() {
   return `${header}.${payload}.fake_signature_for_testing`;
 }
 
+function resolveApiUrl(endpoint) {
+  if (/^https?:\/\//i.test(endpoint)) {
+    return endpoint;
+  }
+
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return new URL(normalizedEndpoint, API_URL).toString();
+}
+
 async function apiCall(endpoint, options = {}) {
   const token = generateTestToken();
-  const url = `${WORKER_URL}${endpoint}`;
+  const url = resolveApiUrl(endpoint);
 
   const response = await fetch(url, {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
+       'X-User-Id': TEST_USER_ID,
       ...options.headers,
     },
   });
@@ -121,19 +132,23 @@ async function uploadVideo(filePath) {
   logInfo(`Preparing to upload: ${fileName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
 
   // Step 1: Request presigned upload URL
-  const { projectId, uploadUrl, objectKey } = await apiCall('/api/upload', {
+  const response = await apiCall('/v1/uploads', {
     method: 'POST',
     body: JSON.stringify({
       filename: fileName,
-      fileSize: stats.size,
+      fileSizeBytes: stats.size,
       contentType: 'video/mp4',
     }),
   });
 
+  // Unwrap the response if needed
+  const data = response.success ? response.data : response;
+  const { projectId, uploadUrl, objectKey } = data;
+
   logSuccess(`Created project: ${projectId}`);
   log(`  Object key: ${objectKey}`, 'gray');
 
-  // Step 2: Upload to R2
+  // Step 2: Upload to Tigris
   const fileBuffer = fs.readFileSync(filePath);
   const uploadResponse = await fetch(uploadUrl, {
     method: 'PUT',
@@ -144,14 +159,14 @@ async function uploadVideo(filePath) {
   });
 
   if (!uploadResponse.ok) {
-    throw new Error(`R2 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+    throw new Error(`Tigris upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
   }
 
-  logSuccess(`Uploaded to R2 (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+  logSuccess(`Uploaded to Tigris (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
 
   // Step 3: Signal upload completion
   const duration = await getVideoDuration(filePath);
-  await apiCall('/api/upload/complete', {
+  await apiCall('/v1/uploads/complete', {
     method: 'POST',
     body: JSON.stringify({ projectId, duration }),
   });
@@ -174,7 +189,7 @@ async function pollForCompletion(projectId) {
     }
 
     // Get project details
-    const project = await apiCall(`/api/projects/${projectId}`);
+    const project = await apiCall(`/v1/projects/${projectId}`);
 
     const status = project.project?.status || 'unknown';
     const progress = project.project?.progress || 0;
@@ -218,7 +233,7 @@ async function main() {
       logWait('Warning: CLERK_SECRET_KEY not set. Using test token (local only)');
     }
 
-    logInfo(`Worker URL: ${WORKER_URL}`);
+    logInfo(`API URL: ${API_URL}`);
     logInfo(`Test User ID: ${TEST_USER_ID}\n`);
 
     // Step 1: Prepare test video

@@ -18,7 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
-import type { Project, Short, Transcription } from '@/types/d1'
+import type { Project, Short, Transcription } from '@server/db/schema'
 
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false })
 
@@ -64,7 +64,7 @@ export default function ProjectDetail() {
         project: Project
         transcription: Transcription | null
         shorts: Short[]
-      }>(`/api/projects/${id}`)
+      }>(`/v1/projects/${id}`)
 
       setProject(data.project)
       setTranscription(data.transcription)
@@ -80,12 +80,14 @@ export default function ProjectDetail() {
     setAnalyzing(true)
 
     try {
-      await call('/api/analyze', {
+      await call(`/v1/projects/${id}/jobs`, {
         method: 'POST',
         body: JSON.stringify({
-          projectId: id,
-          shortsCount,
-          customPrompt: customPrompt.trim() || undefined,
+          type: 'analysis',
+          payload: {
+            shortsCount,
+            customPrompt: customPrompt.trim() || undefined,
+          },
         }),
       })
 
@@ -99,20 +101,11 @@ export default function ProjectDetail() {
   }
 
   async function handleDownloadShort(short: Short) {
-    try {
-      const data = await call<{ downloadUrl: string }>(`/api/shorts/${short.id}/download`, {
-        method: 'POST',
-      })
-
-      window.open(data.downloadUrl, '_blank')
-    } catch (error) {
-      console.error('Error downloading short:', error)
-      alert('Failed to download short')
-    }
+    alert(`Download support for ${short.title} is coming soon as part of the new pipeline.`)
   }
 
   async function handleDownloadAll() {
-    alert(`Download all ${shorts.length} shorts as a ZIP file`)
+    alert(`Bulk downloads will return soon. ${shorts.length} shorts ready in queue.`)
   }
 
   function seekToTime(time: number) {
@@ -139,6 +132,13 @@ export default function ProjectDetail() {
     )
   }
 
+  const metadata =
+    (project.metadata && typeof project.metadata === 'object'
+      ? (project.metadata as Record<string, unknown>)
+      : {}) ?? {}
+  const playbackUrl =
+    typeof metadata.previewUrl === 'string' ? (metadata.previewUrl as string) : null
+
   return (
     <>
       <Head>
@@ -154,20 +154,27 @@ export default function ProjectDetail() {
                 <div>
                   <CardTitle className="text-foreground">{project.title}</CardTitle>
                   <CardDescription className="text-muted-foreground">
-                    Duration: {formatDuration(project.duration)} • Status: <Badge variant={project.status === 'completed' ? 'default' : 'secondary'}>{project.status}</Badge>
+                    Duration: {project.durationSeconds ? formatDuration(project.durationSeconds) : '—'} • Status:{' '}
+                    <Badge variant={project.status === 'completed' ? 'default' : 'secondary'}>{project.status}</Badge>
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                <ReactPlayer
-                  url={project.video_url}
-                  controls
-                  width="100%"
-                  height="100%"
-                  onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds)}
-                />
+                {playbackUrl ? (
+                  <ReactPlayer
+                    url={playbackUrl}
+                    controls
+                    width="100%"
+                    height="100%"
+                    onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds)}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    Playback preview is not available yet for this project.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -298,7 +305,7 @@ export default function ProjectDetail() {
                             <h4 className="font-medium text-sm text-foreground">{short.title}</h4>
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {formatDuration(short.end_time - short.start_time)}
+                              {formatDuration(short.endTime - short.startTime)}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mb-3">
@@ -310,7 +317,7 @@ export default function ProjectDetail() {
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                seekToTime(short.start_time)
+                                seekToTime(short.startTime)
                               }}
                               className="flex-1"
                             >

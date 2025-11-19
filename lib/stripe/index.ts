@@ -10,15 +10,16 @@ export function createStripeClient(secretKey: string): Stripe {
 
 /**
  * Create Stripe customer
+ * Email is optional - can be collected later during checkout
  */
 export async function createCustomer(
   stripe: Stripe,
-  email: string,
+  email: string | null,
   userId: string,
   name?: string
 ): Promise<string> {
   const customer = await stripe.customers.create({
-    email,
+    ...(email && { email }), // Only include email if provided
     name,
     metadata: {
       userId,
@@ -29,11 +30,12 @@ export async function createCustomer(
 
 /**
  * Create checkout session for subscription
+ * Email is optional - Stripe will collect it during checkout if not provided
  */
 export async function createCheckoutSession(
   stripe: Stripe,
   userId: string,
-  email: string,
+  email: string | null,
   priceId: string,
   successUrl: string,
   cancelUrl: string
@@ -46,7 +48,7 @@ export async function createCheckoutSession(
         quantity: 1,
       },
     ],
-    customer_email: email,
+    ...(email && { customer_email: email }), // Only include if provided, Stripe will collect otherwise
     client_reference_id: userId,
     success_url: successUrl,
     cancel_url: cancelUrl,

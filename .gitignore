@@ -12,10 +12,12 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+.npm/
 
 # debug
 npm-debug.log*
@@ -37,3 +39,36 @@ wrangler.toml.local
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist-python/
+.uv/
+
+# terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.tfstate.lock.info
+# Keep lock file
+!.terraform.lock.hcl

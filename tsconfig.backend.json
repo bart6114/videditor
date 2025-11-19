@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "paths": {
+      "@shared/*": ["packages/shared/src/*"],
+      "@server/db": ["db/index.ts"],
+      "@server/db/*": ["db/*"],
+      "@/lib/*": ["lib/*"]
+    }
+  }
+}

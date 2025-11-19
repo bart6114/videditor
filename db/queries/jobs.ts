@@ -6,66 +6,86 @@ import { processingJobs, type NewProcessingJob, type ProcessingJob } from '../sc
  * Get processing jobs by project ID
  */
 export async function getJobsByProjectId(db: DB, projectId: string) {
-  return db.select().from(processingJobs).where(eq(processingJobs.projectId, projectId)).all();
+  return db.select().from(processingJobs).where(eq(processingJobs.projectId, projectId));
 }
 
 /**
  * Get job by ID and project ID
  */
 export async function getJobById(db: DB, jobId: string, projectId: string) {
-  return db
+  const [job] = await db
     .select()
     .from(processingJobs)
     .where(and(eq(processingJobs.id, jobId), eq(processingJobs.projectId, projectId)))
-    .get();
+    .limit(1);
+  return job ?? null;
 }
 
 /**
  * Create processing job
  */
 export async function createJob(db: DB, job: NewProcessingJob) {
-  return db.insert(processingJobs).values(job).run();
+  const [created] = await db.insert(processingJobs).values(job).returning();
+  return created;
 }
 
 /**
- * Update job status and progress
+ * Update job status
  */
 export async function updateJobStatus(
   db: DB,
   jobId: string,
   status: ProcessingJob['status'],
-  progress?: number,
   errorMessage?: string
 ) {
-  return db
+  const now = new Date();
+  const updatePayload: Partial<ProcessingJob> = {
+    status,
+    updatedAt: now,
+  };
+
+  if (errorMessage !== undefined) {
+    updatePayload.errorMessage = errorMessage ?? null;
+  }
+
+  if (status === 'running') {
+    updatePayload.startedAt = now;
+  }
+
+  if (['succeeded', 'failed', 'canceled'].includes(status)) {
+    updatePayload.completedAt = now;
+  }
+
+  const [updated] = await db
     .update(processingJobs)
-    .set({
-      status,
-      progress: progress ?? undefined,
-      errorMessage: errorMessage ?? null,
-      updatedAt: new Date().toISOString(),
-    })
+    .set(updatePayload)
     .where(eq(processingJobs.id, jobId))
-    .run();
+    .returning();
+
+  return updated ?? null;
 }
 
 /**
  * Update job metadata
  */
-export async function updateJobMetadata(db: DB, jobId: string, metadata: Record<string, any>) {
-  return db
+export async function updateJobMetadata(db: DB, jobId: string, metadata: Record<string, unknown>) {
+  const [updated] = await db
     .update(processingJobs)
     .set({
-      metadata: JSON.stringify(metadata),
-      updatedAt: new Date().toISOString(),
+      payload: metadata,
+      updatedAt: new Date(),
     })
     .where(eq(processingJobs.id, jobId))
-    .run();
+    .returning();
+  return updated ?? null;
 }
 
 /**
  * Delete job
  */
 export async function deleteJob(db: DB, jobId: string) {
-  return db.delete(processingJobs).where(eq(processingJobs.id, jobId)).run();
+  const [deleted] = await db.delete(processingJobs).where(eq(processingJobs.id, jobId)).returning({
+    id: processingJobs.id,
+  });
+  return deleted ?? null;
 }

@@ -1,88 +1,111 @@
-import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import {
+  pgEnum,
+  pgTable,
+  text,
+  varchar,
+  timestamp,
+  boolean,
+  bigint,
+  jsonb,
+  index,
+  doublePrecision,
+  real,
+} from 'drizzle-orm/pg-core';
 
-// ================================================================================
-// USERS TABLE - Clerk authentication sync
-// ================================================================================
+export const subscriptionStatusEnum = pgEnum('subscription_status', [
+  'active',
+  'canceled',
+  'past_due',
+  'trialing',
+  'incomplete',
+]);
 
-export const users = sqliteTable(
+export const projectStatusEnum = pgEnum('project_status', [
+  'uploading',
+  'ready',
+  'queued',
+  'processing',
+  'transcribing',
+  'analyzing',
+  'rendering',
+  'delivering',
+  'completed',
+  'error',
+]);
+
+export const shortStatusEnum = pgEnum('short_status', ['pending', 'processing', 'completed', 'error']);
+
+export const jobTypeEnum = pgEnum('job_type', [
+  'transcription',
+  'analysis',
+  'cutting',
+  'delivery',
+]);
+
+export const jobStatusEnum = pgEnum('job_status', ['queued', 'running', 'succeeded', 'failed', 'canceled']);
+
+export const assetKindEnum = pgEnum('asset_kind', ['source', 'transcript', 'clip', 'thumbnail', 'analysis']);
+
+export const users = pgTable(
   'users',
   {
-    id: text('id').primaryKey(), // Clerk user ID
-    email: text('email').notNull().unique(),
-    fullName: text('full_name'),
+    id: varchar('id', { length: 255 }).primaryKey(), // Clerk user ID
+    email: varchar('email', { length: 255 }).unique(),
+    fullName: varchar('full_name', { length: 255 }),
     imageUrl: text('image_url'),
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
-    updatedAt: text('updated_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     emailIdx: index('idx_users_email').on(table.email),
   })
 );
 
-// ================================================================================
-// SUBSCRIPTIONS TABLE - Stripe subscription management
-// ================================================================================
-
-export const subscriptions = sqliteTable(
+export const subscriptions = pgTable(
   'subscriptions',
   {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
+    id: varchar('id', { length: 255 }).primaryKey(),
+    userId: varchar('user_id', { length: 255 })
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    stripeCustomerId: text('stripe_customer_id'),
-    stripeSubscriptionId: text('stripe_subscription_id'),
-    stripePriceId: text('stripe_price_id'),
-    status: text('status', {
-      enum: ['active', 'canceled', 'past_due', 'trialing', 'incomplete'],
-    }).notNull(),
-    currentPeriodStart: text('current_period_start'),
-    currentPeriodEnd: text('current_period_end'),
-    cancelAtPeriodEnd: integer('cancel_at_period_end', { mode: 'boolean' }).default(false),
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
-    updatedAt: text('updated_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
+    stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
+    stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
+    stripePriceId: varchar('stripe_price_id', { length: 255 }),
+    status: subscriptionStatusEnum('status').notNull(),
+    currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+    cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userIdIdx: index('idx_subscriptions_user_id').on(table.userId),
     stripeCustomerIdIdx: index('idx_subscriptions_stripe_customer_id').on(table.stripeCustomerId),
+    stripeSubscriptionIdIdx: index('idx_subscriptions_subscription_id').on(table.stripeSubscriptionId),
   })
 );
 
-// ================================================================================
-// PROJECTS TABLE - Video metadata and processing status
-// ================================================================================
-
-export const projects = sqliteTable(
+export const projects = pgTable(
   'projects',
   {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
+    id: varchar('id', { length: 255 }).primaryKey(),
+    userId: varchar('user_id', { length: 255 })
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
-    videoUid: text('video_uid').notNull(), // Cloudflare Stream video UID
+    sourceObjectKey: text('source_object_key').notNull(),
+    sourceBucket: text('source_bucket').notNull(),
     thumbnailUrl: text('thumbnail_url'),
-    duration: real('duration'), // seconds as decimal (nullable until Stream processes)
-    fileSize: integer('file_size'), // bytes (nullable until Stream processes)
-    status: text('status', {
-      enum: ['uploading', 'processing', 'transcribing', 'analyzing', 'completed', 'error'],
-    }).notNull(),
+    durationSeconds: doublePrecision('duration_seconds'),
+    fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }),
+    status: projectStatusEnum('status').notNull().default('uploading'),
+    priority: real('priority').default(0),
     errorMessage: text('error_message'),
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
-    updatedAt: text('updated_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
   },
   (table) => ({
     userIdIdx: index('idx_projects_user_id').on(table.userId),
@@ -91,57 +114,46 @@ export const projects = sqliteTable(
   })
 );
 
-// ================================================================================
-// TRANSCRIPTIONS TABLE - Whisper AI transcription results
-// ================================================================================
-
-export const transcriptions = sqliteTable(
+export const transcriptions = pgTable(
   'transcriptions',
   {
-    id: text('id').primaryKey(),
-    projectId: text('project_id')
+    id: varchar('id', { length: 255 }).primaryKey(),
+    projectId: varchar('project_id', { length: 255 })
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
-    text: text('text').notNull(), // Full transcript text
-    segments: text('segments').notNull(), // JSON array of timestamped segments
-    language: text('language'),
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
+    text: text('text').notNull(),
+    segments: jsonb('segments')
+      .$type<Record<string, unknown>[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
+    language: varchar('language', { length: 16 }),
+    durationSeconds: doublePrecision('duration_seconds'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     projectIdIdx: index('idx_transcriptions_project_id').on(table.projectId),
   })
 );
 
-// ================================================================================
-// SHORTS TABLE - AI-suggested viral clip moments
-// ================================================================================
-
-export const shorts = sqliteTable(
+export const shorts = pgTable(
   'shorts',
   {
-    id: text('id').primaryKey(),
-    projectId: text('project_id')
+    id: varchar('id', { length: 255 }).primaryKey(),
+    projectId: varchar('project_id', { length: 255 })
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     description: text('description').notNull(),
-    startTime: real('start_time').notNull(), // seconds
-    endTime: real('end_time').notNull(), // seconds
-    videoUrl: text('video_url'), // Cloudflare Stream clip URL
-    streamClipId: text('stream_clip_id'), // Cloudflare Stream clip ID
+    startTime: doublePrecision('start_time').notNull(),
+    endTime: doublePrecision('end_time').notNull(),
+    outputObjectKey: text('output_object_key'),
     thumbnailUrl: text('thumbnail_url'),
-    status: text('status', {
-      enum: ['pending', 'processing', 'completed', 'error'],
-    }).notNull(),
+    status: shortStatusEnum('status').notNull().default('pending'),
     errorMessage: text('error_message'),
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
-    updatedAt: text('updated_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     projectIdIdx: index('idx_shorts_project_id').on(table.projectId),
@@ -149,43 +161,48 @@ export const shorts = sqliteTable(
   })
 );
 
-// ================================================================================
-// PROCESSING_JOBS TABLE - Background job queue tracking
-// ================================================================================
-
-export const processingJobs = sqliteTable(
+export const processingJobs = pgTable(
   'processing_jobs',
   {
-    id: text('id').primaryKey(),
-    projectId: text('project_id')
-      .notNull()
+    id: varchar('id', { length: 255 }).primaryKey(),
+    projectId: varchar('project_id', { length: 255 })
       .references(() => projects.id, { onDelete: 'cascade' }),
-    type: text('type', {
-      enum: ['transcription', 'analysis', 'video_cut', 'stream_upload'],
-    }).notNull(),
-    status: text('status', {
-      enum: ['pending', 'processing', 'completed', 'error'],
-    }).notNull(),
-    progress: real('progress').default(0.0), // 0.0 to 100.0
+    shortId: varchar('short_id', { length: 255 }).references(() => shorts.id, { onDelete: 'cascade' }),
+    type: jobTypeEnum('type').notNull(),
+    status: jobStatusEnum('status').notNull().default('queued'),
+    payload: jsonb('payload'),
+    result: jsonb('result'),
     errorMessage: text('error_message'),
-    metadata: text('metadata'), // JSON metadata as text
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
-    updatedAt: text('updated_at')
-      .notNull()
-      .default(sql`(datetime('now'))`),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     projectIdIdx: index('idx_processing_jobs_project_id').on(table.projectId),
-    statusIdx: index('idx_processing_jobs_status').on(table.status),
-    typeIdx: index('idx_processing_jobs_type').on(table.type),
+    jobStatusIdx: index('idx_processing_jobs_status').on(table.status),
+    jobTypeIdx: index('idx_processing_jobs_type').on(table.type),
   })
 );
 
-// ================================================================================
-// TYPE EXPORTS - For use with InferSelectModel and InferInsertModel
-// ================================================================================
+export const mediaAssets = pgTable(
+  'media_assets',
+  {
+    id: varchar('id', { length: 255 }).primaryKey(),
+    projectId: varchar('project_id', { length: 255 })
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    shortId: varchar('short_id', { length: 255 }).references(() => shorts.id, { onDelete: 'set null' }),
+    kind: assetKindEnum('kind').notNull(),
+    bucket: text('bucket').notNull(),
+    objectKey: text('object_key').notNull(),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    projectKindIdx: index('idx_media_assets_project_kind').on(table.projectId, table.kind),
+  })
+);
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -204,3 +221,6 @@ export type NewShort = typeof shorts.$inferInsert;
 
 export type ProcessingJob = typeof processingJobs.$inferSelect;
 export type NewProcessingJob = typeof processingJobs.$inferInsert;
+
+export type MediaAsset = typeof mediaAssets.$inferSelect;
+export type NewMediaAsset = typeof mediaAssets.$inferInsert;

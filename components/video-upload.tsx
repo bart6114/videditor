@@ -4,10 +4,8 @@ import { Upload, FileVideo, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useApi } from '@/lib/api/client'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useAuth } from '@clerk/nextjs'
 import { formatFileSize } from '@/lib/utils'
-import * as tus from 'tus-js-client'
-
 interface VideoUploadProps {
   onUploadComplete: (projectId: string) => void
 }
@@ -59,51 +57,81 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
     setError(null)
 
     try {
-      // Request TUS upload URL from Worker
-      const { projectId, uploadUrl, videoUid } = await call<{
+      // Request presigned upload URL from the API
+      const { projectId, uploadUrl, contentType } = await call<{
         projectId: string
         uploadUrl: string
-        videoUid: string
-      }>('/api/upload/init', {
+        contentType: string
+      }>('/v1/uploads', {
         method: 'POST',
         body: JSON.stringify({
-          title: file.name.replace(/\.[^/.]+$/, ''), // Remove file extension
+          filename: file.name,
+          contentType: file.type,
+          fileSizeBytes: file.size,
         }),
       })
 
-      // Upload to Stream using TUS protocol (resumable)
-      await new Promise<void>((resolve, reject) => {
-        const upload = new tus.Upload(file, {
-          endpoint: uploadUrl,
-          retryDelays: [0, 3000, 5000, 10000, 20000],
-          metadata: {
-            filename: file.name,
-            filetype: file.type,
-          },
-          onError: (error) => {
-            console.error('TUS upload error:', error)
-            reject(error)
-          },
-          onProgress: (bytesUploaded, bytesTotal) => {
-            const percentage = Math.round((bytesUploaded / bytesTotal) * 100)
-            setProgress(percentage)
-          },
-          onSuccess: () => {
-            console.log('TUS upload complete for project:', projectId)
-            resolve()
-          },
-        })
+      // Validate presigned URL
+      if (!uploadUrl || !uploadUrl.startsWith('https://')) {
+        throw new Error('Invalid upload URL received from server')
+      }
 
-        // Start the upload
-        upload.start()
+      if (!projectId) {
+        throw new Error('No project ID received from server')
+      }
+
+      console.log('[Upload] Backend signed Content-Type:', contentType)
+      console.log('[Upload] Browser detected file.type:', file.type)
+      console.log('[Upload] Uploading to:', uploadUrl.split('?')[0]) // Log without query params
+
+      // Upload file directly to Tigris using XMLHttpRequest for progress tracking
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', uploadUrl, true)
+        // CRITICAL: Use the exact contentType that was signed into the presigned URL
+        // Using a different value will cause 403 Forbidden from Tigris
+        xhr.setRequestHeader('Content-Type', contentType)
+        console.log('[Upload] Sending PUT request with Content-Type:', contentType)
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentage = Math.round((event.loaded / event.total) * 100)
+            setProgress(percentage)
+          }
+        }
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setProgress(100)
+            resolve()
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`))
+          }
+        }
+
+        xhr.onerror = () => {
+          reject(new Error('Network error during upload'))
+        }
+
+        xhr.ontimeout = () => {
+          reject(new Error('Upload timed out'))
+        }
+
+        xhr.send(file)
       })
 
-      // Upload complete - Stream will process and send webhook
+      // Notify the API that upload finished so processing can begin
+      await call('/v1/uploads/complete', {
+        method: 'POST',
+        body: JSON.stringify({ projectId }),
+      })
+
+      // Upload complete - queue processing will handle transcription
       setFile(null)
       setProgress(0)
       onUploadComplete(projectId)
     } catch (error: any) {
-      console.error('Upload error:', error)
+      console.error('Upload failed:', error)
       setError(error.message || 'Failed to upload video')
     } finally {
       setUploading(false)

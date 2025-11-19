@@ -10,15 +10,14 @@ export async function getShortsByProjectId(db: DB, projectId: string) {
     .select()
     .from(shorts)
     .where(eq(shorts.projectId, projectId))
-    .orderBy(desc(shorts.createdAt))
-    .all();
+    .orderBy(desc(shorts.createdAt));
 }
 
 /**
  * Get short by ID (with ownership verification via project)
  */
 export async function getShortById(db: DB, shortId: string, userId: string) {
-  const result = await db
+  const [result] = await db
     .select({
       short: shorts,
       project: projects,
@@ -26,7 +25,7 @@ export async function getShortById(db: DB, shortId: string, userId: string) {
     .from(shorts)
     .innerJoin(projects, eq(shorts.projectId, projects.id))
     .where(and(eq(shorts.id, shortId), eq(projects.userId, userId)))
-    .get();
+    .limit(1);
 
   return result ? { ...result.short, project: result.project } : null;
 }
@@ -35,21 +34,23 @@ export async function getShortById(db: DB, shortId: string, userId: string) {
  * Create short
  */
 export async function createShort(db: DB, short: NewShort) {
-  return db.insert(shorts).values(short).run();
+  const [created] = await db.insert(shorts).values(short).returning();
+  return created;
 }
 
 /**
  * Update short
  */
 export async function updateShort(db: DB, shortId: string, updates: Partial<Short>) {
-  return db
+  const [updated] = await db
     .update(shorts)
     .set({
       ...updates,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(),
     })
     .where(eq(shorts.id, shortId))
-    .run();
+    .returning();
+  return updated ?? null;
 }
 
 /**
@@ -63,7 +64,8 @@ export async function deleteShort(db: DB, shortId: string, userId: string) {
   }
 
   // Delete the short
-  return db.delete(shorts).where(eq(shorts.id, shortId)).run();
+  const [deleted] = await db.delete(shorts).where(eq(shorts.id, shortId)).returning({ id: shorts.id });
+  return deleted ?? null;
 }
 
 /**
@@ -75,13 +77,14 @@ export async function updateShortStatus(
   status: Short['status'],
   errorMessage?: string
 ) {
-  return db
+  const [updated] = await db
     .update(shorts)
     .set({
       status,
       errorMessage: errorMessage ?? null,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(),
     })
     .where(eq(shorts.id, shortId))
-    .run();
+    .returning();
+  return updated ?? null;
 }

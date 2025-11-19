@@ -1,0 +1,46 @@
+# Python 3.13 with uv for VidEditor jobs worker
+FROM python:3.13-slim AS base
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for faster-whisper and FFmpeg
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# ======= Dependencies Stage =======
+FROM base AS deps
+
+# Copy only dependency files
+COPY apps/jobs/pyproject.toml apps/jobs/.python-version ./apps/jobs/
+
+# Install dependencies
+RUN cd apps/jobs && uv pip install --system -r pyproject.toml
+
+# ======= Runner Stage =======
+FROM base AS runner
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV NODE_ENV=production
+ENV PORT=8081
+
+# Copy dependencies from deps stage
+COPY --from=deps /usr/local/lib/python3.13 /usr/local/lib/python3.13
+
+# Copy application code
+COPY apps/jobs/ ./apps/jobs/
+
+# Create directory for faster-whisper models cache
+RUN mkdir -p /root/.cache/huggingface
+
+# Expose port
+EXPOSE 8081
+
+# Run the application
+WORKDIR /app/apps/jobs
+CMD ["python", "main.py"]

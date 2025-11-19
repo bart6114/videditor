@@ -1,0 +1,19 @@
+app = "videditor-jobs"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.jobs"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8081"
+
+[http_service]
+  internal_port = 8081
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = false
+  processes = ["app"]
+  [http_service.concurrency]
+    hard_limit = 10
+    soft_limit = 5
