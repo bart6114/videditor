@@ -1,7 +1,8 @@
 """Database connection and session management."""
 
+import ssl
 from typing import AsyncGenerator
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -24,38 +25,37 @@ def init_db(config: JobRunnerConfig) -> AsyncEngine:
     """
     global _engine, _session_factory
 
-    # Convert postgres:// to postgresql+asyncpg:// and fix SSL params
+    # Convert postgres:// to postgresql+asyncpg://
     database_url = config.DATABASE_URL
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
     elif database_url.startswith("postgresql://"):
         database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-    # Parse URL and convert sslmode to ssl for asyncpg
+    # Parse URL and strip query parameters that asyncpg doesn't support
+    # Neon provides: ?sslmode=require&channel_binding=require
+    # asyncpg doesn't support these as connection kwargs (only in DSN format)
     parsed = urlparse(database_url)
-    query_params = parse_qs(parsed.query)
 
-    # Convert sslmode to ssl (asyncpg uses 'ssl' not 'sslmode')
-    if "sslmode" in query_params:
-        sslmode = query_params["sslmode"][0]
-        del query_params["sslmode"]
-        # Map common sslmode values to asyncpg's ssl parameter
-        if sslmode in ("require", "verify-ca", "verify-full"):
-            query_params["ssl"] = ["true"]
-
-    # Rebuild query string
-    new_query = urlencode(query_params, doseq=True)
-    database_url = urlunparse((
+    # Remove query string entirely and handle SSL via connect_args
+    clean_url = urlunparse((
         parsed.scheme,
         parsed.netloc,
         parsed.path,
         parsed.params,
-        new_query,
+        "",  # Empty query string
         parsed.fragment,
     ))
 
+    # Create SSL context for secure connections to Neon
+    # Neon requires SSL but typically doesn't require certificate verification
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+
     _engine = create_async_engine(
-        database_url,
+        clean_url,
+        connect_args={"ssl": ssl_context},
         pool_size=10,
         max_overflow=20,
         pool_pre_ping=True,
