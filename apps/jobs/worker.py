@@ -2,9 +2,10 @@
 
 import asyncio
 import time
+from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from config import JobRunnerConfig
 from database import get_session_factory
@@ -69,8 +70,25 @@ class JobWorker:
                     self.logger.debug("No queued jobs found")
                     return
 
-                job_ids = [job.id for job in jobs]
-                self.logger.info("Claimed jobs from queue", count=len(jobs), job_ids=job_ids)
+                # Map job types to emojis for better visibility
+                job_info = [{"id": job.id, "type": job.type} for job in jobs]
+                self.logger.info("🔄 Claimed jobs from queue", count=len(jobs), jobs=job_info)
+
+                # Update all claimed jobs to "running" status within the lock transaction
+                # This prevents race conditions where another worker could claim the same job
+                now = datetime.now(timezone.utc)
+                await session.execute(
+                    update(ProcessingJob)
+                    .where(ProcessingJob.id.in_(job_ids))
+                    .values(
+                        status=JobStatus.RUNNING.value,
+                        started_at=now,
+                        updated_at=now,
+                    )
+                )
+                await session.commit()
+
+                self.logger.info("Updated jobs to running status", count=len(jobs), job_ids=job_ids)
 
                 # Process each job concurrently
                 for job in jobs:
@@ -96,11 +114,32 @@ class JobWorker:
             await self.processor.process_job(job_id)
         except Exception as error:
             self.logger.error(
-                "Job processing failed",
+                "Job processing failed catastrophically",
                 job_id=job_id,
                 error=str(error),
                 exc_info=True,
             )
+            # Ensure job is marked as failed if processor didn't handle it
+            try:
+                session_factory = get_session_factory()
+                async with session_factory() as session:
+                    await session.execute(
+                        update(ProcessingJob)
+                        .where(ProcessingJob.id == job_id)
+                        .values(
+                            status=JobStatus.FAILED.value,
+                            error_message=f"Catastrophic failure: {str(error)}",
+                            updated_at=datetime.now(timezone.utc),
+                        )
+                    )
+                    await session.commit()
+            except Exception as cleanup_error:
+                self.logger.error(
+                    "Failed to mark job as failed",
+                    job_id=job_id,
+                    cleanup_error=str(cleanup_error),
+                    exc_info=True,
+                )
         finally:
             self.active_jobs.discard(job_id)
 

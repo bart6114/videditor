@@ -37,6 +37,7 @@ export const projectStatusEnum = pgEnum('project_status', [
 export const shortStatusEnum = pgEnum('short_status', ['pending', 'processing', 'completed', 'error']);
 
 export const jobTypeEnum = pgEnum('job_type', [
+  'thumbnail',
   'transcription',
   'analysis',
   'cutting',

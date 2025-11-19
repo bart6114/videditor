@@ -33,16 +33,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const db = getDb();
   const tigrisClient = createTigrisClient();
 
+  // Generate projectId first so we can use it in the object key
+  const projectId = crypto.randomUUID();
+
   const presigned = await createPresignedUpload(tigrisClient, {
     filename: payload.filename,
     contentType: payload.contentType,
     userId: authResult.userId,
+    projectId,
   });
 
   const [project] = await db
     .insert(projects)
     .values({
-      id: crypto.randomUUID(),
+      id: projectId,
       userId: authResult.userId,
       title: payload.filename,
       sourceObjectKey: presigned.objectKey,

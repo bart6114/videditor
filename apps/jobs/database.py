@@ -59,7 +59,7 @@ def init_db(config: JobRunnerConfig) -> AsyncEngine:
         pool_size=10,
         max_overflow=20,
         pool_pre_ping=True,
-        echo=config.NODE_ENV == "development",
+        echo=False,  # Disable SQL query logging to reduce noise from polling
     )
 
     _session_factory = async_sessionmaker(

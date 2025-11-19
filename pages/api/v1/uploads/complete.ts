@@ -49,13 +49,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 404, 'Project not found');
   }
 
+  // Enqueue thumbnail generation job (which will then enqueue transcription)
   await enqueueJob({
     projectId: project.id,
-    type: 'transcription',
+    type: 'thumbnail',
     payload: {
       projectId: project.id,
       sourceObjectKey: project.sourceObjectKey,
       sourceBucket: project.sourceBucket,
+      userId: authResult.userId,
     },
   });
 

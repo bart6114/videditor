@@ -17,7 +17,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ENUM, JSONB
 from sqlalchemy.orm import declarative_base
 
 # SQLAlchemy metadata
@@ -29,6 +29,7 @@ Base = declarative_base(metadata=metadata)
 class JobType(str, Enum):
     """Job type enumeration."""
 
+    THUMBNAIL = "thumbnail"
     TRANSCRIPTION = "transcription"
     ANALYSIS = "analysis"
     CUTTING = "cutting"
@@ -69,8 +70,8 @@ class ProcessingJob(Base):
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=True, index=True)
     short_id = Column(String(255), nullable=True)
-    type = Column(String(50), nullable=False, index=True)  # job_type enum
-    status = Column(String(50), nullable=False, default="queued", index=True)  # job_status enum
+    type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'cutting', 'delivery', name='job_type', create_type=False), nullable=False, index=True)
+    status = Column(ENUM('queued', 'running', 'succeeded', 'failed', 'canceled', name='job_status', create_type=False), nullable=False, default="queued", index=True)
     payload = Column(JSONB, nullable=True)
     result = Column(JSONB, nullable=True)
     error_message = Column(Text, nullable=True)
@@ -101,7 +102,7 @@ class Project(Base):
     thumbnail_url = Column(Text, nullable=True)
     duration_seconds = Column(Double, nullable=True)
     file_size_bytes = Column(BigInteger, nullable=True)
-    status = Column(String(50), nullable=False, default="uploading")  # project_status enum
+    status = Column(ENUM('uploading', 'ready', 'queued', 'processing', 'transcribing', 'analyzing', 'rendering', 'delivering', 'completed', 'error', name='project_status', create_type=False), nullable=False, default="uploading")
     priority = Column(Float, nullable=True, default=0)
     error_message = Column(Text, nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=True)

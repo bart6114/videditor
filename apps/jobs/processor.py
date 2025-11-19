@@ -13,8 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import JobRunnerConfig
 from database import get_session_factory
 from models import JobStatus, JobType, ProcessingJob, Project, ProjectStatus, Transcription
-from utils.storage import download_from_tigris
+from utils.storage import download_from_tigris, upload_to_tigris
 from utils.transcription import transcribe_video
+from utils.ffmpeg import extract_thumbnail
 
 
 class JobProcessor:
@@ -48,7 +49,7 @@ class JobProcessor:
 
         try:
             async with session_factory() as session:
-                # Fetch job
+                # Fetch job (already set to "running" by worker)
                 stmt = select(ProcessingJob).where(ProcessingJob.id == job_id).limit(1)
                 result = await session.execute(stmt)
                 job = result.scalar_one_or_none()
@@ -57,30 +58,29 @@ class JobProcessor:
                     self.logger.warning("Job not found", job_id=job_id)
                     return
 
-                if job.status != JobStatus.QUEUED.value:
+                if job.status != JobStatus.RUNNING.value:
                     self.logger.info(
-                        "Job is not queued, ignoring trigger",
+                        "Job is not running, ignoring trigger",
                         job_id=job_id,
                         status=job.status,
                     )
                     return
 
-                # Update to running
-                await session.execute(
-                    update(ProcessingJob)
-                    .where(ProcessingJob.id == job_id)
-                    .values(
-                        status=JobStatus.RUNNING.value,
-                        started_at=datetime.now(timezone.utc),
-                        updated_at=datetime.now(timezone.utc),
-                    )
-                )
-                await session.commit()
+                # Log with emoji based on job type
+                job_emoji = {
+                    JobType.THUMBNAIL.value: "🖼️",
+                    JobType.TRANSCRIPTION.value: "📝",
+                    JobType.ANALYSIS.value: "🤖",
+                    JobType.CUTTING.value: "✂️",
+                    JobType.DELIVERY.value: "📦",
+                }.get(job.type, "⚙️")
 
-                self.logger.info("Started job execution", job_id=job_id, type=job.type)
+                self.logger.info(f"{job_emoji} Processing {job.type} job", job_id=job_id, type=job.type)
 
                 # Process based on type
-                if job.type == JobType.TRANSCRIPTION.value:
+                if job.type == JobType.THUMBNAIL.value:
+                    result_data = await self._handle_thumbnail(job, session)
+                elif job.type == JobType.TRANSCRIPTION.value:
                     result_data = await self._handle_transcription(job, session)
                 elif job.type == JobType.ANALYSIS.value:
                     result_data = await self._handle_analysis(job, session)
@@ -104,7 +104,7 @@ class JobProcessor:
                 )
                 await session.commit()
 
-                self.logger.info("Job completed successfully", job_id=job_id)
+                self.logger.info(f"✅ {job.type} job completed successfully", job_id=job_id, type=job.type)
 
         except Exception as error:
             self.logger.error("Job failed", job_id=job_id, error=str(error), exc_info=True)
@@ -121,6 +121,161 @@ class JobProcessor:
                 await session.commit()
         finally:
             self.active_jobs.discard(job_id)
+
+    async def _handle_thumbnail(
+        self, job: ProcessingJob, session: AsyncSession
+    ) -> dict[str, Any]:
+        """
+        Handle thumbnail generation job.
+
+        Args:
+            job: Processing job
+            session: Database session
+
+        Returns:
+            Job result dictionary
+        """
+        if not job.project_id:
+            raise ValueError("Thumbnail job requires projectId")
+
+        payload = job.payload or {}
+        source_object_key = payload.get("sourceObjectKey")
+        source_bucket = payload.get("sourceBucket")
+        user_id = payload.get("userId")
+
+        if not source_object_key or not source_bucket or not user_id:
+            raise ValueError("Thumbnail job requires sourceObjectKey, sourceBucket, and userId in payload")
+
+        self.logger.info(
+            "🖼️  Starting thumbnail generation",
+            job_id=job.id,
+            project_id=job.project_id,
+        )
+
+        # Update project status
+        await session.execute(
+            update(Project)
+            .where(Project.id == job.project_id)
+            .values(
+                status=ProjectStatus.PROCESSING.value,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await session.commit()
+
+        # Create temporary files for video and thumbnail
+        video_fd, video_temp_path = tempfile.mkstemp(
+            suffix=".mp4",
+            prefix=f"video-{job.id}-{uuid.uuid4()}-",
+        )
+        os.close(video_fd)
+
+        thumbnail_fd, thumbnail_temp_path = tempfile.mkstemp(
+            suffix=".jpg",
+            prefix=f"thumbnail-{job.id}-{uuid.uuid4()}-",
+        )
+        os.close(thumbnail_fd)
+
+        try:
+            # Download video from Tigris
+            self.logger.info(
+                "Downloading video for thumbnail extraction",
+                job_id=job.id,
+                source_object_key=source_object_key,
+            )
+            await download_from_tigris(
+                self.config,
+                source_bucket,
+                source_object_key,
+                video_temp_path,
+            )
+
+            # Extract thumbnail
+            self.logger.info(
+                "Extracting thumbnail",
+                job_id=job.id,
+                video_path=video_temp_path,
+            )
+            await extract_thumbnail(
+                video_path=video_temp_path,
+                output_path=thumbnail_temp_path,
+                timestamp=None,  # Will extract at 25% into video
+                width=640,
+                height=360,
+                quality=5,
+            )
+
+            # Generate thumbnail object key
+            # Pattern: {userId}/projects/{projectId}/{timestamp}-thumbnail.jpg
+            thumbnail_object_key = f"{user_id}/projects/{job.project_id}/{int(datetime.now(timezone.utc).timestamp() * 1000)}-thumbnail.jpg"
+
+            # Upload thumbnail to Tigris
+            self.logger.info(
+                "Uploading thumbnail to Tigris",
+                job_id=job.id,
+                thumbnail_object_key=thumbnail_object_key,
+            )
+            await upload_to_tigris(
+                self.config,
+                source_bucket,
+                thumbnail_object_key,
+                thumbnail_temp_path,
+                content_type="image/jpeg",
+            )
+
+            # Update project with thumbnail URL
+            await session.execute(
+                update(Project)
+                .where(Project.id == job.project_id)
+                .values(
+                    thumbnail_url=thumbnail_object_key,
+                    status=ProjectStatus.READY.value,
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
+            await session.commit()
+
+            # Enqueue transcription job
+            self.logger.info(
+                "Enqueueing transcription job",
+                job_id=job.id,
+                project_id=job.project_id,
+            )
+            await self._enqueue_job(
+                session,
+                project_id=job.project_id,
+                job_type=JobType.TRANSCRIPTION,
+                payload={
+                    "projectId": job.project_id,
+                    "sourceObjectKey": source_object_key,
+                    "sourceBucket": source_bucket,
+                },
+            )
+            await session.commit()
+
+            return {
+                "message": "Thumbnail generated successfully",
+                "thumbnailObjectKey": thumbnail_object_key,
+            }
+
+        finally:
+            # Clean up temporary files
+            for temp_path in [video_temp_path, thumbnail_temp_path]:
+                try:
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+                        self.logger.debug(
+                            "Cleaned up temporary file",
+                            job_id=job.id,
+                            temp_path=temp_path,
+                        )
+                except Exception as error:
+                    self.logger.warning(
+                        "Failed to clean up temporary file",
+                        job_id=job.id,
+                        temp_path=temp_path,
+                        error=str(error),
+                    )
 
     async def _handle_transcription(
         self, job: ProcessingJob, session: AsyncSession
@@ -146,7 +301,7 @@ class JobProcessor:
             raise ValueError("Transcription job requires sourceObjectKey and sourceBucket in payload")
 
         self.logger.info(
-            "Starting transcription",
+            "📝 Starting transcription",
             job_id=job.id,
             project_id=job.project_id,
         )

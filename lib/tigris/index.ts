@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'node:crypto';
 
@@ -6,6 +6,7 @@ type CreateUploadOptions = {
   filename: string;
   contentType: string;
   userId: string;
+  projectId: string;
 };
 
 export type PresignedUpload = {
@@ -30,7 +31,7 @@ export async function createPresignedUpload(
   client: S3Client,
   options: CreateUploadOptions
 ): Promise<PresignedUpload> {
-  const objectKey = buildSourceObjectKey(options.userId, options.filename);
+  const objectKey = buildSourceObjectKey(options.userId, options.projectId);
   const command = new PutObjectCommand({
     Bucket: process.env.TIGRIS_BUCKET!,
     Key: objectKey,
@@ -42,11 +43,25 @@ export async function createPresignedUpload(
   return { objectKey, uploadUrl, bucket: process.env.TIGRIS_BUCKET! };
 }
 
-export function buildSourceObjectKey(userId: string, filename: string) {
-  const safeFilename = filename
-    .replace(/[^a-zA-Z0-9.\-_]/g, '-')
-    .replace(/-+/g, '-')
-    .toLowerCase();
+export async function createPresignedDownload(
+  client: S3Client,
+  objectKey: string,
+  expiresIn: number = 3600
+): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: process.env.TIGRIS_BUCKET!,
+    Key: objectKey,
+  });
 
-  return `projects/${userId}/${Date.now()}-${crypto.randomUUID()}-${safeFilename}`;
+  return await getSignedUrl(client, command, { expiresIn });
+}
+
+export function buildSourceObjectKey(userId: string, projectId: string) {
+  const timestamp = Date.now();
+  return `${userId}/projects/${projectId}/${timestamp}-video.mp4`;
+}
+
+export function buildThumbnailObjectKey(userId: string, projectId: string) {
+  const timestamp = Date.now();
+  return `${userId}/projects/${projectId}/${timestamp}-thumbnail.jpg`;
 }

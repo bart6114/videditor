@@ -57,13 +57,11 @@ async def download_from_tigris(
             raise RuntimeError("No response body from Tigris")
 
         # Stream the response body to file
+        # Note: aioboto3's StreamingBody.read() doesn't accept size parameter
         async with response["Body"] as stream:
             async with aiofiles.open(destination_path, "wb") as f:
-                while True:
-                    chunk = await stream.read(8192)  # 8KB chunks
-                    if not chunk:
-                        break
-                    await f.write(chunk)
+                data = await stream.read()
+                await f.write(data)
 
 
 async def upload_to_tigris(
