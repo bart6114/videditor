@@ -46,8 +46,6 @@ export const jobTypeEnum = pgEnum('job_type', [
 
 export const jobStatusEnum = pgEnum('job_status', ['queued', 'running', 'succeeded', 'failed', 'canceled']);
 
-export const assetKindEnum = pgEnum('asset_kind', ['source', 'transcript', 'clip', 'thumbnail', 'analysis']);
-
 export const users = pgTable(
   'users',
   {
@@ -186,25 +184,6 @@ export const processingJobs = pgTable(
   })
 );
 
-export const mediaAssets = pgTable(
-  'media_assets',
-  {
-    id: varchar('id', { length: 255 }).primaryKey(),
-    projectId: varchar('project_id', { length: 255 })
-      .references(() => projects.id, { onDelete: 'cascade' }),
-    shortId: varchar('short_id', { length: 255 }).references(() => shorts.id, { onDelete: 'set null' }),
-    kind: assetKindEnum('kind').notNull(),
-    bucket: text('bucket').notNull(),
-    objectKey: text('object_key').notNull(),
-    sizeBytes: bigint('size_bytes', { mode: 'number' }),
-    metadata: jsonb('metadata'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    projectKindIdx: index('idx_media_assets_project_kind').on(table.projectId, table.kind),
-  })
-);
-
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
@@ -222,6 +201,3 @@ export type NewShort = typeof shorts.$inferInsert;
 
 export type ProcessingJob = typeof processingJobs.$inferSelect;
 export type NewProcessingJob = typeof processingJobs.$inferInsert;
-
-export type MediaAsset = typeof mediaAssets.$inferSelect;
-export type NewMediaAsset = typeof mediaAssets.$inferInsert;

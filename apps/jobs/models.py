@@ -61,6 +61,15 @@ class ProjectStatus(str, Enum):
     ERROR = "error"
 
 
+class ShortStatus(str, Enum):
+    """Short status enumeration."""
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    ERROR = "error"
+
+
 # SQLAlchemy ORM Models
 class ProcessingJob(Base):
     """Processing job database model."""
@@ -122,6 +131,26 @@ class Transcription(Base):
     segments = Column(JSONB, nullable=False, default=[])
     language = Column(String(16), nullable=True)
     duration_seconds = Column(Double, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class Short(Base):
+    """Short clip database model."""
+
+    __tablename__ = "shorts"
+
+    id = Column(String(255), primary_key=True)
+    project_id = Column(String(255), nullable=False, index=True)
+    title = Column(Text, nullable=False)
+    description = Column(Text, nullable=False)
+    start_time = Column(Double, nullable=False)
+    end_time = Column(Double, nullable=False)
+    output_object_key = Column(Text, nullable=True)
+    thumbnail_url = Column(Text, nullable=True)
+    status = Column(ENUM('pending', 'processing', 'completed', 'error', name='short_status', create_type=False), nullable=False, default="pending")
+    error_message = Column(Text, nullable=True)
+    metadata_ = Column("metadata", JSONB, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 

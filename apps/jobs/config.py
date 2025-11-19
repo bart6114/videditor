@@ -40,6 +40,9 @@ class JobRunnerConfig(BaseSettings):
     # FFmpeg (optional)
     FFMPEG_BINARY: Optional[str] = None
 
+    # AI/LLM services
+    OPENROUTER_API_KEY: str = Field(min_length=1)
+
     # Tigris storage
     TIGRIS_ENDPOINT: HttpUrl
     TIGRIS_REGION: str = Field(min_length=1)

@@ -71,6 +71,7 @@ class JobWorker:
                     return
 
                 # Map job types to emojis for better visibility
+                job_ids = [job.id for job in jobs]
                 job_info = [{"id": job.id, "type": job.type} for job in jobs]
                 self.logger.info("🔄 Claimed jobs from queue", count=len(jobs), jobs=job_info)
 

@@ -49,6 +49,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
+  // Generate presigned URLs for short thumbnails
+  const shortsWithPresignedUrls = await Promise.all(
+    result.shorts.map(async (short) => {
+      if (!short.thumbnailUrl) {
+        return short;
+      }
+
+      try {
+        const tigrisClient = createTigrisClient();
+        const presignedThumbnailUrl = await createPresignedDownload(tigrisClient, short.thumbnailUrl, 3600);
+        return {
+          ...short,
+          thumbnailUrl: presignedThumbnailUrl,
+        };
+      } catch (error) {
+        console.error('Failed to generate presigned URL for short thumbnail:', short.thumbnailUrl, error);
+        // Return short with original thumbnailUrl on error
+        return short;
+      }
+    })
+  );
+
   return success(res, {
     ...result,
     project: {
@@ -56,5 +78,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       thumbnailUrl,
       videoUrl,
     },
+    shorts: shortsWithPresignedUrls,
   });
 }

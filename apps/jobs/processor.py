@@ -12,10 +12,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import JobRunnerConfig
 from database import get_session_factory
-from models import JobStatus, JobType, ProcessingJob, Project, ProjectStatus, Transcription
+from models import (
+    JobStatus,
+    JobType,
+    ProcessingJob,
+    Project,
+    ProjectStatus,
+    Short,
+    ShortStatus,
+    Transcription,
+)
 from utils.storage import download_from_tigris, upload_to_tigris
 from utils.transcription import transcribe_video
-from utils.ffmpeg import extract_thumbnail
+from utils.ffmpeg import extract_clip, extract_thumbnail
+from utils.ai import analyze_transcript_for_shorts
 
 
 class JobProcessor:
@@ -418,7 +428,7 @@ class JobProcessor:
         self, job: ProcessingJob, session: AsyncSession
     ) -> dict[str, Any]:
         """
-        Handle analysis job (stub).
+        Handle analysis job - AI-powered short generation.
 
         Args:
             job: Processing job
@@ -430,29 +440,266 @@ class JobProcessor:
         if not job.project_id:
             raise ValueError("Analysis job requires projectId")
 
+        payload = job.payload or {}
+        shorts_count = payload.get("shortsCount", 3)
+        custom_prompt = payload.get("customPrompt")
+
         self.logger.info(
-            "Analysis job (stub implementation)",
+            "🤖 Starting AI analysis for short generation",
             job_id=job.id,
             project_id=job.project_id,
+            shorts_count=shorts_count,
         )
 
-        # TODO: Implement AI analysis of transcription to identify viral moments
-
-        # Enqueue cutting job
-        self.logger.info(
-            "Enqueueing cutting job",
-            job_id=job.id,
-            project_id=job.project_id,
-        )
-        await self._enqueue_job(
-            session,
-            project_id=job.project_id,
-            job_type=JobType.CUTTING,
-            payload={"projectId": job.project_id},
+        # Update project status
+        await session.execute(
+            update(Project)
+            .where(Project.id == job.project_id)
+            .values(
+                status=ProjectStatus.ANALYZING.value,
+                updated_at=datetime.now(timezone.utc),
+            )
         )
         await session.commit()
 
-        return {"message": "Analysis completed (stub)"}
+        # Fetch project to get source video info
+        project_stmt = select(Project).where(Project.id == job.project_id).limit(1)
+        project_result = await session.execute(project_stmt)
+        project = project_result.scalar_one_or_none()
+
+        if not project:
+            raise ValueError(f"Project not found: {job.project_id}")
+
+        # Fetch transcription
+        transcription_stmt = (
+            select(Transcription).where(Transcription.project_id == job.project_id).limit(1)
+        )
+        transcription_result = await session.execute(transcription_stmt)
+        transcription = transcription_result.scalar_one_or_none()
+
+        if not transcription:
+            raise ValueError(f"No transcription found for project: {job.project_id}")
+
+        if not transcription.segments:
+            raise ValueError("Transcription has no segments")
+
+        # Call AI to analyze transcript and suggest shorts
+        self.logger.info(
+            "Calling OpenRouter AI for short suggestions",
+            job_id=job.id,
+            num_segments=len(transcription.segments),
+        )
+
+        suggestions = await analyze_transcript_for_shorts(
+            api_key=self.config.OPENROUTER_API_KEY,
+            transcript_segments=transcription.segments,
+            num_shorts=shorts_count,
+            custom_prompt=custom_prompt,
+        )
+
+        self.logger.info(
+            "Received short suggestions from AI",
+            job_id=job.id,
+            num_suggestions=len(suggestions),
+        )
+
+        # Download source video once for all clips
+        temp_fd, temp_video_path = tempfile.mkstemp(
+            suffix=".mp4",
+            prefix=f"source-{job.id}-{uuid.uuid4()}-",
+        )
+        os.close(temp_fd)
+
+        shorts_created = []
+
+        try:
+            # Download source video
+            self.logger.info(
+                "Downloading source video",
+                job_id=job.id,
+                source_object_key=project.source_object_key,
+            )
+            await download_from_tigris(
+                self.config,
+                project.source_bucket,
+                project.source_object_key,
+                temp_video_path,
+            )
+
+            # Process each suggested short
+            for idx, suggestion in enumerate(suggestions):
+                short_id = str(uuid.uuid4())
+
+                self.logger.info(
+                    f"✂️ Processing short {idx + 1}/{len(suggestions)}",
+                    job_id=job.id,
+                    short_id=short_id,
+                    start=suggestion.start_time,
+                    end=suggestion.end_time,
+                    duration=suggestion.duration,
+                )
+
+                # Create temp paths for clip and thumbnail
+                temp_clip_fd, temp_clip_path = tempfile.mkstemp(
+                    suffix=".mp4",
+                    prefix=f"clip-{short_id}-",
+                )
+                os.close(temp_clip_fd)
+
+                temp_thumb_fd, temp_thumb_path = tempfile.mkstemp(
+                    suffix=".jpg",
+                    prefix=f"thumb-{short_id}-",
+                )
+                os.close(temp_thumb_fd)
+
+                try:
+                    # Extract clip using FFmpeg (with stream copy)
+                    await extract_clip(
+                        video_path=temp_video_path,
+                        output_path=temp_clip_path,
+                        start_time=suggestion.start_time,
+                        end_time=suggestion.end_time,
+                    )
+
+                    # Extract thumbnail from clip (at midpoint)
+                    clip_midpoint = suggestion.duration / 2
+                    await extract_thumbnail(
+                        video_path=temp_clip_path,
+                        output_path=temp_thumb_path,
+                        timestamp=clip_midpoint,
+                        width=640,
+                        height=360,
+                    )
+
+                    # Upload clip to Tigris
+                    clip_object_key = f"{project.user_id}/projects/{job.project_id}/shorts/{short_id}.mp4"
+                    self.logger.info(
+                        "Uploading clip to Tigris",
+                        short_id=short_id,
+                        object_key=clip_object_key,
+                    )
+                    await upload_to_tigris(
+                        self.config,
+                        self.config.TIGRIS_BUCKET,
+                        clip_object_key,
+                        temp_clip_path,
+                        content_type="video/mp4",
+                    )
+
+                    # Upload thumbnail to Tigris
+                    thumb_object_key = f"{project.user_id}/projects/{job.project_id}/shorts/{short_id}-thumb.jpg"
+                    await upload_to_tigris(
+                        self.config,
+                        self.config.TIGRIS_BUCKET,
+                        thumb_object_key,
+                        temp_thumb_path,
+                        content_type="image/jpeg",
+                    )
+
+                    # Store object key (will be presigned by API)
+                    thumbnail_url = thumb_object_key
+
+                    # Generate title from transcription (first 50 chars)
+                    title = suggestion.transcription[:50].strip()
+                    if len(suggestion.transcription) > 50:
+                        title += "..."
+
+                    # Create short record in database
+                    short = Short(
+                        id=short_id,
+                        project_id=job.project_id,
+                        title=title,
+                        description=suggestion.transcription,
+                        start_time=suggestion.start_time,
+                        end_time=suggestion.end_time,
+                        output_object_key=clip_object_key,
+                        thumbnail_url=thumbnail_url,
+                        status=ShortStatus.COMPLETED.value,
+                    )
+                    session.add(short)
+                    await session.commit()
+
+                    shorts_created.append(
+                        {
+                            "id": short_id,
+                            "title": title,
+                            "duration": suggestion.duration,
+                        }
+                    )
+
+                    self.logger.info(
+                        "✅ Short created successfully",
+                        short_id=short_id,
+                        title=title,
+                    )
+
+                except Exception as error:
+                    self.logger.error(
+                        "Failed to process short",
+                        short_id=short_id,
+                        error=str(error),
+                    )
+                    # Create short record with error status
+                    short = Short(
+                        id=short_id,
+                        project_id=job.project_id,
+                        title=f"Short {idx + 1} (failed)",
+                        description=suggestion.transcription,
+                        start_time=suggestion.start_time,
+                        end_time=suggestion.end_time,
+                        status=ShortStatus.ERROR.value,
+                        error_message=str(error),
+                    )
+                    session.add(short)
+                    await session.commit()
+
+                finally:
+                    # Clean up temp files for this short
+                    for temp_path in [temp_clip_path, temp_thumb_path]:
+                        try:
+                            if os.path.exists(temp_path):
+                                os.unlink(temp_path)
+                        except Exception as cleanup_error:
+                            self.logger.warning(
+                                "Failed to clean up temp file",
+                                path=temp_path,
+                                error=str(cleanup_error),
+                            )
+
+            # Update project status to completed
+            await session.execute(
+                update(Project)
+                .where(Project.id == job.project_id)
+                .values(
+                    status=ProjectStatus.COMPLETED.value,
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
+            await session.commit()
+
+            return {
+                "message": "Analysis and short generation completed",
+                "shortsCreated": len(shorts_created),
+                "shorts": shorts_created,
+            }
+
+        finally:
+            # Clean up source video
+            try:
+                if os.path.exists(temp_video_path):
+                    os.unlink(temp_video_path)
+                    self.logger.debug(
+                        "Cleaned up temporary source video",
+                        job_id=job.id,
+                        temp_video_path=temp_video_path,
+                    )
+            except Exception as error:
+                self.logger.warning(
+                    "Failed to clean up temporary source video",
+                    job_id=job.id,
+                    temp_video_path=temp_video_path,
+                    error=str(error),
+                )
 
     async def _handle_cutting(
         self, job: ProcessingJob, session: AsyncSession

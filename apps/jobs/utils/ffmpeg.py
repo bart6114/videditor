@@ -123,3 +123,71 @@ async def extract_thumbnail(
             output_path=output_path,
         )
         raise
+
+
+async def extract_clip(
+    video_path: str,
+    output_path: str,
+    start_time: float,
+    end_time: float,
+) -> None:
+    """
+    Extract a clip from a video using stream copy (no re-encoding).
+
+    Args:
+        video_path: Path to the input video file
+        output_path: Path where the clip should be saved
+        start_time: Start time in seconds
+        end_time: End time in seconds
+
+    Raises:
+        RuntimeError: If ffmpeg command fails
+    """
+    try:
+        # Ensure output directory exists
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Build ffmpeg command with stream copy
+        # -ss: seek to start time (before -i for fast seek)
+        # -to: end time (absolute time, not duration)
+        # -i: input file
+        # -c copy: copy streams without re-encoding (fast, lossless)
+        # -avoid_negative_ts make_zero: fix timestamp issues
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-ss", str(start_time),
+            "-to", str(end_time),
+            "-i", video_path,
+            "-c", "copy",
+            "-avoid_negative_ts", "make_zero",
+            "-y",  # Overwrite output file
+            output_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            raise RuntimeError(f"ffmpeg failed: {error_msg}")
+
+        logger.info(
+            "extracted_clip",
+            video_path=video_path,
+            output_path=output_path,
+            start_time=start_time,
+            end_time=end_time,
+            duration=end_time - start_time,
+        )
+
+    except Exception as e:
+        logger.error(
+            "failed_to_extract_clip",
+            error=str(e),
+            video_path=video_path,
+            output_path=output_path,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        raise
