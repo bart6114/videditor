@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { VideoLightbox } from '@/components/video-lightbox'
 import {
   Sparkles,
   Download,
@@ -47,7 +48,9 @@ export default function ProjectDetail() {
   const [customPrompt, setCustomPrompt] = useState('')
   const [currentTime, setCurrentTime] = useState(0)
   const [selectedShort, setSelectedShort] = useState<Short | null>(null)
-  const [transcriptionExpanded, setTranscriptionExpanded] = useState(false)
+  const [transcriptionExpanded, setTranscriptionExpanded] = useState(false) // Collapsed by default
+  const [downloadingAll, setDownloadingAll] = useState(false)
+  const [downloadingShortId, setDownloadingShortId] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -101,11 +104,73 @@ export default function ProjectDetail() {
   }
 
   async function handleDownloadShort(short: Short) {
-    alert(`Download support for ${short.title} is coming soon as part of the new pipeline.`)
+    setDownloadingShortId(short.id)
+    try {
+      const data = await call<{ downloadUrl: string; filename: string }>(
+        `/v1/projects/${id}/shorts/${short.id}/download`
+      )
+
+      // Trigger browser download
+      const a = document.createElement('a')
+      a.href = data.downloadUrl
+      a.download = `${project?.title || 'Project'} - ${data.filename}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error downloading short:', error)
+      alert(error instanceof Error ? error.message : 'Failed to download short')
+    } finally {
+      setDownloadingShortId(null)
+    }
   }
 
   async function handleDownloadAll() {
-    alert(`Bulk downloads will return soon. ${shorts.length} shorts ready in queue.`)
+    if (shorts.length === 0) return
+
+    // Check if all shorts are completed
+    const incompleteShorts = shorts.filter(
+      (short) => short.status !== 'completed'
+    )
+
+    if (incompleteShorts.length > 0) {
+      const completedCount = shorts.length - incompleteShorts.length
+      alert(
+        `Cannot download: ${incompleteShorts.length} short(s) are still processing. ${completedCount} of ${shorts.length} shorts are ready.`
+      )
+      return
+    }
+
+    setDownloadingAll(true)
+    try {
+      const response = await fetch(`/api/v1/projects/${id}/download-shorts`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to download shorts')
+      }
+
+      // Download the zip file
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${project?.title || 'Project'} - Shorts.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading shorts:', error)
+      alert(error instanceof Error ? error.message : 'Failed to download shorts')
+    } finally {
+      setDownloadingAll(false)
+    }
   }
 
   function seekToTime(time: number) {
@@ -145,10 +210,10 @@ export default function ProjectDetail() {
       </Head>
 
       <WorkspaceLayout title={project.title}>
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column: Video Player + Shorts */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Video Player Section */}
+        <div className="space-y-6">
+          {/* Top Row: 2-Column Grid */}
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Left Column: Video Player */}
             <Card className="bg-card border-border">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -162,7 +227,7 @@ export default function ProjectDetail() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="aspect-video bg-black rounded-lg overflow-hidden max-h-[360px]">
+                <div className="aspect-video bg-black rounded-lg overflow-hidden">
                   {playbackUrl ? (
                     <ReactPlayer
                       url={playbackUrl}
@@ -180,77 +245,8 @@ export default function ProjectDetail() {
               </CardContent>
             </Card>
 
-            {/* Shorts Section */}
-            {shorts.length > 0 && (
-              <>
-                <h2 className="text-xl font-semibold text-foreground">Shorts</h2>
-                <Card className="bg-card border-border">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-foreground">Generated Shorts</CardTitle>
-                        <CardDescription className="text-muted-foreground">{shorts.length} clips</CardDescription>
-                      </div>
-                      <Button size="sm" onClick={handleDownloadAll} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                        <Download className="w-4 h-4 mr-2" />
-                        All
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {shorts.map((short) => (
-                      <Card
-                        key={short.id}
-                        className="bg-muted border-border cursor-pointer hover:border-primary transition-all"
-                        onClick={() => setSelectedShort(short)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-medium text-sm text-foreground">{short.title}</h4>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {formatDuration(short.endTime - short.startTime)}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-3">
-                            {short.description}
-                          </p>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                seekToTime(short.startTime)
-                              }}
-                              className="flex-1"
-                            >
-                              <Play className="w-3 h-3 mr-1" />
-                              Preview
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDownloadShort(short)
-                              }}
-                              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
-                            >
-                              <Download className="w-3 h-3 mr-1" />
-                              Download
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </CardContent>
-                </Card>
-              </>
-            )}
-          </div>
-
-          {/* Right Column: Transcription + Shorts Generation */}
-          <div className="space-y-6">
+            {/* Right Column: Transcription + Shorts Generation */}
+            <div className="space-y-6">
             {/* Transcription Section */}
             {transcription && (
               <Card className="bg-card border-border">
@@ -357,8 +353,109 @@ export default function ProjectDetail() {
                 </CardContent>
               </Card>
             )}
+            </div>
           </div>
+
+          {/* Bottom Row: Shorts Grid (Full Width) */}
+          {shorts.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Generated Shorts ({shorts.filter((s) => s.status === 'completed').length}/{shorts.length})
+                </h2>
+                <Button
+                  size="sm"
+                  onClick={handleDownloadAll}
+                  disabled={downloadingAll || shorts.some((s) => s.status !== 'completed')}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  {downloadingAll ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Download All ({shorts.filter((s) => s.status === 'completed').length})
+                    </>
+                  )}
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {shorts.map((short) => (
+                  <Card
+                    key={short.id}
+                    className="bg-card border-border cursor-pointer hover:border-primary transition-all overflow-hidden group"
+                    onClick={() => setSelectedShort(short)}
+                  >
+                    <div className="aspect-video bg-black relative overflow-hidden">
+                      {short.thumbnailUrl ? (
+                        <img
+                          src={short.thumbnailUrl}
+                          alt={short.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-muted">
+                          <Play className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDuration(short.endTime - short.startTime)}
+                      </div>
+                    </div>
+                    <CardContent className="p-3">
+                      <p className="text-xs text-muted-foreground line-clamp-3 mb-2">{short.description}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={short.status === 'completed' ? 'default' : 'secondary'}
+                          className="text-xs"
+                        >
+                          {short.status}
+                        </Badge>
+                        {short.status === 'completed' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDownloadShort(short)
+                            }}
+                            disabled={downloadingShortId === short.id}
+                            className="flex-1"
+                          >
+                            {downloadingShortId === short.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                Downloading...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-3 h-3 mr-1" />
+                                Download
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Video Lightbox for playing shorts */}
+        <VideoLightbox
+          selectedShort={selectedShort}
+          shorts={shorts}
+          projectId={id as string}
+          onClose={() => setSelectedShort(null)}
+          onNavigate={(short) => setSelectedShort(short)}
+        />
       </WorkspaceLayout>
     </>
   )
