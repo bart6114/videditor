@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Home, Settings, User, Video } from 'lucide-react';
+import { Home, Settings, User } from 'lucide-react';
 import { useClerk, useUser } from '@clerk/nextjs';
+import { MonkeyLogo } from '@/components/MonkeyLogo';
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: Home },
@@ -22,9 +23,8 @@ export default function Sidebar() {
   return (
     <div className="flex h-full w-64 flex-col bg-card border-r border-border">
       {/* Logo/Brand */}
-      <div className="flex h-16 items-center px-6 border-b border-border">
-        <Video className="h-8 w-8 text-primary" />
-        <span className="ml-3 text-xl font-semibold text-foreground">VidEditor</span>
+      <div className="flex h-16 items-center justify-center border-b border-border">
+        <MonkeyLogo size="lg" linkTo="/projects" showText={false} />
       </div>
 
       {/* Navigation */}

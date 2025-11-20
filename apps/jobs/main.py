@@ -1,4 +1,4 @@
-"""Main entry point for the VidEditor jobs worker."""
+"""Main entry point for the VidEditor.ai jobs worker."""
 
 import asyncio
 import signal
@@ -30,7 +30,7 @@ async def main() -> None:
 
     # Create logger
     logger = create_logger(config)
-    logger.info("Starting VidEditor jobs worker")
+    logger.info("Starting VidEditor.ai jobs worker")
 
     # Create job processor
     processor = JobProcessor(config, logger)

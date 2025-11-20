@@ -6,9 +6,18 @@ import { useApi } from '@/lib/api/client'
 import { VideoUpload } from '@/components/video-upload'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import WorkspaceLayout from '@/components/layout/WorkspaceLayout'
-import { Video, Clock, Loader2, CheckCircle, AlertCircle, FileText, Film } from 'lucide-react'
-import { formatFileSize } from '@/lib/utils'
+import { Video, Clock, Loader2, CheckCircle, AlertCircle, FileText, Film, Trash2 } from 'lucide-react'
+import { formatFileSize, formatRelativeTime } from '@/lib/utils'
 import type { ProjectSummary } from '@/types/projects'
 
 function formatDuration(seconds: number): string {
@@ -29,6 +38,9 @@ export default function Projects() {
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Redirect to sign-in if not authenticated
   useEffect(() => {
@@ -79,6 +91,33 @@ export default function Projects() {
     }
   }
 
+  async function handleDeleteProject() {
+    if (!projectToDelete) return
+
+    setDeleting(true)
+    try {
+      await call(`/v1/projects/${projectToDelete.id}`, {
+        method: 'DELETE',
+      })
+
+      // Close dialog and refresh projects list
+      setDeleteDialogOpen(false)
+      setProjectToDelete(null)
+      await loadProjects()
+    } catch (error) {
+      console.error('Error deleting project:', error)
+      // Error is already handled by useApi
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  function openDeleteDialog(project: ProjectSummary, e: React.MouseEvent) {
+    e.stopPropagation() // Prevent card click navigation
+    setProjectToDelete(project)
+    setDeleteDialogOpen(true)
+  }
+
   function getStatusBadge(status: ProjectSummary['status']) {
     const statusConfig = {
       uploading: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Uploading' },
@@ -104,12 +143,25 @@ export default function Projects() {
     )
   }
 
+  function isProcessing(status: ProjectSummary['status']): boolean {
+    return ['queued', 'processing', 'transcribing'].includes(status)
+  }
+
+  function getProcessingLabel(status: ProjectSummary['status']): string {
+    const labels = {
+      queued: 'Queued...',
+      processing: 'Processing...',
+      transcribing: 'Transcribing...',
+    } as const
+    return labels[status as keyof typeof labels] || 'Processing...'
+  }
+
   // Show loading state while checking authentication
   if (!isLoaded) {
     return (
       <>
         <Head>
-          <title>My Projects - VidEditor</title>
+          <title>My Projects - VidEditor.ai</title>
         </Head>
         <WorkspaceLayout title="Projects">
           <div className="text-center py-12">
@@ -187,13 +239,30 @@ export default function Projects() {
                       <img
                         src={project.thumbnailUrl}
                         alt={project.title}
-                        className="w-full h-full object-cover"
+                        className={`w-full h-full object-cover transition-opacity duration-300 ${isProcessing(project.status) ? 'opacity-40' : ''}`}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Video className="w-12 h-12 text-muted-foreground group-hover:text-primary transition-colors" />
                       </div>
                     )}
+                    {/* Processing Overlay */}
+                    {isProcessing(project.status) && (
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3 animate-in fade-in duration-300">
+                        <Loader2 className="w-12 h-12 text-white animate-spin" />
+                        <span className="text-white text-sm font-medium">
+                          {getProcessingLabel(project.status)}
+                        </span>
+                      </div>
+                    )}
+                    {/* Delete Button Overlay */}
+                    <button
+                      onClick={(e) => openDeleteDialog(project, e)}
+                      className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white"
+                      aria-label="Delete project"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                     {/* Status Badge Overlay */}
                     <div className="absolute top-2 right-2">
                       {getStatusBadge(project.status)}
@@ -213,6 +282,7 @@ export default function Projects() {
                         {project.durationSeconds ? formatDuration(project.durationSeconds) : '—'}
                       </span>
                       <span>{project.fileSizeBytes ? formatFileSize(project.fileSizeBytes) : '—'}</span>
+                      <span>{formatRelativeTime(project.createdAt)}</span>
                     </div>
 
                     {/* Transcription & Shorts Status */}
@@ -243,6 +313,54 @@ export default function Projects() {
             </div>
           )}
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent className="font-sans">
+            <DialogHeader>
+              <DialogTitle className="text-foreground">Delete Project</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                <span className="block mb-2">Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{projectToDelete?.title}&quot;</span>?</span>
+                <span className="block mb-2">This will permanently delete:</span>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>The original video file</li>
+                  <li>All generated shorts ({projectToDelete?.shortsCount || 0})</li>
+                  <li>Transcription data</li>
+                  <li>All associated media assets</li>
+                </ul>
+                <span className="block mt-3 font-semibold text-destructive">
+                  This action cannot be undone.
+                </span>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteProject}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Project
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </WorkspaceLayout>
     </>
   )

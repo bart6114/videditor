@@ -1,7 +1,8 @@
 import Head from 'next/head'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
-import { Video, Scissors, Sparkles, Zap } from 'lucide-react'
+import { Video, Sparkles, Zap } from 'lucide-react'
+import { MonkeyLogo } from '@/components/MonkeyLogo'
 
 export default function Home() {
   const { isSignedIn } = useUser()
@@ -9,7 +10,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>VidEditor - AI-Powered Video Shorts Generator</title>
+        <title>VidEditor.ai - AI-Powered Video Shorts Generator</title>
         <meta name="description" content="Transform your long videos into viral shorts with AI" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -18,10 +19,7 @@ export default function Home() {
       <main className="min-h-screen bg-background">
         {/* Header */}
         <nav className="container mx-auto px-4 py-6 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Scissors className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">VidEditor</h1>
-          </div>
+          <MonkeyLogo size="md" linkTo="/" />
           <div className="flex gap-4">
             {isSignedIn ? (
               <Link
@@ -51,6 +49,9 @@ export default function Home() {
 
         {/* Hero Section */}
         <div className="container mx-auto px-4 py-20 text-center">
+          <div className="mb-8 flex justify-center">
+            <MonkeyLogo size="xl" showText={false} />
+          </div>
           <div className="inline-block px-4 py-2 bg-primary/20 text-primary rounded-full text-sm font-semibold mb-6">
             🎉 Free Beta - No Payment Required
           </div>
@@ -98,7 +99,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="container mx-auto px-4 py-8 text-center text-muted-foreground border-t border-border">
-          <p>&copy; 2024 VidEditor. Built with Next.js, Cloudflare & AI.</p>
+          <p>&copy; 2024 VidEditor.ai. Built with Next.js & AI.</p>
         </footer>
       </main>
     </>

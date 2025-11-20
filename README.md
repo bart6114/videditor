@@ -1,6 +1,6 @@
-# VidEditor – Fly.io Native AI Video Pipeline
+# VidEditor.ai – Fly.io Native AI Video Pipeline
 
-VidEditor ingests long-form videos, stores the assets in [Tigris Object Storage](https://www.tigrisdata.com/), transcribes/analyzes the content with background workers, and renders social-ready clips – all running on **Fly.io Machines** with **Neon Postgres** as the system of record.
+VidEditor.ai ingests long-form videos, stores the assets in [Tigris Object Storage](https://www.tigrisdata.com/), transcribes/analyzes the content with background workers, and renders social-ready clips – all running on **Fly.io Machines** with **Neon Postgres** as the system of record.
 
 ## What's Inside
 

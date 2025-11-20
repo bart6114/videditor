@@ -32,8 +32,8 @@ def build_job_server(
         Configured FastAPI application
     """
     app = FastAPI(
-        title="VidEditor Jobs Worker",
-        description="Job processing worker for VidEditor",
+        title="VidEditor.ai Jobs Worker",
+        description="Job processing worker for VidEditor.ai",
         version="1.0.0",
     )
 

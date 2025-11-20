@@ -1,7 +1,7 @@
 [project]
 name = "videditor-jobs"
 version = "1.0.0"
-description = "VidEditor job processing worker with FastAPI and faster-whisper"
+description = "VidEditor.ai job processing worker with FastAPI and faster-whisper"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115.0",
