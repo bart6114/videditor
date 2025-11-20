@@ -24,7 +24,7 @@ from models import (
 )
 from utils.storage import download_from_tigris, upload_to_tigris
 from utils.transcription import transcribe_video
-from utils.ffmpeg import extract_clip, extract_thumbnail
+from utils.ffmpeg import extract_clip, extract_thumbnail, get_video_duration
 from utils.ai import analyze_transcript_for_shorts
 
 
@@ -200,6 +200,19 @@ class JobProcessor:
                 video_temp_path,
             )
 
+            # Extract video duration
+            self.logger.info(
+                "Extracting video duration",
+                job_id=job.id,
+                video_path=video_temp_path,
+            )
+            duration = await get_video_duration(video_temp_path)
+            self.logger.info(
+                "Video duration extracted",
+                job_id=job.id,
+                duration_seconds=duration,
+            )
+
             # Extract thumbnail
             self.logger.info(
                 "Extracting thumbnail",
@@ -233,12 +246,13 @@ class JobProcessor:
                 content_type="image/jpeg",
             )
 
-            # Update project with thumbnail URL
+            # Update project with thumbnail URL and duration
             await session.execute(
                 update(Project)
                 .where(Project.id == job.project_id)
                 .values(
                     thumbnail_url=thumbnail_object_key,
+                    duration_seconds=duration,
                     status=ProjectStatus.READY.value,
                     updated_at=datetime.now(timezone.utc),
                 )

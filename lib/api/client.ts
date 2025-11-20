@@ -1,4 +1,5 @@
 import { useAuth } from '@clerk/nextjs';
+import { useCallback } from 'react';
 
 // API routes are now served by Next.js at /api
 const API_BASE_URL = '/api';
@@ -41,7 +42,7 @@ export async function apiCall<T = any>(endpoint: string, options?: RequestInit &
 export function useApi() {
   const { getToken } = useAuth();
 
-  const call = async <T = any>(endpoint: string, options?: RequestInit): Promise<T> => {
+  const call = useCallback(async <T = any>(endpoint: string, options?: RequestInit): Promise<T> => {
     const token = await getToken();
 
     if (!token) {
@@ -88,7 +89,7 @@ export function useApi() {
     }
 
     return json;
-  };
+  }, [getToken]);
 
   return { call };
 }

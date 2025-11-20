@@ -1,12 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { z } from 'zod';
 import { getDb } from '@server/db';
-import { getProjectWithRelations } from '@server/db/queries/projects';
+import { getProjectWithRelations, deleteProject, updateProject } from '@server/db/queries/projects';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
-import { createTigrisClient, createPresignedDownload } from '@/lib/tigris';
+import { createTigrisClient, createPresignedDownload, deleteFromTigris } from '@/lib/tigris';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
+  if (!['GET', 'DELETE', 'PATCH'].includes(req.method || '')) {
     return failure(res, 405, 'Method not allowed');
   }
 
@@ -18,6 +19,67 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const projectId = req.query.projectId as string;
   const db = getDb();
 
+  // DELETE - Delete project and all its assets
+  if (req.method === 'DELETE') {
+    const result = await getProjectWithRelations(db, projectId, authResult.userId);
+
+    if (!result) {
+      return failure(res, 404, 'Project not found');
+    }
+
+    const tigrisClient = createTigrisClient();
+    const deletePromises: Promise<void>[] = [];
+
+    // Collect all object keys to delete
+    if (result.project.sourceObjectKey) {
+      deletePromises.push(deleteFromTigris(tigrisClient, result.project.sourceObjectKey));
+    }
+    if (result.project.thumbnailUrl) {
+      deletePromises.push(deleteFromTigris(tigrisClient, result.project.thumbnailUrl));
+    }
+
+    // Delete all shorts' videos and thumbnails
+    for (const short of result.shorts) {
+      if (short.outputObjectKey) {
+        deletePromises.push(deleteFromTigris(tigrisClient, short.outputObjectKey));
+      }
+      if (short.thumbnailUrl) {
+        deletePromises.push(deleteFromTigris(tigrisClient, short.thumbnailUrl));
+      }
+    }
+
+    // Delete all assets from Tigris (ignore errors for missing files)
+    await Promise.allSettled(deletePromises);
+
+    // Delete from database (cascade handles all relations)
+    await deleteProject(db, projectId, authResult.userId);
+
+    return success(res, { deleted: true });
+  }
+
+  // PATCH - Update project (rename)
+  if (req.method === 'PATCH') {
+    const schema = z.object({
+      title: z.string().min(1, 'Title is required').max(255, 'Title must be 255 characters or less'),
+    });
+
+    const parseResult = schema.safeParse(req.body);
+    if (!parseResult.success) {
+      return failure(res, 400, parseResult.error.errors[0].message);
+    }
+
+    const updated = await updateProject(db, projectId, authResult.userId, {
+      title: parseResult.data.title,
+    });
+
+    if (!updated) {
+      return failure(res, 404, 'Project not found');
+    }
+
+    return success(res, { project: updated });
+  }
+
+  // GET - Get project with relations
   const result = await getProjectWithRelations(db, projectId, authResult.userId);
 
   if (!result) {

@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'node:crypto';
 
@@ -46,12 +46,22 @@ export async function createPresignedUpload(
 export async function createPresignedDownload(
   client: S3Client,
   objectKey: string,
-  expiresIn: number = 3600
+  expiresIn: number = 3600,
+  filename?: string
 ): Promise<string> {
-  const command = new GetObjectCommand({
+  const commandParams: any = {
     Bucket: process.env.TIGRIS_BUCKET!,
     Key: objectKey,
-  });
+    ResponseContentType: 'video/mp4',
+  };
+
+  // Only set Content-Disposition when filename is provided (forces download)
+  // Otherwise, browser will display inline (for thumbnails, video playback)
+  if (filename) {
+    commandParams.ResponseContentDisposition = `attachment; filename="${filename}"`;
+  }
+
+  const command = new GetObjectCommand(commandParams);
 
   return await getSignedUrl(client, command, { expiresIn });
 }
@@ -64,4 +74,16 @@ export function buildSourceObjectKey(userId: string, projectId: string) {
 export function buildThumbnailObjectKey(userId: string, projectId: string) {
   const timestamp = Date.now();
   return `${userId}/projects/${projectId}/${timestamp}-thumbnail.jpg`;
+}
+
+export async function deleteFromTigris(
+  client: S3Client,
+  objectKey: string
+): Promise<void> {
+  const command = new DeleteObjectCommand({
+    Bucket: process.env.TIGRIS_BUCKET!,
+    Key: objectKey,
+  });
+
+  await client.send(command);
 }
