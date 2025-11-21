@@ -459,6 +459,7 @@ class JobProcessor:
         preferred_length = payload.get("preferredLength", 45)
         max_length = payload.get("maxLength", 60)
         custom_prompt = payload.get("customPrompt")
+        avoid_existing_overlap = payload.get("avoidExistingOverlap", False)
 
         self.logger.info(
             "🤖 Starting AI analysis for short generation",
@@ -501,6 +502,23 @@ class JobProcessor:
         if not transcription.segments:
             raise ValueError("Transcription has no segments")
 
+        # Fetch existing shorts if avoidExistingOverlap is enabled
+        existing_shorts = None
+        if avoid_existing_overlap:
+            existing_shorts_stmt = select(Short).where(Short.project_id == job.project_id)
+            existing_shorts_result = await session.execute(existing_shorts_stmt)
+            existing_shorts_rows = existing_shorts_result.scalars().all()
+            if existing_shorts_rows:
+                existing_shorts = [
+                    {"transcription": s.transcription_slice}
+                    for s in existing_shorts_rows
+                ]
+                self.logger.info(
+                    "Fetched existing shorts to avoid overlap",
+                    job_id=job.id,
+                    num_existing_shorts=len(existing_shorts),
+                )
+
         # Call AI to analyze transcript and suggest shorts
         self.logger.info(
             "Calling OpenRouter AI for short suggestions",
@@ -515,6 +533,7 @@ class JobProcessor:
             preferred_length=preferred_length,
             max_length=max_length,
             custom_prompt=custom_prompt,
+            existing_shorts=existing_shorts,
         )
 
         self.logger.info(

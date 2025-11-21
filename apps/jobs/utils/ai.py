@@ -109,6 +109,7 @@ async def analyze_transcript_for_shorts(
     preferred_length: int = 45,
     max_length: int = 60,
     custom_prompt: str | None = None,
+    existing_shorts: list[dict[str, Any]] | None = None,
 ) -> list[ShortSuggestion]:
     """
     Analyze transcript using OpenRouter GPT-4o to identify viral short opportunities.
@@ -120,6 +121,7 @@ async def analyze_transcript_for_shorts(
         preferred_length: Preferred length for shorts in seconds (default: 45)
         max_length: Maximum allowed length in seconds (default: 60)
         custom_prompt: Optional custom instructions to include in prompt
+        existing_shorts: Optional list of existing shorts to avoid overlapping with
 
     Returns:
         List of ShortSuggestion objects with suggested clips
@@ -135,6 +137,7 @@ async def analyze_transcript_for_shorts(
         max_length=max_length,
         num_segments=len(transcript_segments),
         has_custom_prompt=custom_prompt is not None,
+        num_existing_shorts=len(existing_shorts) if existing_shorts else 0,
     )
 
     # Format transcript with timestamps
@@ -145,17 +148,34 @@ async def analyze_transcript_for_shorts(
     if custom_prompt:
         custom_section = f"\n\nCustom Instructions:\n{custom_prompt}\n"
 
+    # Build existing shorts avoidance section
+    existing_shorts_section = ""
+    if existing_shorts:
+        existing_list = json.dumps(
+            [{"transcription": s["transcription"]} for s in existing_shorts],
+            indent=2,
+        )
+        existing_shorts_section = f"""
+
+IMPORTANT - Avoid Overlap with Existing Shorts:
+The following shorts have already been created from this video. You MUST NOT select segments that overlap with or duplicate this content:
+{existing_list}
+
+Select completely different moments from the video that do not cover the same topics or content as these existing shorts.
+"""
+
     # Build prompt based on user's example
     # Calculate a reasonable range around preferred length (e.g., preferred ± 15 seconds)
     min_length = max(15, preferred_length - 15)
     prompt = f"""You are analyzing a video transcript to find the best moments for creating {num_shorts} short-form videos (ideally around {preferred_length} seconds, with a range of {min_length}-{preferred_length} seconds, max {max_length} seconds if needed for message consistency).
-{custom_section}
+{custom_section}{existing_shorts_section}
 Criteria for selection:
 - Engaging moments (exciting, funny, emotionally compelling)
 - High information density (valuable tips, insights, key points)
 - Complete thoughts (not cut off mid-sentence or mid-idea)
 - Natural start and end points (speech pauses, topic transitions)
 - Self-contained segments that feel like standalone content, not fragments
+- Segments MUST NOT overlap with each other - each segment should cover unique content from the video
 
 CRITICAL - Flow & Naturalness Requirements:
 - The segment MUST feel like a complete, standalone piece with a natural beginning and ending

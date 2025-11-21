@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,7 @@ export default function ProjectDetail() {
   const [preferredLength, setPreferredLength] = useState(45)
   const [maxLength, setMaxLength] = useState(60)
   const [customPrompt, setCustomPrompt] = useState('')
+  const [avoidExistingOverlap, setAvoidExistingOverlap] = useState(false)
   const [defaultPromptLoaded, setDefaultPromptLoaded] = useState(false)
   const [usingDefaultPrompt, setUsingDefaultPrompt] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -173,6 +175,7 @@ export default function ProjectDetail() {
             preferredLength,
             maxLength,
             customPrompt: customPrompt.trim() || undefined,
+            avoidExistingOverlap: avoidExistingOverlap || undefined,
           },
         }),
       })
@@ -580,6 +583,19 @@ export default function ProjectDetail() {
                         : 'Leave empty to use AI defaults, or set your own default in Settings'}
                     </p>
                   </div>
+                  {shorts.length > 0 && (
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        id="avoidOverlap"
+                        checked={avoidExistingOverlap}
+                        onCheckedChange={setAvoidExistingOverlap}
+                        disabled={analyzing}
+                      />
+                      <label htmlFor="avoidOverlap" className="text-sm text-foreground cursor-pointer">
+                        Avoid overlap with existing shorts
+                      </label>
+                    </div>
+                  )}
                   <Button
                     onClick={handleAnalyze}
                     disabled={analyzing || !transcription}
