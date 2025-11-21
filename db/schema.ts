@@ -54,6 +54,7 @@ export const users = pgTable(
     fullName: varchar('full_name', { length: 255 }),
     imageUrl: text('image_url'),
     defaultCustomPrompt: text('default_custom_prompt'), // Default AI instruction for shorts generation
+    defaultSocialPlatforms: jsonb('default_social_platforms').$type<string[]>().default(sql`'[]'::jsonb`), // Default platforms for social content generation
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -151,6 +152,7 @@ export const shorts = pgTable(
     status: shortStatusEnum('status').notNull().default('pending'),
     errorMessage: text('error_message'),
     metadata: jsonb('metadata'),
+    socialContent: jsonb('social_content'), // Generated social media content per platform
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

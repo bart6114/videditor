@@ -7,9 +7,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Copy, Check } from 'lucide-react'
 import { useApi } from '@/lib/api/client'
 import type { Short } from '@server/db/schema'
+import type { SocialContent, SocialPlatform } from '@shared/index'
+
+const PLATFORM_LABELS: Record<SocialPlatform, string> = {
+  youtube: 'YouTube',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  linkedin: 'LinkedIn',
+}
 
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false })
 
@@ -19,6 +27,31 @@ interface VideoLightboxProps {
   projectId: string
   onClose: () => void
   onNavigate: (short: Short) => void
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="h-6 px-2"
+      onClick={handleCopy}
+    >
+      {copied ? (
+        <Check className="w-3 h-3 text-green-500" />
+      ) : (
+        <Copy className="w-3 h-3" />
+      )}
+    </Button>
+  )
 }
 
 export function VideoLightbox({
@@ -189,18 +222,65 @@ export function VideoLightbox({
               )}
             </div>
 
-            <div className="p-6 pt-4 flex items-center justify-between text-sm text-muted-foreground">
-              <div>
-                Duration: {Math.floor(duration)}s
-                {currentIndex >= 0 && (
-                  <span className="ml-4">
-                    {currentIndex + 1} of {shorts.length}
-                  </span>
-                )}
+            <div className="p-6 pt-4 space-y-4">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <div>
+                  Duration: {Math.floor(duration)}s
+                  {currentIndex >= 0 && (
+                    <span className="ml-4">
+                      {currentIndex + 1} of {shorts.length}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs">
+                  Use ← → arrow keys to navigate
+                </div>
               </div>
-              <div className="text-xs">
-                Use ← → arrow keys to navigate
-              </div>
+
+              {/* Social Content Display */}
+              {(() => {
+                const socialContent = selectedShort.socialContent as SocialContent | null;
+                if (!socialContent || Object.keys(socialContent).length === 0) return null;
+                return (
+                  <div className="border-t border-border pt-4 max-h-60 overflow-y-auto">
+                    <h4 className="text-sm font-medium mb-3">Social Media Content</h4>
+                    <div className="space-y-4">
+                      {Object.entries(socialContent).map(([platform, content]) => (
+                      <div key={platform} className="border border-border rounded-lg p-3">
+                        <h5 className="text-xs font-semibold mb-2 text-primary">{PLATFORM_LABELS[platform as SocialPlatform] || platform}</h5>
+                        {platform === 'youtube' && content && 'title' in content && (
+                          <div className="space-y-2">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs text-muted-foreground">Title</label>
+                                <CopyButton text={(content as { title: string }).title} />
+                              </div>
+                              <p className="text-sm bg-muted p-2 rounded">{(content as { title: string }).title}</p>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs text-muted-foreground">Description</label>
+                                <CopyButton text={(content as { description: string }).description} />
+                              </div>
+                              <p className="text-sm bg-muted p-2 rounded whitespace-pre-wrap max-h-24 overflow-y-auto">{(content as { description: string }).description}</p>
+                            </div>
+                          </div>
+                        )}
+                        {(platform === 'instagram' || platform === 'tiktok' || platform === 'linkedin') && content && 'caption' in content && (
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs text-muted-foreground">Caption</label>
+                              <CopyButton text={(content as { caption: string }).caption} />
+                            </div>
+                            <p className="text-sm bg-muted p-2 rounded whitespace-pre-wrap max-h-24 overflow-y-auto">{(content as { caption: string }).caption}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}

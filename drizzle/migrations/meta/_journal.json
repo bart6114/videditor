@@ -57,6 +57,13 @@
       "when": 1763817600000,
       "tag": "0007_shorts_transcription_slice",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1763900400000,
+      "tag": "0008_add_social_content_fields",
+      "breakpoints": true
     }
   ]
 }

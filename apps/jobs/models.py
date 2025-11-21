@@ -150,6 +150,7 @@ class Short(Base):
     status = Column(ENUM('pending', 'processing', 'completed', 'error', name='short_status', create_type=False), nullable=False, default="pending")
     error_message = Column(Text, nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=True)
+    social_content = Column(JSONB, nullable=True)  # Generated social media content per platform
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 

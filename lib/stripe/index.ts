@@ -1,6 +1,6 @@
 import Stripe from 'stripe'
 
-// Initialize Stripe with Workers-compatible HTTP client
+// Initialize Stripe client
 export function createStripeClient(secretKey: string): Stripe {
   return new Stripe(secretKey, {
     apiVersion: '2025-02-24.acacia',

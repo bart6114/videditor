@@ -6,7 +6,7 @@ import { getJobsByProjectId } from '@server/db/queries/jobs';
 import { enqueueJob } from '@/lib/jobs';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
-import { JOB_TYPES, type JobType } from '@shared/index';
+import { JOB_TYPES, SOCIAL_PLATFORMS, type JobType } from '@shared/index';
 
 const analysisPayloadSchema = z.object({
   shortsCount: z.number().int().min(1).max(10).optional(),
@@ -14,6 +14,7 @@ const analysisPayloadSchema = z.object({
   maxLength: z.number().int().min(15).max(120).optional(),
   customPrompt: z.string().optional(),
   avoidExistingOverlap: z.boolean().optional(),
+  socialPlatforms: z.array(z.enum(SOCIAL_PLATFORMS)).optional(),
 });
 
 const jobRequestSchema = z.object({

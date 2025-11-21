@@ -4,10 +4,35 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApi } from '@/lib/api/client';
 import { Loader2, Save, Check } from 'lucide-react';
+import { SOCIAL_PLATFORMS, type SocialPlatform } from '@shared/index';
+
+import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons';
+
+// LinkedIn icon as inline SVG (not available in simple-icons)
+const LinkedInIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+  </svg>
+);
+
+const PLATFORM_ICONS: Record<SocialPlatform, React.ComponentType<{ size?: number }>> = {
+  youtube: SiYoutube,
+  instagram: SiInstagram,
+  tiktok: SiTiktok,
+  linkedin: LinkedInIcon,
+};
 
 interface UserSettings {
   defaultCustomPrompt: string | null;
+  defaultSocialPlatforms: SocialPlatform[];
 }
+
+const PLATFORM_LABELS: Record<SocialPlatform, string> = {
+  youtube: 'YouTube',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  linkedin: 'LinkedIn',
+};
 
 export default function Settings() {
   const { call } = useApi();
@@ -15,6 +40,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [defaultCustomPrompt, setDefaultCustomPrompt] = useState('');
+  const [defaultSocialPlatforms, setDefaultSocialPlatforms] = useState<SocialPlatform[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,6 +48,7 @@ export default function Settings() {
       try {
         const data = await call<{ settings: UserSettings }>('/v1/user/settings');
         setDefaultCustomPrompt(data.settings.defaultCustomPrompt || '');
+        setDefaultSocialPlatforms(data.settings.defaultSocialPlatforms || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load settings');
       } finally {
@@ -30,6 +57,14 @@ export default function Settings() {
     }
     loadSettings();
   }, [call]);
+
+  function togglePlatform(platform: SocialPlatform) {
+    setDefaultSocialPlatforms((prev) =>
+      prev.includes(platform)
+        ? prev.filter((p) => p !== platform)
+        : [...prev, platform]
+    );
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -41,6 +76,7 @@ export default function Settings() {
         method: 'PATCH',
         body: JSON.stringify({
           defaultCustomPrompt: defaultCustomPrompt.trim() || null,
+          defaultSocialPlatforms,
         }),
       });
       setSaved(true);
@@ -99,6 +135,37 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground mt-2">
                   This instruction is automatically applied when generating shorts. You can override it on a per-project basis.
                 </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">
+                  Default Social Platforms
+                </label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Choose platforms to generate titles and descriptions for by default
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {SOCIAL_PLATFORMS.map((platform) => {
+                    const isSelected = defaultSocialPlatforms.includes(platform)
+                    const Icon = PLATFORM_ICONS[platform]
+                    return (
+                      <button
+                        key={platform}
+                        type="button"
+                        onClick={() => togglePlatform(platform)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                        }`}
+                        title={PLATFORM_LABELS[platform]}
+                      >
+                        <Icon size={18} />
+                        <span className="text-sm font-medium">{PLATFORM_LABELS[platform]}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               <div className="flex items-center gap-3">

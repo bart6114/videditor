@@ -25,7 +25,7 @@ from models import (
 from utils.storage import download_from_tigris, upload_to_tigris
 from utils.transcription import transcribe_video
 from utils.ffmpeg import extract_clip, extract_thumbnail, get_video_duration
-from utils.ai import analyze_transcript_for_shorts
+from utils.ai import analyze_transcript_for_shorts, generate_social_content
 
 
 class JobProcessor:
@@ -460,6 +460,7 @@ class JobProcessor:
         max_length = payload.get("maxLength", 60)
         custom_prompt = payload.get("customPrompt")
         avoid_existing_overlap = payload.get("avoidExistingOverlap", False)
+        social_platforms = payload.get("socialPlatforms", [])
 
         self.logger.info(
             "🤖 Starting AI analysis for short generation",
@@ -638,6 +639,32 @@ class JobProcessor:
                     # Store object key (will be presigned by API)
                     thumbnail_url = thumb_object_key
 
+                    # Generate social content if platforms are specified
+                    social_content_data = None
+                    if social_platforms:
+                        try:
+                            self.logger.info(
+                                "Generating social content for short",
+                                short_id=short_id,
+                                platforms=social_platforms,
+                            )
+                            social_content_data = await generate_social_content(
+                                api_key=self.config.OPENROUTER_API_KEY,
+                                transcription=suggestion.transcription,
+                                platforms=social_platforms,
+                            )
+                            self.logger.info(
+                                "Social content generated",
+                                short_id=short_id,
+                                platforms=list(social_content_data.keys()) if social_content_data else [],
+                            )
+                        except Exception as social_error:
+                            self.logger.warning(
+                                "Failed to generate social content (continuing without it)",
+                                short_id=short_id,
+                                error=str(social_error),
+                            )
+
                     # Create short record in database
                     short = Short(
                         id=short_id,
@@ -648,6 +675,7 @@ class JobProcessor:
                         output_object_key=clip_object_key,
                         thumbnail_url=thumbnail_url,
                         status=ShortStatus.COMPLETED.value,
+                        social_content=social_content_data,
                     )
                     session.add(short)
                     await session.commit()

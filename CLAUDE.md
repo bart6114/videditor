@@ -158,3 +158,4 @@ Job Runner (Fly Machine, Python 3.13)
 - Jobs worker was migrated from TypeScript/Node.js to Python 3.13 for better AI/ML tooling
 - Previous Cloudflare-specific code has been removed
 - System has been migrated from CloudFlare to Fly, if you encounter any remnants ask if OK to delete 'em
+- todo: allow to set specific models via env vars

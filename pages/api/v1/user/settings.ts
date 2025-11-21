@@ -5,9 +5,11 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
+import { SOCIAL_PLATFORMS, type SocialPlatform } from '@shared/index';
 
 const updateSettingsSchema = z.object({
   defaultCustomPrompt: z.string().max(2000).nullable().optional(),
+  defaultSocialPlatforms: z.array(z.enum(SOCIAL_PLATFORMS)).optional(),
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -20,7 +22,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     const [user] = await db
-      .select({ defaultCustomPrompt: users.defaultCustomPrompt })
+      .select({
+        defaultCustomPrompt: users.defaultCustomPrompt,
+        defaultSocialPlatforms: users.defaultSocialPlatforms,
+      })
       .from(users)
       .where(eq(users.id, authResult.userId));
 
@@ -28,7 +33,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return failure(res, 404, 'User not found');
     }
 
-    return success(res, { settings: { defaultCustomPrompt: user.defaultCustomPrompt } });
+    return success(res, {
+      settings: {
+        defaultCustomPrompt: user.defaultCustomPrompt,
+        defaultSocialPlatforms: (user.defaultSocialPlatforms || []) as SocialPlatform[],
+      }
+    });
   }
 
   if (req.method === 'PATCH') {
@@ -38,20 +48,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return failure(res, 400, 'Invalid settings payload', parsed.error.flatten());
     }
 
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (parsed.data.defaultCustomPrompt !== undefined) {
+      updateData.defaultCustomPrompt = parsed.data.defaultCustomPrompt ?? null;
+    }
+    if (parsed.data.defaultSocialPlatforms !== undefined) {
+      updateData.defaultSocialPlatforms = parsed.data.defaultSocialPlatforms;
+    }
+
     const [updated] = await db
       .update(users)
-      .set({
-        defaultCustomPrompt: parsed.data.defaultCustomPrompt ?? null,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(users.id, authResult.userId))
-      .returning({ defaultCustomPrompt: users.defaultCustomPrompt });
+      .returning({
+        defaultCustomPrompt: users.defaultCustomPrompt,
+        defaultSocialPlatforms: users.defaultSocialPlatforms,
+      });
 
     if (!updated) {
       return failure(res, 404, 'User not found');
     }
 
-    return success(res, { settings: { defaultCustomPrompt: updated.defaultCustomPrompt } });
+    return success(res, {
+      settings: {
+        defaultCustomPrompt: updated.defaultCustomPrompt,
+        defaultSocialPlatforms: (updated.defaultSocialPlatforms || []) as SocialPlatform[],
+      }
+    });
   }
 
   return failure(res, 405, 'Method not allowed');

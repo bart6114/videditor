@@ -22,6 +22,33 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 export const SHORT_STATUSES = ['pending', 'processing', 'completed', 'error'] as const;
 export type ShortStatus = (typeof SHORT_STATUSES)[number];
 
+export const SOCIAL_PLATFORMS = ['youtube', 'instagram', 'tiktok', 'linkedin'] as const;
+export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
+
+export type YouTubeSocialContent = {
+  title: string;
+  description: string;
+};
+
+export type InstagramSocialContent = {
+  caption: string;
+};
+
+export type TikTokSocialContent = {
+  caption: string;
+};
+
+export type LinkedInSocialContent = {
+  caption: string;
+};
+
+export type SocialContent = {
+  youtube?: YouTubeSocialContent;
+  instagram?: InstagramSocialContent;
+  tiktok?: TikTokSocialContent;
+  linkedin?: LinkedInSocialContent;
+};
+
 export const ASSET_KINDS = ['source', 'transcript', 'clip', 'thumbnail', 'analysis'] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 

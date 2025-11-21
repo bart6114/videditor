@@ -32,6 +32,29 @@ import {
   Pencil,
 } from 'lucide-react'
 import type { Project, Short, Transcription } from '@server/db/schema'
+import { SOCIAL_PLATFORMS, type SocialPlatform } from '@shared/index'
+import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
+
+const PLATFORM_LABELS: Record<SocialPlatform, string> = {
+  youtube: 'YouTube',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  linkedin: 'LinkedIn',
+}
+
+// LinkedIn icon as inline SVG (not available in simple-icons)
+const LinkedInIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+  </svg>
+)
+
+const PLATFORM_ICONS: Record<SocialPlatform, React.ComponentType<{ size?: number }>> = {
+  youtube: SiYoutube,
+  instagram: SiInstagram,
+  tiktok: SiTiktok,
+  linkedin: LinkedInIcon,
+}
 
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false })
 
@@ -64,8 +87,10 @@ export default function ProjectDetail() {
   const [maxLength, setMaxLength] = useState(60)
   const [customPrompt, setCustomPrompt] = useState('')
   const [avoidExistingOverlap, setAvoidExistingOverlap] = useState(false)
+  const [socialPlatforms, setSocialPlatforms] = useState<SocialPlatform[]>([])
   const [defaultPromptLoaded, setDefaultPromptLoaded] = useState(false)
   const [usingDefaultPrompt, setUsingDefaultPrompt] = useState(false)
+  const [usingDefaultPlatforms, setUsingDefaultPlatforms] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [selectedShort, setSelectedShort] = useState<Short | null>(null)
   const [transcriptionExpanded, setTranscriptionExpanded] = useState(false) // Collapsed by default
@@ -107,24 +132,28 @@ export default function ProjectDetail() {
     }
   }, [shorts.length, shortsCountBeforeGenerate])
 
-  // Load user's default custom prompt
+  // Load user's default settings
   useEffect(() => {
     if (defaultPromptLoaded) return
 
-    async function loadDefaultPrompt() {
+    async function loadDefaultSettings() {
       try {
-        const data = await call<{ settings: { defaultCustomPrompt: string | null } }>('/v1/user/settings')
+        const data = await call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPlatforms: SocialPlatform[] } }>('/v1/user/settings')
         if (data.settings.defaultCustomPrompt) {
           setCustomPrompt(data.settings.defaultCustomPrompt)
           setUsingDefaultPrompt(true)
         }
+        if (data.settings.defaultSocialPlatforms?.length > 0) {
+          setSocialPlatforms(data.settings.defaultSocialPlatforms)
+          setUsingDefaultPlatforms(true)
+        }
       } catch (error) {
-        // Silently ignore - user just won't have a default prefilled
+        // Silently ignore - user just won't have defaults prefilled
       } finally {
         setDefaultPromptLoaded(true)
       }
     }
-    loadDefaultPrompt()
+    loadDefaultSettings()
   }, [call, defaultPromptLoaded])
 
   async function loadProjectData() {
@@ -176,6 +205,7 @@ export default function ProjectDetail() {
             maxLength,
             customPrompt: customPrompt.trim() || undefined,
             avoidExistingOverlap: avoidExistingOverlap || undefined,
+            socialPlatforms: socialPlatforms.length > 0 ? socialPlatforms : undefined,
           },
         }),
       })
@@ -596,6 +626,51 @@ export default function ProjectDetail() {
                       </label>
                     </div>
                   )}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className="text-sm font-medium text-foreground">
+                        Generate Social Content
+                      </label>
+                      {usingDefaultPlatforms && socialPlatforms.length > 0 && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                          using default
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Choose platforms to generate titles and descriptions for
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {SOCIAL_PLATFORMS.map((platform) => {
+                        const isSelected = socialPlatforms.includes(platform)
+                        const Icon = PLATFORM_ICONS[platform]
+                        return (
+                          <button
+                            key={platform}
+                            type="button"
+                            onClick={() => {
+                              setSocialPlatforms((prev) =>
+                                prev.includes(platform)
+                                  ? prev.filter((p) => p !== platform)
+                                  : [...prev, platform]
+                              )
+                              setUsingDefaultPlatforms(false)
+                            }}
+                            disabled={analyzing}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200 ${
+                              isSelected
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                            } ${analyzing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            title={PLATFORM_LABELS[platform]}
+                          >
+                            <Icon size={18} />
+                            <span className="text-sm font-medium">{PLATFORM_LABELS[platform]}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                   <Button
                     onClick={handleAnalyze}
                     disabled={analyzing || !transcription}

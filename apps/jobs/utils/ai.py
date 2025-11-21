@@ -295,3 +295,182 @@ Return ONLY the JSON array, no other text."""
     )
 
     return suggestions
+
+
+# Platform-specific instructions for social content generation
+PLATFORM_INSTRUCTIONS = {
+    "youtube": """YouTube (Title + Description):
+Title (max 100 chars):
+- Front-load key information in first 60 chars
+- Include primary keyword naturally
+- Use numbers/lists when relevant ("5 Ways to...")
+- Create curiosity gap without clickbait
+- Capitalize appropriately (avoid ALL CAPS)
+
+Description (max 5,000 chars, but keep concise):
+- First 125 chars appear in search - make them count
+- Include 2-3 relevant keywords naturally
+- Include relevant call to action
+- Use hashtags sparingly (3-5 max at end)""",
+    "instagram": """Instagram (Caption only):
+Caption (max 2,200 chars):
+- Hook in first line (visible without "more")
+- Use line breaks for readability
+- Tell a story or provide value
+- Include CTA ("Link in bio", "Save this post")
+- Place hashtags at end (5-15 relevant ones)
+- Use emojis strategically for visual breaks""",
+    "tiktok": """TikTok (Caption only):
+Caption (max 2,200 chars, but keep under 150 for best engagement):
+- Ultra-concise hook statement
+- 3-5 highly targeted hashtags
+- Question or CTA to boost engagement
+- Match caption energy to video tone
+- Front-load the value proposition""",
+    "linkedin": """LinkedIn (Caption only):
+Caption (max 3,000 chars):
+- First 1-2 lines are critical - act as your "headline" in the feed
+- Hook with bold statement, statistic, or counterintuitive insight
+- Use line breaks between sentences for mobile readability
+- Professional tone with authentic personality
+- Share actionable insights or lessons learned
+- End with engaging question or clear CTA
+- 3-5 relevant hashtags at the very end
+- Avoid overused phrases ("I'm humbled to announce...")""",
+}
+
+
+async def generate_social_content(
+    api_key: str,
+    transcription: str,
+    platforms: list[str],
+) -> dict[str, Any]:
+    """
+    Generate social media content for a short video clip.
+
+    Args:
+        api_key: OpenRouter API key
+        transcription: The transcription text of the short video clip
+        platforms: List of platforms to generate content for (youtube, instagram, tiktok, linkedin)
+
+    Returns:
+        Dictionary with content for each platform, e.g.:
+        {
+            "youtube": {"title": "...", "description": "..."},
+            "instagram": {"caption": "..."},
+            "tiktok": {"caption": "..."},
+            "linkedin": {"caption": "..."}
+        }
+
+    Raises:
+        httpx.HTTPError: If API request fails
+        ValueError: If response format is invalid
+    """
+    logger.info(
+        "generating_social_content",
+        platforms=platforms,
+        transcription_length=len(transcription),
+    )
+
+    if not platforms:
+        return {}
+
+    # Build platform instructions section
+    platform_sections = []
+    for platform in platforms:
+        if platform in PLATFORM_INSTRUCTIONS:
+            platform_sections.append(PLATFORM_INSTRUCTIONS[platform])
+
+    platform_instructions = "\n\n".join(platform_sections)
+
+    # Build expected output format
+    output_format = {}
+    for platform in platforms:
+        if platform == "youtube":
+            output_format["youtube"] = {"title": "Generated title here", "description": "Generated description here"}
+        elif platform == "instagram":
+            output_format["instagram"] = {"caption": "Generated caption here"}
+        elif platform == "tiktok":
+            output_format["tiktok"] = {"caption": "Generated caption here"}
+        elif platform == "linkedin":
+            output_format["linkedin"] = {"caption": "Generated caption here"}
+
+    prompt = f"""You are a social media content expert. Based on the following video transcript, generate optimized social media content for the specified platforms.
+
+Video Transcript:
+{transcription}
+
+Generate content for these platforms with the following guidelines:
+
+{platform_instructions}
+
+Return your response as a JSON object with this exact format:
+{json.dumps(output_format, indent=2)}
+
+IMPORTANT:
+- Generate compelling, engaging content that would make viewers want to watch the video
+- Tailor the tone and style to each platform's audience
+- Keep content authentic and avoid clickbait
+- Use relevant hashtags where appropriate
+- Return ONLY the JSON object, no other text."""
+
+    # Call OpenRouter API
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://videditor.app",
+                },
+                json={
+                    "model": "openai/gpt-4o-mini",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        }
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 2000,
+                },
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            logger.error("openrouter_api_error_social_content", error=str(e))
+            raise
+
+    # Parse response
+    result = response.json()
+    logger.debug("openrouter_response_social_content", result=result)
+
+    # Extract content from response
+    try:
+        content = result["choices"][0]["message"]["content"]
+    except (KeyError, IndexError) as e:
+        logger.error("invalid_openrouter_response_social_content", error=str(e), result=result)
+        raise ValueError("Invalid response format from OpenRouter") from e
+
+    # Parse JSON from content
+    content = content.strip()
+    if content.startswith("```json"):
+        content = content[7:]
+    elif content.startswith("```"):
+        content = content[3:]
+    if content.endswith("```"):
+        content = content[:-3]
+    content = content.strip()
+
+    try:
+        social_content = json.loads(content)
+    except json.JSONDecodeError as e:
+        logger.error("failed_to_parse_social_content_json", error=str(e), content=content)
+        raise ValueError("Failed to parse JSON response from AI") from e
+
+    logger.info(
+        "social_content_generated",
+        platforms=list(social_content.keys()),
+    )
+
+    return social_content
