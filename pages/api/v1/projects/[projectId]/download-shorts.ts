@@ -116,8 +116,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ? s3Response.Body
         : Readable.from(s3Response.Body as any);
 
-      // Sanitize the filename
-      const sanitizedTitle = sanitizeFilename(short.title || `Short ${short.id}`);
+      // Sanitize the filename using truncated transcription slice
+      const shortName = short.transcriptionSlice
+        ? short.transcriptionSlice.slice(0, 50).trim()
+        : `Short ${short.id}`;
+      const sanitizedTitle = sanitizeFilename(shortName);
       const extension = short.outputObjectKey.split('.').pop() || 'mp4';
       const entryName = `${sanitizedTitle}.${extension}`;
 

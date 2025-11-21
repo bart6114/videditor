@@ -619,17 +619,11 @@ class JobProcessor:
                     # Store object key (will be presigned by API)
                     thumbnail_url = thumb_object_key
 
-                    # Generate title from transcription (first 50 chars)
-                    title = suggestion.transcription[:50].strip()
-                    if len(suggestion.transcription) > 50:
-                        title += "..."
-
                     # Create short record in database
                     short = Short(
                         id=short_id,
                         project_id=job.project_id,
-                        title=title,
-                        description=suggestion.transcription,
+                        transcription_slice=suggestion.transcription,
                         start_time=suggestion.start_time,
                         end_time=suggestion.end_time,
                         output_object_key=clip_object_key,
@@ -642,7 +636,7 @@ class JobProcessor:
                     shorts_created.append(
                         {
                             "id": short_id,
-                            "title": title,
+                            "transcriptionSlice": suggestion.transcription[:50] + "..." if len(suggestion.transcription) > 50 else suggestion.transcription,
                             "duration": suggestion.duration,
                         }
                     )
@@ -650,7 +644,6 @@ class JobProcessor:
                     self.logger.info(
                         "✅ Short created successfully",
                         short_id=short_id,
-                        title=title,
                     )
 
                 except Exception as error:
@@ -663,8 +656,7 @@ class JobProcessor:
                     short = Short(
                         id=short_id,
                         project_id=job.project_id,
-                        title=f"Short {idx + 1} (failed)",
-                        description=suggestion.transcription,
+                        transcription_slice=suggestion.transcription,
                         start_time=suggestion.start_time,
                         end_time=suggestion.end_time,
                         status=ShortStatus.ERROR.value,

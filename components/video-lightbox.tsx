@@ -3,7 +3,6 @@ import dynamic from 'next/dynamic'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -120,10 +119,11 @@ export function VideoLightbox({
         {selectedShort && (
           <>
             <DialogHeader className="p-6 pb-4">
-              <DialogTitle>{selectedShort.title}</DialogTitle>
-              {selectedShort.description && (
-                <DialogDescription>{selectedShort.description}</DialogDescription>
-              )}
+              <DialogTitle className="line-clamp-1">
+                {selectedShort.transcriptionSlice.length > 60
+                  ? selectedShort.transcriptionSlice.slice(0, 60) + '...'
+                  : selectedShort.transcriptionSlice}
+              </DialogTitle>
             </DialogHeader>
 
             <div className="relative bg-black aspect-video">

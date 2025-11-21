@@ -45,12 +45,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Generate presigned download URL
   try {
     const tigrisClient = createTigrisClient();
-    const filename = `${short.title || 'short'}.mp4`;
+    const shortName = short.transcriptionSlice
+      ? short.transcriptionSlice.slice(0, 50).trim()
+      : 'short';
+    const filename = `${shortName}.mp4`;
     const downloadUrl = await createPresignedDownload(tigrisClient, short.outputObjectKey, 3600, filename);
 
     return success(res, {
       downloadUrl,
-      filename: short.title || 'short',
+      filename: shortName,
     });
   } catch (error) {
     console.error('Failed to generate presigned URL:', error);

@@ -1,6 +1,5 @@
 export interface ShortSuggestion {
-  title: string
-  description: string
+  transcriptionSlice: string
   startTime: number
   endTime: number
   reason: string

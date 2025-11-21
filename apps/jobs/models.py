@@ -142,8 +142,7 @@ class Short(Base):
 
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=False, index=True)
-    title = Column(Text, nullable=False)
-    description = Column(Text, nullable=False)
+    transcription_slice = Column(Text, nullable=False)
     start_time = Column(Double, nullable=False)
     end_time = Column(Double, nullable=False)
     output_object_key = Column(Text, nullable=True)

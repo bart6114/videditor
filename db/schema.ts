@@ -143,8 +143,7 @@ export const shorts = pgTable(
     projectId: varchar('project_id', { length: 255 })
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
-    title: text('title').notNull(),
-    description: text('description').notNull(),
+    transcriptionSlice: text('transcription_slice').notNull(),
     startTime: doublePrecision('start_time').notNull(),
     endTime: doublePrecision('end_time').notNull(),
     outputObjectKey: text('output_object_key'),

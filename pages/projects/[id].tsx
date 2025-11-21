@@ -499,9 +499,9 @@ export default function ProjectDetail() {
                     <Input
                       type="number"
                       min={1}
-                      max={10}
+                      max={15}
                       value={shortsCount}
-                      onChange={(e) => setShortsCount(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                      onChange={(e) => setShortsCount(Math.min(15, Math.max(1, parseInt(e.target.value) || 1)))}
                       disabled={analyzing}
                       className="bg-background border-input text-foreground"
                     />
@@ -635,106 +635,145 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* Bottom Row: Shorts Grid (Full Width) */}
+          {/* Bottom Row: Shorts Table (Full Width) */}
           {shorts.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-foreground">
-                  Generated Shorts ({shorts.filter((s) => s.status === 'completed').length}/{shorts.length})
-                </h2>
-                <Button
-                  size="sm"
-                  onClick={handleDownloadAll}
-                  disabled={downloadingAll || shorts.some((s) => s.status !== 'completed')}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  {downloadingAll ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Downloading...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 mr-2" />
-                      Download All ({shorts.filter((s) => s.status === 'completed').length})
-                    </>
-                  )}
-                </Button>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {shorts.map((short) => (
-                  <Card
-                    key={short.id}
-                    className="bg-card border-border cursor-pointer hover:border-primary transition-all overflow-hidden group"
-                    onClick={() => setSelectedShort(short)}
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-foreground">
+                    Generated Shorts ({shorts.filter((s) => s.status === 'completed').length}/{shorts.length})
+                  </CardTitle>
+                  <Button
+                    size="sm"
+                    onClick={handleDownloadAll}
+                    disabled={downloadingAll || shorts.some((s) => s.status !== 'completed')}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
-                    <div className="aspect-video bg-black relative overflow-hidden">
-                      {short.thumbnailUrl ? (
-                        <img
-                          src={short.thumbnailUrl}
-                          alt={short.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                          <Play className="w-8 h-8 text-muted-foreground" />
-                        </div>
-                      )}
-                      <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDuration(short.endTime - short.startTime)}
-                      </div>
-                    </div>
-                    <CardContent className="p-3">
-                      <p className="text-xs text-muted-foreground line-clamp-3 mb-2">{short.description}</p>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge
-                          variant={short.status === 'completed' ? 'default' : 'secondary'}
-                          className="text-xs"
+                    {downloadingAll ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Download All ({shorts.filter((s) => s.status === 'completed').length})
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border text-left">
+                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Thumbnail</th>
+                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Transcript</th>
+                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Duration</th>
+                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground hidden sm:table-cell">Timestamps</th>
+                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Status</th>
+                        <th className="pb-3 text-sm font-medium text-muted-foreground">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shorts.map((short) => (
+                        <tr
+                          key={short.id}
+                          className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => setSelectedShort(short)}
                         >
-                          {short.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {short.status === 'completed' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDownloadShort(short)
-                            }}
-                            disabled={downloadingShortId === short.id}
-                            className="flex-1 h-8"
-                          >
-                            {downloadingShortId === short.id ? (
-                              <>
-                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                <span className="text-xs">Downloading...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Download className="w-3 h-3 mr-1" />
-                                <span className="text-xs">Download</span>
-                              </>
-                            )}
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          onClick={(e) => openDeleteShortDialog(short, e)}
-                          title="Delete short"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+                          {/* Thumbnail */}
+                          <td className="py-3 pr-4">
+                            <div className="w-20 aspect-[9/16] bg-black rounded overflow-hidden relative flex-shrink-0">
+                              {short.thumbnailUrl ? (
+                                <img
+                                  src={short.thumbnailUrl}
+                                  alt="Short thumbnail"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-muted">
+                                  <Play className="w-5 h-5 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          {/* Transcript */}
+                          <td className="py-3 pr-4">
+                            <span className="text-sm text-foreground line-clamp-2 max-w-[300px]">
+                              {short.transcriptionSlice}
+                            </span>
+                          </td>
+                          {/* Duration */}
+                          <td className="py-3 pr-4">
+                            <div className="flex items-center gap-1 text-sm text-foreground">
+                              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                              {formatDuration(short.endTime - short.startTime)}
+                            </div>
+                          </td>
+                          {/* Timestamps */}
+                          <td className="py-3 pr-4 hidden sm:table-cell">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                              {formatDuration(short.startTime)} - {formatDuration(short.endTime)}
+                            </span>
+                          </td>
+                          {/* Status */}
+                          <td className="py-3 pr-4">
+                            <Badge
+                              variant={
+                                short.status === 'completed' ? 'default' :
+                                short.status === 'error' ? 'destructive' : 'secondary'
+                              }
+                              className="text-xs"
+                            >
+                              {short.status}
+                            </Badge>
+                          </td>
+                          {/* Actions */}
+                          <td className="py-3">
+                            <div className="flex items-center gap-2">
+                              {short.status === 'completed' && (
+                                <Button
+                                  size="default"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownloadShort(short)
+                                  }}
+                                  disabled={downloadingShortId === short.id}
+                                >
+                                  {downloadingShortId === short.id ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                      Downloading
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download className="w-4 h-4 mr-2" />
+                                      Download
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                              <Button
+                                size="default"
+                                variant="ghost"
+                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => openDeleteShortDialog(short, e)}
+                                title="Delete short"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
 
@@ -755,8 +794,7 @@ export default function ProjectDetail() {
               <DialogDescription className="text-muted-foreground">
                 <span className="block mb-3">Are you sure you want to delete this short?</span>
                 <div className="p-3 bg-muted rounded-md border border-border">
-                  <p className="text-sm font-semibold text-foreground">{shortToDelete?.title || 'Untitled'}</p>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{shortToDelete?.description}</p>
+                  <p className="text-sm text-foreground line-clamp-3">{shortToDelete?.transcriptionSlice}</p>
                 </div>
                 <span className="block mt-3 font-semibold text-destructive">
                   This action cannot be undone.
