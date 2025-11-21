@@ -106,6 +106,8 @@ async def analyze_transcript_for_shorts(
     api_key: str,
     transcript_segments: list[dict[str, Any]],
     num_shorts: int = 3,
+    preferred_length: int = 45,
+    max_length: int = 60,
     custom_prompt: str | None = None,
 ) -> list[ShortSuggestion]:
     """
@@ -115,6 +117,8 @@ async def analyze_transcript_for_shorts(
         api_key: OpenRouter API key
         transcript_segments: List of transcript segments with start, end, text
         num_shorts: Number of shorts to generate (default: 3)
+        preferred_length: Preferred length for shorts in seconds (default: 45)
+        max_length: Maximum allowed length in seconds (default: 60)
         custom_prompt: Optional custom instructions to include in prompt
 
     Returns:
@@ -127,6 +131,8 @@ async def analyze_transcript_for_shorts(
     logger.info(
         "analyzing_transcript_for_shorts",
         num_shorts=num_shorts,
+        preferred_length=preferred_length,
+        max_length=max_length,
         num_segments=len(transcript_segments),
         has_custom_prompt=custom_prompt is not None,
     )
@@ -140,7 +146,9 @@ async def analyze_transcript_for_shorts(
         custom_section = f"\n\nCustom Instructions:\n{custom_prompt}\n"
 
     # Build prompt based on user's example
-    prompt = f"""You are analyzing a video transcript to find the best moments for creating {num_shorts} short-form videos (ideally between 30 and 45 seconds, max 60 seconds if needed for message consistency).
+    # Calculate a reasonable range around preferred length (e.g., preferred ± 15 seconds)
+    min_length = max(15, preferred_length - 15)
+    prompt = f"""You are analyzing a video transcript to find the best moments for creating {num_shorts} short-form videos (ideally around {preferred_length} seconds, with a range of {min_length}-{preferred_length} seconds, max {max_length} seconds if needed for message consistency).
 {custom_section}
 Criteria for selection:
 - Engaging moments (exciting, funny, emotionally compelling)
@@ -161,7 +169,7 @@ Transcript with timestamps:
 {transcript}
 
 Please identify the {num_shorts} best segments. Each segment should be:
-- Ideally between 30 and 45 seconds long, but can extend up to 60 seconds if needed to complete the thought/message
+- Ideally around {preferred_length} seconds long (range: {min_length}-{preferred_length} seconds), but can extend up to {max_length} seconds if needed to complete the thought/message
 - Start and end at natural pauses (breath breaks, sentence completions, topic shifts)
 - Contain a complete thought or idea that stands alone without requiring prior context
 - Be engaging and valuable on its own

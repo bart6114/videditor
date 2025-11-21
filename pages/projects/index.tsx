@@ -49,15 +49,13 @@ export default function Projects() {
     }
   }, [isLoaded, isSignedIn, router])
 
+  // Load projects and poll for updates
   useEffect(() => {
     loadProjects()
 
     // Poll for updates every 5 seconds
     const interval = setInterval(loadProjects, 5000)
-
-    return () => {
-      clearInterval(interval)
-    }
+    return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

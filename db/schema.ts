@@ -53,6 +53,7 @@ export const users = pgTable(
     email: varchar('email', { length: 255 }).unique(),
     fullName: varchar('full_name', { length: 255 }),
     imageUrl: text('image_url'),
+    defaultCustomPrompt: text('default_custom_prompt'), // Default AI instruction for shorts generation
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

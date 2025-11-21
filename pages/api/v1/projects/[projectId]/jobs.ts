@@ -8,9 +8,29 @@ import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { JOB_TYPES, type JobType } from '@shared/index';
 
+const analysisPayloadSchema = z.object({
+  shortsCount: z.number().int().min(1).max(10).optional(),
+  preferredLength: z.number().int().min(15).max(120).optional(),
+  maxLength: z.number().int().min(15).max(120).optional(),
+  customPrompt: z.string().optional(),
+});
+
 const jobRequestSchema = z.object({
   type: z.enum(JOB_TYPES),
   payload: z.record(z.any()).optional(),
+}).refine((data) => {
+  // Additional validation for analysis jobs
+  if (data.type === 'analysis' && data.payload) {
+    const result = analysisPayloadSchema.safeParse(data.payload);
+    if (!result.success) return false;
+    // Ensure maxLength >= preferredLength if both are provided
+    if (result.data.preferredLength && result.data.maxLength) {
+      return result.data.maxLength >= result.data.preferredLength;
+    }
+  }
+  return true;
+}, {
+  message: 'Invalid analysis payload: maxLength must be >= preferredLength',
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

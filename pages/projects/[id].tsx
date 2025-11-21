@@ -56,8 +56,14 @@ export default function ProjectDetail() {
   const [transcription, setTranscription] = useState<Transcription | null>(null)
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [isGeneratingShorts, setIsGeneratingShorts] = useState(false)
+  const [shortsCountBeforeGenerate, setShortsCountBeforeGenerate] = useState<number | null>(null)
   const [shortsCount, setShortsCount] = useState(3)
+  const [preferredLength, setPreferredLength] = useState(45)
+  const [maxLength, setMaxLength] = useState(60)
   const [customPrompt, setCustomPrompt] = useState('')
+  const [defaultPromptLoaded, setDefaultPromptLoaded] = useState(false)
+  const [usingDefaultPrompt, setUsingDefaultPrompt] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [selectedShort, setSelectedShort] = useState<Short | null>(null)
   const [transcriptionExpanded, setTranscriptionExpanded] = useState(false) // Collapsed by default
@@ -71,12 +77,53 @@ export default function ProjectDetail() {
   const [newTitle, setNewTitle] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
 
+  // Initial load
   useEffect(() => {
     if (id) {
       loadProjectData()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  // Poll for updates while generating shorts
+  useEffect(() => {
+    if (!isGeneratingShorts || !id) return
+
+    const interval = setInterval(() => {
+      loadProjectData()
+    }, 3000)
+
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGeneratingShorts, id])
+
+  // Detect when new shorts arrive to hide progress indicator
+  useEffect(() => {
+    if (shortsCountBeforeGenerate !== null && shorts.length > shortsCountBeforeGenerate) {
+      setIsGeneratingShorts(false)
+      setShortsCountBeforeGenerate(null)
+    }
+  }, [shorts.length, shortsCountBeforeGenerate])
+
+  // Load user's default custom prompt
+  useEffect(() => {
+    if (defaultPromptLoaded) return
+
+    async function loadDefaultPrompt() {
+      try {
+        const data = await call<{ settings: { defaultCustomPrompt: string | null } }>('/v1/user/settings')
+        if (data.settings.defaultCustomPrompt) {
+          setCustomPrompt(data.settings.defaultCustomPrompt)
+          setUsingDefaultPrompt(true)
+        }
+      } catch (error) {
+        // Silently ignore - user just won't have a default prefilled
+      } finally {
+        setDefaultPromptLoaded(true)
+      }
+    }
+    loadDefaultPrompt()
+  }, [call, defaultPromptLoaded])
 
   async function loadProjectData() {
     if (!id || typeof id !== 'string') return
@@ -88,7 +135,20 @@ export default function ProjectDetail() {
         shorts: Short[]
       }>(`/v1/projects/${id}`)
 
-      setProject(data.project)
+      // Preserve existing URLs to prevent video player restart during polling
+      setProject((prev) => {
+        const newProject = data.project as Project & { videoUrl?: string; thumbnailUrl?: string }
+        if (prev) {
+          // Keep existing URLs if already loaded
+          if ((prev as any).videoUrl) {
+            ;(newProject as any).videoUrl = (prev as any).videoUrl
+          }
+          if ((prev as any).thumbnailUrl) {
+            ;(newProject as any).thumbnailUrl = (prev as any).thumbnailUrl
+          }
+        }
+        return newProject
+      })
       setTranscription(data.transcription)
       setShorts(data.shorts || [])
     } catch (error) {
@@ -100,6 +160,8 @@ export default function ProjectDetail() {
 
   async function handleAnalyze() {
     setAnalyzing(true)
+    setShortsCountBeforeGenerate(shorts.length)
+    setIsGeneratingShorts(true)
 
     try {
       await call(`/v1/projects/${id}/jobs`, {
@@ -108,15 +170,17 @@ export default function ProjectDetail() {
           type: 'analysis',
           payload: {
             shortsCount,
+            preferredLength,
+            maxLength,
             customPrompt: customPrompt.trim() || undefined,
           },
         }),
       })
-
-      await loadProjectData()
     } catch (error) {
       console.error('Error analyzing:', error)
       alert(error instanceof Error ? error.message : 'Failed to generate shorts')
+      setIsGeneratingShorts(false)
+      setShortsCountBeforeGenerate(null)
     } finally {
       setAnalyzing(false)
     }
@@ -442,20 +506,78 @@ export default function ProjectDetail() {
                       className="bg-background border-input text-foreground"
                     />
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block text-foreground">
+                        Preferred Length (seconds)
+                      </label>
+                      <Input
+                        type="number"
+                        min={15}
+                        max={120}
+                        value={preferredLength}
+                        onChange={(e) => {
+                          const value = Math.min(120, Math.max(15, parseInt(e.target.value) || 45))
+                          setPreferredLength(value)
+                          // Ensure max is at least as large as preferred
+                          if (maxLength < value) setMaxLength(value)
+                        }}
+                        disabled={analyzing}
+                        className="bg-background border-input text-foreground"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Target length for shorts
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block text-foreground">
+                        Max Length (seconds)
+                      </label>
+                      <Input
+                        type="number"
+                        min={15}
+                        max={120}
+                        value={maxLength}
+                        onChange={(e) => {
+                          const value = Math.min(120, Math.max(15, parseInt(e.target.value) || 60))
+                          setMaxLength(value)
+                          // Ensure preferred doesn't exceed max
+                          if (preferredLength > value) setPreferredLength(value)
+                        }}
+                        disabled={analyzing}
+                        className="bg-background border-input text-foreground"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Maximum allowed length
+                      </p>
+                    </div>
+                  </div>
                   <div>
-                    <label className="text-sm font-medium mb-2 block text-foreground">
-                      Custom Prompt (optional)
-                    </label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className="text-sm font-medium text-foreground">
+                        Custom Prompt (optional)
+                      </label>
+                      {usingDefaultPrompt && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                          using default
+                        </span>
+                      )}
+                    </div>
                     <textarea
                       placeholder="e.g., Focus on educational content and actionable tips..."
                       value={customPrompt}
-                      onChange={(e) => setCustomPrompt(e.target.value)}
+                      onChange={(e) => {
+                        setCustomPrompt(e.target.value)
+                        setUsingDefaultPrompt(false)
+                      }}
                       disabled={analyzing}
                       rows={4}
                       className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Leave empty to use the default prompt
+                      {usingDefaultPrompt
+                        ? 'Edit above to override your default, or configure in Settings'
+                        : 'Leave empty to use AI defaults, or set your own default in Settings'}
                     </p>
                   </div>
                   <Button
@@ -475,6 +597,25 @@ export default function ProjectDetail() {
                       </>
                     )}
                   </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Generation Progress Indicator */}
+            {(analyzing || isGeneratingShorts) && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="py-6">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <div>
+                      <p className="font-medium text-foreground">
+                        Short generation in progress
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        AI is analyzing your video to find the best moments. Shorts will appear below when ready.
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}

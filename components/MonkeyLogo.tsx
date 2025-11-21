@@ -43,7 +43,7 @@ export function MonkeyLogo({
         )}
         aria-label="VidEditor.ai logo"
       >
-        @('_')@
+        @(&apos;_&apos;)@
       </span>
       {showText && (
         <span

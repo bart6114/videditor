@@ -25,6 +25,11 @@ export type ShortStatus = (typeof SHORT_STATUSES)[number];
 export const ASSET_KINDS = ['source', 'transcript', 'clip', 'thumbnail', 'analysis'] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 
+export type ShortsSettings = {
+  preferredLength: number; // Target length in seconds (e.g., 30, 45, 60)
+  maxLength: number;       // Maximum allowed length in seconds (e.g., 60, 90, 120)
+};
+
 export type ApiSuccessResponse<T> = {
   success: true;
   data: T;

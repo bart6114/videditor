@@ -456,6 +456,8 @@ class JobProcessor:
 
         payload = job.payload or {}
         shorts_count = payload.get("shortsCount", 3)
+        preferred_length = payload.get("preferredLength", 45)
+        max_length = payload.get("maxLength", 60)
         custom_prompt = payload.get("customPrompt")
 
         self.logger.info(
@@ -463,6 +465,8 @@ class JobProcessor:
             job_id=job.id,
             project_id=job.project_id,
             shorts_count=shorts_count,
+            preferred_length=preferred_length,
+            max_length=max_length,
         )
 
         # Update project status
@@ -508,6 +512,8 @@ class JobProcessor:
             api_key=self.config.OPENROUTER_API_KEY,
             transcript_segments=transcription.segments,
             num_shorts=shorts_count,
+            preferred_length=preferred_length,
+            max_length=max_length,
             custom_prompt=custom_prompt,
         )
 

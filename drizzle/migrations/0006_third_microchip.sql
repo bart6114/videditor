@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "default_custom_prompt" text;

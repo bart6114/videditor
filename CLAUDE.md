@@ -167,3 +167,5 @@ Job Runner (Fly Machine, Python 3.13)
 - Jobs worker was migrated from TypeScript/Node.js to Python 3.13 for better AI/ML tooling
 - Previous Cloudflare-specific code has been removed
 - System has been migrated from CloudFlare to Fly, if you encounter any remnants ask if OK to delete 'em
+- todo - add boolean to avoid content overlap in generate shorts panel
+- todo add ability to check a boolean in generate shorts panel that says something like "avoid content overlap"
