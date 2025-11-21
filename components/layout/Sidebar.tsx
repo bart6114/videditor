@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Home, Settings, User } from 'lucide-react';
+import { FolderOpen, Settings, User, LogOut } from 'lucide-react';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { MonkeyLogo } from '@/components/MonkeyLogo';
 
 const navigation = [
-  { name: 'Projects', href: '/projects', icon: Home },
+  { name: 'Projects', href: '/projects', icon: FolderOpen },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Account', href: '/account', icon: User },
 ];
@@ -21,14 +21,14 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="flex h-full w-64 flex-col bg-card border-r border-border">
+    <div className="flex h-full w-64 flex-col bg-card/50 backdrop-blur-sm border-r border-border">
       {/* Logo/Brand */}
-      <div className="flex h-16 items-center justify-center border-b border-border">
+      <div className="flex h-16 items-center justify-center border-b border-border/50">
         <MonkeyLogo size="lg" linkTo="/projects" showText={false} />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1.5 px-3 py-6">
         {navigation.map((item) => {
           const isActive = router.pathname === item.href || router.pathname.startsWith(item.href + '/');
           const Icon = item.icon;
@@ -38,15 +38,15 @@ export default function Sidebar() {
               key={item.name}
               href={item.href}
               className={`
-                flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
+                group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
                 ${
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    ? 'bg-primary/15 text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                 }
               `}
             >
-              <Icon className="mr-3 h-5 w-5" />
+              <Icon className={`mr-3 h-5 w-5 transition-transform duration-200 ${!isActive && 'group-hover:scale-110'}`} />
               {item.name}
             </Link>
           );
@@ -54,15 +54,15 @@ export default function Sidebar() {
       </nav>
 
       {/* User Profile & Logout */}
-      <div className="border-t border-border p-4 space-y-3">
+      <div className="border-t border-border/50 p-4 space-y-3">
         {user && (
-          <div className="px-3 py-2">
+          <div className="px-2 py-2 rounded-lg bg-secondary/50">
             <div className="flex items-center gap-3">
               {user.imageUrl && (
                 <img
                   src={user.imageUrl}
                   alt={user.fullName || user.emailAddresses[0]?.emailAddress || 'User'}
-                  className="w-8 h-8 rounded-full"
+                  className="w-9 h-9 rounded-full ring-2 ring-primary/20"
                 />
               )}
               <div className="flex-1 min-w-0">
@@ -78,9 +78,9 @@ export default function Sidebar() {
         )}
         <button
           onClick={handleLogout}
-          className="flex w-full items-center px-3 py-2.5 text-sm font-medium text-muted-foreground rounded-lg hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+          className="group flex w-full items-center px-3 py-2.5 text-sm font-medium text-muted-foreground rounded-lg hover:text-foreground hover:bg-secondary transition-all duration-200"
         >
-          <User className="mr-3 h-5 w-5" />
+          <LogOut className="mr-3 h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
           Logout
         </button>
       </div>

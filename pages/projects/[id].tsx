@@ -603,16 +603,18 @@ export default function ProjectDetail() {
 
             {/* Generation Progress Indicator */}
             {(analyzing || isGeneratingShorts) && (
-              <Card className="bg-primary/5 border-primary/20">
+              <Card className="bg-primary/5 border-primary/30 shadow-glow">
                 <CardContent className="py-6">
-                  <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                    <div>
-                      <p className="font-medium text-foreground">
-                        Short generation in progress
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground mb-1">
+                        Generating shorts...
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        AI is analyzing your video to find the best moments. Shorts will appear below when ready.
+                        AI is analyzing your video to find the best moments
                       </p>
                     </div>
                   </div>
@@ -622,12 +624,14 @@ export default function ProjectDetail() {
 
             {/* No Transcription Placeholder */}
             {!transcription && (
-              <Card className="bg-card border-border">
-                <CardContent className="py-8 text-center">
-                  <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-foreground mb-1">No transcription yet</p>
-                  <p className="text-sm text-muted-foreground">
-                    Upload this video to generate a transcription
+              <Card className="bg-card border-border border-dashed">
+                <CardContent className="py-12 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-secondary flex items-center justify-center">
+                    <FileText className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-2">No transcription yet</h3>
+                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                    The transcription is being processed. It will appear here when ready.
                   </p>
                 </CardContent>
               </Card>
@@ -680,7 +684,7 @@ export default function ProjectDetail() {
                       {shorts.map((short) => (
                         <tr
                           key={short.id}
-                          className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer transition-colors"
+                          className="border-b border-border last:border-0 hover:bg-secondary/50 cursor-pointer transition-all duration-200 group"
                           onClick={() => setSelectedShort(short)}
                         >
                           {/* Thumbnail */}

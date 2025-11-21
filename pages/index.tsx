@@ -17,7 +17,7 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="min-h-screen bg-background">
+      <main className="min-h-screen bg-background dark">
         {/* Header */}
         <nav className="container mx-auto px-4 py-6 flex justify-between items-center">
           <MonkeyLogo size="md" linkTo="/" />
@@ -132,24 +132,30 @@ export default function Home() {
             Everything you need to create engaging shorts
           </p>
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-8 bg-card rounded-xl shadow-sm border border-border hover:border-primary hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-              <Video className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-xl font-bold mb-2 text-foreground">AI-Powered Transcription</h3>
-              <p className="text-muted-foreground">
+            <div className="group p-8 bg-card rounded-xl shadow-soft border border-border hover:border-primary/40 hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-2">
+              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/15 transition-colors">
+                <Video className="w-7 h-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-3 text-foreground">AI-Powered Transcription</h3>
+              <p className="text-muted-foreground leading-relaxed">
                 Automatic transcription to understand every word in your video with high accuracy.
               </p>
             </div>
-            <div className="p-8 bg-card rounded-xl shadow-sm border border-border hover:border-primary hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-              <Sparkles className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-xl font-bold mb-2 text-foreground">Smart Short Detection</h3>
-              <p className="text-muted-foreground">
+            <div className="group p-8 bg-card rounded-xl shadow-soft border border-border hover:border-primary/40 hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-2">
+              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/15 transition-colors">
+                <Sparkles className="w-7 h-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-3 text-foreground">Smart Short Detection</h3>
+              <p className="text-muted-foreground leading-relaxed">
                 AI analyzes your content to find the most engaging moments and suggests viral-worthy clips automatically.
               </p>
             </div>
-            <div className="p-8 bg-card rounded-xl shadow-sm border border-border hover:border-primary hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-              <Zap className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-xl font-bold mb-2 text-foreground">Instant Preview & Download</h3>
-              <p className="text-muted-foreground">
+            <div className="group p-8 bg-card rounded-xl shadow-soft border border-border hover:border-primary/40 hover:shadow-soft-lg transition-all duration-300 hover:-translate-y-2">
+              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/15 transition-colors">
+                <Zap className="w-7 h-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-3 text-foreground">Instant Preview & Download</h3>
+              <p className="text-muted-foreground leading-relaxed">
                 Preview all suggested shorts and download them individually or in bulk.
               </p>
             </div>
@@ -158,19 +164,22 @@ export default function Home() {
 
         {/* Final CTA */}
         <div className="container mx-auto px-4 py-20">
-          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 rounded-2xl p-12 text-center">
-            <h2 className="text-3xl font-bold mb-4 text-foreground">Ready to Create Viral Shorts?</h2>
-            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-              Join creators who are saving hours on content repurposing. Start free during our beta.
-            </p>
-            <Button asChild size="lg" className="text-lg px-8 py-6">
-              <Link href={isSignedIn ? '/projects' : '/sign-up'}>
-                Get Started Free
-              </Link>
-            </Button>
-            <p className="text-sm text-muted-foreground mt-4">
-              No credit card required
-            </p>
+          <div className="relative bg-gradient-to-br from-primary/15 via-card to-primary/10 rounded-2xl p-12 text-center border border-primary/20 shadow-glow overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+            <div className="relative z-10">
+              <h2 className="text-3xl font-bold mb-4 text-foreground">Ready to Create Viral Shorts?</h2>
+              <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
+                Join creators who are saving hours on content repurposing. Start free during our beta.
+              </p>
+              <Button asChild size="lg" className="text-lg px-10 h-14">
+                <Link href={isSignedIn ? '/projects' : '/sign-up'}>
+                  Get Started Free
+                </Link>
+              </Button>
+              <p className="text-sm text-muted-foreground mt-4">
+                No credit card required
+              </p>
+            </div>
           </div>
         </div>
 

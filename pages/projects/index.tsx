@@ -216,11 +216,15 @@ export default function Projects() {
               </CardContent>
             </Card>
           ) : projects.length === 0 ? (
-            <Card className="bg-card border-border">
-              <CardContent className="py-12 text-center">
-                <Video className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-foreground mb-2">No projects yet</p>
-                <p className="text-sm text-muted-foreground">Upload a video to get started. Projects appear here after upload completes.</p>
+            <Card className="bg-card border-border border-dashed">
+              <CardContent className="py-16 text-center">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Video className="w-10 h-10 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No projects yet</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto">
+                  Upload your first video to get started. We&apos;ll automatically transcribe it and help you create engaging shorts.
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -228,27 +232,29 @@ export default function Projects() {
               {projects.map((project) => (
                 <Card
                   key={project.id}
-                  className="bg-card border-border hover:border-primary transition-all cursor-pointer group overflow-hidden"
+                  className="bg-card border-border hover:border-primary/40 hover:shadow-soft-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group overflow-hidden"
                   onClick={() => router.push(`/projects/${project.id}`)}
                 >
                   {/* Thumbnail */}
-                  <div className="relative aspect-video bg-muted">
+                  <div className="relative aspect-video bg-secondary overflow-hidden">
                     {project.thumbnailUrl ? (
                       <img
                         src={project.thumbnailUrl}
                         alt={project.title}
-                        className={`w-full h-full object-cover transition-opacity duration-300 ${isProcessing(project.status) ? 'opacity-40' : ''}`}
+                        className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${isProcessing(project.status) ? 'opacity-40' : ''}`}
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Video className="w-12 h-12 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">
+                        <Video className="w-12 h-12 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
                       </div>
                     )}
                     {/* Processing Overlay */}
                     {isProcessing(project.status) && (
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3 animate-in fade-in duration-300">
-                        <Loader2 className="w-12 h-12 text-white animate-spin" />
-                        <span className="text-white text-sm font-medium">
+                      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3 animate-in fade-in duration-300">
+                        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                        </div>
+                        <span className="text-foreground text-sm font-medium">
                           {getProcessingLabel(project.status)}
                         </span>
                       </div>
@@ -256,7 +262,7 @@ export default function Projects() {
                     {/* Delete Button Overlay */}
                     <button
                       onClick={(e) => openDeleteDialog(project, e)}
-                      className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white"
+                      className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-all duration-200 p-2 rounded-lg bg-background/80 backdrop-blur-sm hover:bg-destructive hover:text-white text-muted-foreground"
                       aria-label="Delete project"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -269,7 +275,7 @@ export default function Projects() {
 
                   <CardContent className="p-4">
                     {/* Title */}
-                    <h3 className="font-semibold text-base mb-2 text-foreground truncate group-hover:text-primary transition-colors">
+                    <h3 className="font-semibold text-base mb-2 text-foreground truncate group-hover:text-primary transition-colors duration-200">
                       {project.title}
                     </h3>
 
@@ -284,16 +290,16 @@ export default function Projects() {
                     </div>
 
                     {/* Transcription & Shorts Status */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge
-                        variant={project.hasTranscription ? "default" : "secondary"}
+                        variant={project.hasTranscription ? "success" : "secondary"}
                         className="text-xs"
                       >
                         <FileText className="w-3 h-3 mr-1" />
                         {project.hasTranscription ? 'Transcribed' : 'No transcript'}
                       </Badge>
                       <Badge
-                        variant={project.shortsCount && project.shortsCount > 0 ? "default" : "secondary"}
+                        variant={project.shortsCount && project.shortsCount > 0 ? "info" : "secondary"}
                         className="text-xs"
                       >
                         <Film className="w-3 h-3 mr-1" />
