@@ -146,16 +146,7 @@ Job Runner (Fly Machine, Python 3.13)
 
 ## TODOs / Follow-ups
 
-1. **Implement FFmpeg + AI workflows** – complete the stub logic in `apps/jobs/processor.py`:
-   - ✅ Transcription (implemented with faster-whisper)
-   - Audio extraction (FFmpeg)
-   - Analysis (AI identification of viral moments)
-   - Video cutting/clipping (FFmpeg)
-   - Delivery (upload to CDN, notify user)
-2. **Realtime updates** – add SSE or WebSocket for job status streaming (instead of polling)
-3. **Secure downloads** – build signed download endpoints for processed clips/shorts
-4. **CI/CD** – configure GitHub Actions to lint/test/build and deploy both Fly apps automatically
-5. **Queue monitoring** – add admin dashboard to view job queue depth, active jobs, failed jobs
+- Add ability to check a boolean in generate shorts panel that says something like "avoid content overlap"
 
 ---
 
@@ -167,5 +158,3 @@ Job Runner (Fly Machine, Python 3.13)
 - Jobs worker was migrated from TypeScript/Node.js to Python 3.13 for better AI/ML tooling
 - Previous Cloudflare-specific code has been removed
 - System has been migrated from CloudFlare to Fly, if you encounter any remnants ask if OK to delete 'em
-- todo - add boolean to avoid content overlap in generate shorts panel
-- todo add ability to check a boolean in generate shorts panel that says something like "avoid content overlap"
