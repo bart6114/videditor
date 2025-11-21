@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { VideoLightbox } from '@/components/video-lightbox'
+import { ShortsSidePanel } from '@/components/shorts-side-panel'
 import {
   Sparkles,
   Download,
@@ -95,6 +95,7 @@ export default function ProjectDetail() {
   const [selectedShort, setSelectedShort] = useState<Short | null>(null)
   const [transcriptionExpanded, setTranscriptionExpanded] = useState(false) // Collapsed by default
   const [downloadingAll, setDownloadingAll] = useState(false)
+  const [downloadingMetadata, setDownloadingMetadata] = useState(false)
   const [downloadingShortId, setDownloadingShortId] = useState<string | null>(null)
   const [videoPlayerLoaded, setVideoPlayerLoaded] = useState(false)
   const [deleteShortDialogOpen, setDeleteShortDialogOpen] = useState(false)
@@ -229,7 +230,7 @@ export default function ProjectDetail() {
       // Trigger browser download
       const a = document.createElement('a')
       a.href = data.downloadUrl
-      a.download = `${project?.title || 'Project'} - ${data.filename}.mp4`
+      a.download = `${data.filename}.mp4`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -288,6 +289,41 @@ export default function ProjectDetail() {
       alert(error instanceof Error ? error.message : 'Failed to download shorts')
     } finally {
       setDownloadingAll(false)
+    }
+  }
+
+  async function handleDownloadMetadata() {
+    if (shorts.length === 0) return
+
+    // Filter completed shorts
+    const completedShorts = shorts.filter((short) => short.status === 'completed')
+
+    if (completedShorts.length === 0) {
+      alert('No completed shorts available to download metadata.')
+      return
+    }
+
+    setDownloadingMetadata(true)
+    try {
+      const data = await call<{ shorts: any[] }>(`/v1/projects/${id}/metadata`)
+
+      // Create and download JSON file
+      const blob = new Blob([JSON.stringify(data.shorts, null, 2)], {
+        type: 'application/json',
+      })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${project?.title || 'Project'} - Metadata.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading metadata:', error)
+      alert(error instanceof Error ? error.message : 'Failed to download metadata')
+    } finally {
+      setDownloadingMetadata(false)
     }
   }
 
@@ -738,24 +774,42 @@ export default function ProjectDetail() {
                   <CardTitle className="text-foreground">
                     Generated Shorts ({shorts.filter((s) => s.status === 'completed').length}/{shorts.length})
                   </CardTitle>
-                  <Button
-                    size="sm"
-                    onClick={handleDownloadAll}
-                    disabled={downloadingAll || shorts.some((s) => s.status !== 'completed')}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    {downloadingAll ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Downloading...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Download All ({shorts.filter((s) => s.status === 'completed').length})
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleDownloadMetadata}
+                      disabled={downloadingMetadata || shorts.filter((s) => s.status === 'completed').length === 0}
+                      variant="outline"
+                      title="Download All Metadata"
+                    >
+                      {downloadingMetadata ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <FileText className="w-4 h-4" />
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleDownloadAll}
+                      disabled={downloadingAll || shorts.some((s) => s.status !== 'completed')}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      {downloadingAll ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4 mr-2" />
+                          Download All ({shorts.filter((s) => s.status === 'completed').length})
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -775,7 +829,9 @@ export default function ProjectDetail() {
                       {shorts.map((short) => (
                         <tr
                           key={short.id}
-                          className="border-b border-border last:border-0 hover:bg-secondary/50 cursor-pointer transition-all duration-200 group"
+                          className={`border-b border-border last:border-0 hover:bg-secondary/50 cursor-pointer transition-all duration-200 group ${
+                            selectedShort?.id === short.id ? 'bg-primary/10 hover:bg-primary/15' : ''
+                          }`}
                           onClick={() => setSelectedShort(short)}
                         >
                           {/* Thumbnail */}
@@ -872,11 +928,12 @@ export default function ProjectDetail() {
           )}
         </div>
 
-        {/* Video Lightbox for playing shorts */}
-        <VideoLightbox
+        {/* Side Panel for playing shorts */}
+        <ShortsSidePanel
           selectedShort={selectedShort}
           shorts={shorts}
           projectId={id as string}
+          projectTitle={project.title}
           onClose={() => setSelectedShort(null)}
           onNavigate={(short) => setSelectedShort(short)}
         />

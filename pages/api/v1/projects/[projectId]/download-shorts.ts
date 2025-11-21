@@ -8,6 +8,7 @@ import { eq, and } from 'drizzle-orm';
 import { authenticate } from '@/lib/api/auth';
 import { failure } from '@/lib/api/responses';
 import { createTigrisClient } from '@/lib/tigris';
+import { getShortFilename } from '@/lib/api/shorts';
 
 // Disable body parsing for streaming
 export const config = {
@@ -116,13 +117,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ? s3Response.Body
         : Readable.from(s3Response.Body as any);
 
-      // Sanitize the filename using truncated transcription slice
-      const shortName = short.transcriptionSlice
-        ? short.transcriptionSlice.slice(0, 50).trim()
-        : `Short ${short.id}`;
-      const sanitizedTitle = sanitizeFilename(shortName);
-      const extension = short.outputObjectKey.split('.').pop() || 'mp4';
-      const entryName = `${sanitizedTitle}.${extension}`;
+      // Generate filename using shared utility function
+      const entryName = getShortFilename(short);
 
       // Append stream to archive
       archive.append(readableStream, { name: entryName });

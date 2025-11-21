@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { createTigrisClient, createPresignedDownload } from '@/lib/tigris';
+import { getShortFilename } from '@/lib/api/shorts';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -45,15 +46,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Generate presigned download URL
   try {
     const tigrisClient = createTigrisClient();
-    const shortName = short.transcriptionSlice
-      ? short.transcriptionSlice.slice(0, 50).trim()
-      : 'short';
-    const filename = `${shortName}.mp4`;
+    const filename = getShortFilename(short);
     const downloadUrl = await createPresignedDownload(tigrisClient, short.outputObjectKey, 3600, filename);
+
+    // Return filename without extension for backward compatibility
+    const basenameWithoutExt = filename.replace(/\.[^/.]+$/, '');
 
     return success(res, {
       downloadUrl,
-      filename: shortName,
+      filename: basenameWithoutExt,
     });
   } catch (error) {
     console.error('Failed to generate presigned URL:', error);
