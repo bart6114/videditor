@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
-import { X, Loader2, Copy, Check, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react'
+import { X, Loader2, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react'
 import { useApi } from '@/lib/api/client'
 import type { Short } from '@server/db/schema'
 import type { SocialContent, SocialPlatform } from '@shared/index'
@@ -25,28 +25,29 @@ interface ShortsSidePanelProps {
   onNavigate: (short: Short) => void
 }
 
-function CopyButton({ text }: { text: string }) {
+function ClickToCopyField({ text, multiline = false }: { text: string; multiline?: boolean }) {
   const [copied, setCopied] = useState(false)
 
-  const handleCopy = async () => {
+  const handleClick = async () => {
     await navigator.clipboard.writeText(text)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), 1500)
   }
 
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      className="h-6 px-2"
-      onClick={handleCopy}
+    <div
+      onClick={handleClick}
+      className={`relative text-sm bg-muted p-3 rounded-md cursor-pointer hover:bg-muted/80 transition-colors ${
+        multiline ? 'whitespace-pre-wrap' : ''
+      }`}
     >
-      {copied ? (
-        <Check className="w-3 h-3 text-green-500" />
-      ) : (
-        <Copy className="w-3 h-3" />
+      {text}
+      {copied && (
+        <div className="absolute inset-0 flex items-center justify-center bg-primary/90 rounded-md animate-in fade-in duration-150">
+          <span className="text-xs font-medium text-primary-foreground">Copied!</span>
+        </div>
       )}
-    </Button>
+    </div>
   )
 }
 
@@ -382,34 +383,19 @@ export function ShortsSidePanel({
                           {platform === 'youtube' && content && 'title' in content && (
                             <div className="space-y-3">
                               <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <label className="text-xs font-medium text-muted-foreground">Title</label>
-                                  <CopyButton text={(content as { title: string }).title} />
-                                </div>
-                                <p className="text-sm bg-muted p-3 rounded-md">
-                                  {(content as { title: string }).title}
-                                </p>
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Title</label>
+                                <ClickToCopyField text={(content as { title: string }).title} />
                               </div>
                               <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <label className="text-xs font-medium text-muted-foreground">Description</label>
-                                  <CopyButton text={(content as { description: string }).description} />
-                                </div>
-                                <p className="text-sm bg-muted p-3 rounded-md whitespace-pre-wrap">
-                                  {(content as { description: string }).description}
-                                </p>
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Description</label>
+                                <ClickToCopyField text={(content as { description: string }).description} multiline />
                               </div>
                             </div>
                           )}
                           {(platform === 'instagram' || platform === 'tiktok' || platform === 'linkedin') && content && 'caption' in content && (
                             <div>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Caption</label>
-                                <CopyButton text={(content as { caption: string }).caption} />
-                              </div>
-                              <p className="text-sm bg-muted p-3 rounded-md whitespace-pre-wrap">
-                                {(content as { caption: string }).caption}
-                              </p>
+                              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Caption</label>
+                              <ClickToCopyField text={(content as { caption: string }).caption} multiline />
                             </div>
                           )}
                         </div>

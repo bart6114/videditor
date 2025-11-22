@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import WorkspaceLayout from '@/components/layout/WorkspaceLayout'
-import { Video, Clock, Loader2, CheckCircle, AlertCircle, FileText, Film, Trash2 } from 'lucide-react'
+import { Video, Clock, Loader2, CheckCircle, AlertCircle, FileText, Film, Trash2, Calendar } from 'lucide-react'
 import { formatFileSize, formatRelativeTime } from '@/lib/utils'
 import type { ProjectSummary } from '@/types/projects'
 
@@ -285,8 +285,11 @@ export default function Projects() {
                         <Clock className="w-3 h-3" />
                         {project.durationSeconds ? formatDuration(project.durationSeconds) : '—'}
                       </span>
-                      <span>{project.fileSizeBytes ? formatFileSize(project.fileSizeBytes) : '—'}</span>
-                      <span>{formatRelativeTime(project.createdAt)}</span>
+                      {project.fileSizeBytes && <span>{formatFileSize(project.fileSizeBytes)}</span>}
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {formatRelativeTime(project.createdAt)}
+                      </span>
                     </div>
 
                     {/* Transcription & Shorts Status */}

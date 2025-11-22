@@ -146,7 +146,12 @@ Job Runner (Fly Machine, Python 3.13)
 
 ## TODOs / Follow-ups
 
-- Add ability to check a boolean in generate shorts panel that says something like "avoid content overlap"
+- Rename projects to videos
+- Add concept of organisation so it can have multiple team members
+- Set up Stripe
+- Check for remaining stubs
+- Clean up job types
+- Scheduling system for YT/TikTok/Instagram
 
 ---
 
