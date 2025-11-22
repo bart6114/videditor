@@ -146,6 +146,7 @@ Job Runner (Fly Machine, Python 3.13)
 
 ## TODOs / Follow-ups
 
+- Look at videoplayer height on project ID page
 - Rename projects to videos
 - Add concept of organisation so it can have multiple team members
 - Set up Stripe
