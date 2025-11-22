@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
 import { shorts } from '@server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { getShortFilename } from '@/lib/api/shorts';
@@ -17,7 +17,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const projectId = req.query.projectId as string;
+  const shortIdsParam = req.query.shortIds as string | undefined;
   const db = getDb();
+
+  // Parse shortIds if provided (comma-separated)
+  const selectedShortIds = shortIdsParam ? shortIdsParam.split(',').filter(Boolean) : null;
 
   // Fetch the project to verify ownership
   const { projects } = await import('@server/db/schema');
@@ -27,8 +31,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 404, 'Project not found');
   }
 
-  // Fetch all shorts for this project
-  const projectShorts = await db.select().from(shorts).where(eq(shorts.projectId, projectId));
+  // Fetch shorts for this project (filtered by selection if provided)
+  const projectShorts = selectedShortIds
+    ? await db.select().from(shorts).where(
+        and(
+          eq(shorts.projectId, projectId),
+          inArray(shorts.id, selectedShortIds)
+        )
+      )
+    : await db.select().from(shorts).where(eq(shorts.projectId, projectId));
 
   // Filter to only completed shorts and transform to requested format
   const metadata = projectShorts

@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -105,6 +106,48 @@ export default function ProjectDetail() {
   const [newTitle, setNewTitle] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
 
+  // Multi-select state for shorts
+  const [selectedShortIds, setSelectedShortIds] = useState<Set<string>>(new Set())
+
+  // Helper functions for selection
+  const toggleShortSelection = (shortId: string) => {
+    setSelectedShortIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(shortId)) {
+        newSet.delete(shortId)
+      } else {
+        newSet.add(shortId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleSelectAll = () => {
+    const completedShorts = shorts.filter((s) => s.status === 'completed')
+    if (selectedShortIds.size === completedShorts.length) {
+      // Deselect all
+      setSelectedShortIds(new Set())
+    } else {
+      // Select all completed shorts
+      setSelectedShortIds(new Set(completedShorts.map((s) => s.id)))
+    }
+  }
+
+  const clearSelection = () => {
+    setSelectedShortIds(new Set())
+  }
+
+  const isAllSelected = () => {
+    const completedShorts = shorts.filter((s) => s.status === 'completed')
+    return completedShorts.length > 0 && selectedShortIds.size === completedShorts.length
+  }
+
+  const isSomeSelected = () => {
+    return selectedShortIds.size > 0 && !isAllSelected()
+  }
+
+  const hasSelections = selectedShortIds.size > 0
+
   // Initial load
   useEffect(() => {
     if (id) {
@@ -132,6 +175,25 @@ export default function ProjectDetail() {
       setShortsCountBeforeGenerate(null)
     }
   }, [shorts.length, shortsCountBeforeGenerate])
+
+  // Keyboard shortcut for select all (Ctrl/Cmd+A)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if Ctrl+A (Windows/Linux) or Cmd+A (Mac) is pressed
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && shorts.length > 0) {
+        // Only intercept if we're not in an input field
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          toggleSelectAll()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shorts.length, selectedShortIds.size])
 
   // Load user's default settings
   useEffect(() => {
@@ -245,15 +307,20 @@ export default function ProjectDetail() {
   async function handleDownloadAll() {
     if (shorts.length === 0) return
 
-    // Check if all shorts are completed
-    const incompleteShorts = shorts.filter(
+    // Get shorts to download (either selected or all)
+    const shortsToDownload = hasSelections
+      ? shorts.filter((short) => selectedShortIds.has(short.id))
+      : shorts
+
+    // Check if all shorts to download are completed
+    const incompleteShorts = shortsToDownload.filter(
       (short) => short.status !== 'completed'
     )
 
     if (incompleteShorts.length > 0) {
-      const completedCount = shorts.length - incompleteShorts.length
+      const completedCount = shortsToDownload.length - incompleteShorts.length
       alert(
-        `Cannot download: ${incompleteShorts.length} short(s) are still processing. ${completedCount} of ${shorts.length} shorts are ready.`
+        `Cannot download: ${incompleteShorts.length} short(s) are still processing. ${completedCount} of ${shortsToDownload.length} shorts are ready.`
       )
       return
     }
@@ -261,7 +328,11 @@ export default function ProjectDetail() {
     setDownloadingAll(true)
     try {
       const token = await getToken()
-      const response = await fetch(`/api/v1/projects/${id}/download-shorts`, {
+      const url = hasSelections
+        ? `/api/v1/projects/${id}/download-shorts?shortIds=${Array.from(selectedShortIds).join(',')}`
+        : `/api/v1/projects/${id}/download-shorts`
+
+      const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -276,14 +347,22 @@ export default function ProjectDetail() {
 
       // Download the zip file
       const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
+      const blobUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      a.download = `${project?.title || 'Project'} - Shorts.zip`
+      a.href = blobUrl
+      const filename = hasSelections
+        ? `${project?.title || 'Project'} - Selected Shorts.zip`
+        : `${project?.title || 'Project'} - Shorts.zip`
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
+      window.URL.revokeObjectURL(blobUrl)
+
+      // Clear selection after successful download
+      if (hasSelections) {
+        clearSelection()
+      }
     } catch (error) {
       console.error('Error downloading shorts:', error)
       alert(error instanceof Error ? error.message : 'Failed to download shorts')
@@ -295,8 +374,13 @@ export default function ProjectDetail() {
   async function handleDownloadMetadata() {
     if (shorts.length === 0) return
 
+    // Get shorts to download metadata for (either selected or all)
+    const shortsForMetadata = hasSelections
+      ? shorts.filter((short) => selectedShortIds.has(short.id))
+      : shorts
+
     // Filter completed shorts
-    const completedShorts = shorts.filter((short) => short.status === 'completed')
+    const completedShorts = shortsForMetadata.filter((short) => short.status === 'completed')
 
     if (completedShorts.length === 0) {
       alert('No completed shorts available to download metadata.')
@@ -305,20 +389,32 @@ export default function ProjectDetail() {
 
     setDownloadingMetadata(true)
     try {
-      const data = await call<{ shorts: any[] }>(`/v1/projects/${id}/metadata`)
+      const url = hasSelections
+        ? `/v1/projects/${id}/metadata?shortIds=${Array.from(selectedShortIds).join(',')}`
+        : `/v1/projects/${id}/metadata`
+
+      const data = await call<{ shorts: any[] }>(url)
 
       // Create and download JSON file
       const blob = new Blob([JSON.stringify(data.shorts, null, 2)], {
         type: 'application/json',
       })
-      const url = window.URL.createObjectURL(blob)
+      const blobUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      a.download = `${project?.title || 'Project'} - Metadata.json`
+      a.href = blobUrl
+      const filename = hasSelections
+        ? `${project?.title || 'Project'} - Selected Metadata.json`
+        : `${project?.title || 'Project'} - Metadata.json`
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
+      window.URL.revokeObjectURL(blobUrl)
+
+      // Clear selection after successful download
+      if (hasSelections) {
+        clearSelection()
+      }
     } catch (error) {
       console.error('Error downloading metadata:', error)
       alert(error instanceof Error ? error.message : 'Failed to download metadata')
@@ -355,6 +451,33 @@ export default function ProjectDetail() {
     e.stopPropagation() // Prevent card click
     setShortToDelete(short)
     setDeleteShortDialogOpen(true)
+  }
+
+  async function handleDeleteSelected() {
+    if (selectedShortIds.size === 0) return
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedShortIds.size} selected short${selectedShortIds.size > 1 ? 's' : ''}? This action cannot be undone.`
+    )
+
+    if (!confirmed) return
+
+    setDeletingShort(true)
+    try {
+      await call(`/v1/projects/${id}/shorts/bulk-delete`, {
+        method: 'DELETE',
+        body: JSON.stringify({ shortIds: Array.from(selectedShortIds) }),
+      })
+
+      // Clear selection and refresh project data
+      clearSelection()
+      await loadProjectData()
+    } catch (error) {
+      console.error('Error deleting shorts:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete shorts')
+    } finally {
+      setDeletingShort(false)
+    }
   }
 
   function startEditingTitle() {
@@ -771,16 +894,44 @@ export default function ProjectDetail() {
             <Card className="bg-card border-border">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-foreground">
-                    Generated Shorts ({shorts.filter((s) => s.status === 'completed').length}/{shorts.length})
-                  </CardTitle>
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-foreground">
+                      Generated Shorts ({shorts.filter((s) => s.status === 'completed').length}/{shorts.length})
+                    </CardTitle>
+                    {hasSelections && (
+                      <Badge variant="secondary" className="text-xs">
+                        {selectedShortIds.size} selected
+                      </Badge>
+                    )}
+                  </div>
                   <div className="flex gap-2">
+                    {hasSelections && (
+                      <Button
+                        size="sm"
+                        onClick={handleDeleteSelected}
+                        disabled={deletingShort}
+                        variant="destructive"
+                        title="Delete Selected Shorts"
+                      >
+                        {deletingShort ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Selected ({selectedShortIds.size})
+                          </>
+                        )}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       onClick={handleDownloadMetadata}
-                      disabled={downloadingMetadata || shorts.filter((s) => s.status === 'completed').length === 0}
+                      disabled={downloadingMetadata || (hasSelections ? selectedShortIds.size === 0 : shorts.filter((s) => s.status === 'completed').length === 0)}
                       variant="outline"
-                      title="Download All Metadata"
+                      title={hasSelections ? "Download Selected Metadata" : "Download All Metadata"}
                     >
                       {downloadingMetadata ? (
                         <>
@@ -788,13 +939,16 @@ export default function ProjectDetail() {
                           Downloading...
                         </>
                       ) : (
-                        <FileText className="w-4 h-4" />
+                        <>
+                          <FileText className="w-4 h-4" />
+                          {hasSelections && ` (${selectedShortIds.size})`}
+                        </>
                       )}
                     </Button>
                     <Button
                       size="sm"
                       onClick={handleDownloadAll}
-                      disabled={downloadingAll || shorts.some((s) => s.status !== 'completed')}
+                      disabled={downloadingAll || (hasSelections ? selectedShortIds.size === 0 : shorts.some((s) => s.status !== 'completed'))}
                       className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {downloadingAll ? (
@@ -805,7 +959,10 @@ export default function ProjectDetail() {
                       ) : (
                         <>
                           <Download className="w-4 h-4 mr-2" />
-                          Download All ({shorts.filter((s) => s.status === 'completed').length})
+                          {hasSelections
+                            ? `Download Selected (${selectedShortIds.size})`
+                            : `Download All (${shorts.filter((s) => s.status === 'completed').length})`
+                          }
                         </>
                       )}
                     </Button>
@@ -817,6 +974,13 @@ export default function ProjectDetail() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border text-left">
+                        <th className="pb-3 pr-4 w-10">
+                          <Checkbox
+                            checked={isAllSelected() ? true : isSomeSelected() ? 'indeterminate' : false}
+                            onCheckedChange={toggleSelectAll}
+                            disabled={shorts.filter((s) => s.status === 'completed').length === 0}
+                          />
+                        </th>
                         <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Thumbnail</th>
                         <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Transcript</th>
                         <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Duration</th>
@@ -830,10 +994,29 @@ export default function ProjectDetail() {
                         <tr
                           key={short.id}
                           className={`border-b border-border last:border-0 hover:bg-secondary/50 cursor-pointer transition-all duration-200 group ${
-                            selectedShort?.id === short.id ? 'bg-primary/10 hover:bg-primary/15' : ''
+                            selectedShort?.id === short.id && !hasSelections ? 'bg-primary/10 hover:bg-primary/15' : ''
+                          } ${
+                            selectedShortIds.has(short.id) ? 'bg-primary/20 hover:bg-primary/25' : ''
                           }`}
-                          onClick={() => setSelectedShort(short)}
+                          onClick={() => {
+                            if (hasSelections) {
+                              // When in selection mode, clicking row toggles selection
+                              toggleShortSelection(short.id)
+                            } else {
+                              // When not in selection mode, clicking row opens side panel
+                              setSelectedShort(short)
+                            }
+                          }}
                         >
+                          {/* Checkbox */}
+                          <td className="py-3 pr-4">
+                            <Checkbox
+                              checked={selectedShortIds.has(short.id)}
+                              onCheckedChange={() => toggleShortSelection(short.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={short.status !== 'completed'}
+                            />
+                          </td>
                           {/* Thumbnail */}
                           <td className="py-3 pr-4">
                             <div className="w-20 aspect-[9/16] bg-black rounded overflow-hidden relative flex-shrink-0">

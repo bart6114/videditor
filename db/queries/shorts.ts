@@ -1,4 +1,4 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import type { DB } from '../index';
 import { shorts, projects, type NewShort, type Short } from '../schema';
 
@@ -87,4 +87,48 @@ export async function updateShortStatus(
     .where(eq(shorts.id, shortId))
     .returning();
   return updated ?? null;
+}
+
+/**
+ * Get multiple shorts by IDs (with ownership verification via project)
+ */
+export async function getShortsByIds(db: DB, shortIds: string[], userId: string) {
+  if (shortIds.length === 0) {
+    return [];
+  }
+
+  const results = await db
+    .select({
+      short: shorts,
+    })
+    .from(shorts)
+    .innerJoin(projects, eq(shorts.projectId, projects.id))
+    .where(and(inArray(shorts.id, shortIds), eq(projects.userId, userId)));
+
+  return results.map((r) => r.short);
+}
+
+/**
+ * Delete multiple shorts (with ownership verification via project)
+ */
+export async function deleteShorts(db: DB, shortIds: string[], userId: string) {
+  if (shortIds.length === 0) {
+    return [];
+  }
+
+  // First verify ownership of all shorts
+  const ownedShorts = await getShortsByIds(db, shortIds, userId);
+  const ownedShortIds = ownedShorts.map((s) => s.id);
+
+  if (ownedShortIds.length === 0) {
+    return [];
+  }
+
+  // Delete the shorts
+  const deleted = await db
+    .delete(shorts)
+    .where(inArray(shorts.id, ownedShortIds))
+    .returning();
+
+  return deleted;
 }
