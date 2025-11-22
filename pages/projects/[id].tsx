@@ -940,8 +940,11 @@ export default function ProjectDetail() {
                         </>
                       ) : (
                         <>
-                          <FileText className="w-4 h-4" />
-                          {hasSelections && ` (${selectedShortIds.size})`}
+                          <FileText className="w-4 h-4 mr-2" />
+                          {hasSelections
+                            ? `Metadata (${selectedShortIds.size})`
+                            : 'Metadata'
+                          }
                         </>
                       )}
                     </Button>
