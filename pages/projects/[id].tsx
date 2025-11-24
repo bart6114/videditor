@@ -201,7 +201,7 @@ export default function ProjectDetail() {
 
     async function loadDefaultSettings() {
       try {
-        const data = await call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPlatforms: SocialPlatform[] } }>('/v1/user/settings')
+        const data = await call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean } }>('/v1/user/settings')
         if (data.settings.defaultCustomPrompt) {
           setCustomPrompt(data.settings.defaultCustomPrompt)
           setUsingDefaultPrompt(true)
@@ -209,6 +209,9 @@ export default function ProjectDetail() {
         if (data.settings.defaultSocialPlatforms?.length > 0) {
           setSocialPlatforms(data.settings.defaultSocialPlatforms)
           setUsingDefaultPlatforms(true)
+        }
+        if (data.settings.defaultAvoidOverlap !== undefined) {
+          setAvoidExistingOverlap(data.settings.defaultAvoidOverlap)
         }
       } catch (error) {
         // Silently ignore - user just won't have defaults prefilled
@@ -977,7 +980,7 @@ export default function ProjectDetail() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border text-left">
-                        <th className="pb-3 pr-4 w-10">
+                        <th className="pb-3 pr-4 pl-4 w-10">
                           <Checkbox
                             checked={isAllSelected() ? true : isSomeSelected() ? 'indeterminate' : false}
                             onCheckedChange={toggleSelectAll}
@@ -1012,7 +1015,7 @@ export default function ProjectDetail() {
                           }}
                         >
                           {/* Checkbox */}
-                          <td className="py-3 pr-4">
+                          <td className="py-3 pr-4 pl-4">
                             <Checkbox
                               checked={selectedShortIds.has(short.id)}
                               onCheckedChange={() => toggleShortSelection(short.id)}

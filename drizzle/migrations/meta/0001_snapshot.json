@@ -1,6 +1,6 @@
 {
-  "id": "8570a718-96d1-40ab-92ea-641f98fbb91e",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "4744bc28-f792-43e3-8017-5abc3686c4b5",
+  "prevId": "8570a718-96d1-40ab-92ea-641f98fbb91e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -752,6 +752,13 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'[]'::jsonb"
+        },
+        "default_avoid_overlap": {
+          "name": "default_avoid_overlap",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

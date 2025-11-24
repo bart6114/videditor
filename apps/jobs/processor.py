@@ -392,20 +392,6 @@ class JobProcessor:
             )
             await session.commit()
 
-            # Enqueue analysis job
-            self.logger.info(
-                "Enqueueing analysis job",
-                job_id=job.id,
-                project_id=job.project_id,
-            )
-            await self._enqueue_job(
-                session,
-                project_id=job.project_id,
-                job_type=JobType.ANALYSIS,
-                payload={"projectId": job.project_id},
-            )
-            await session.commit()
-
             return {
                 "message": "Transcription completed",
                 "textLength": len(transcription_result.text),

@@ -10,6 +10,7 @@
     "start": "next start",
     "start:jobs": "cd apps/jobs && uv run python main.py",
     "lint": "next lint",
+    "clean": "rm -rf .next",
     "test:upload": "node scripts/test-upload.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",

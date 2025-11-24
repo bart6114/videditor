@@ -10,6 +10,7 @@ import { SOCIAL_PLATFORMS, type SocialPlatform } from '@shared/index';
 const updateSettingsSchema = z.object({
   defaultCustomPrompt: z.string().max(2000).nullable().optional(),
   defaultSocialPlatforms: z.array(z.enum(SOCIAL_PLATFORMS)).optional(),
+  defaultAvoidOverlap: z.boolean().optional(),
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -25,6 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select({
         defaultCustomPrompt: users.defaultCustomPrompt,
         defaultSocialPlatforms: users.defaultSocialPlatforms,
+        defaultAvoidOverlap: users.defaultAvoidOverlap,
       })
       .from(users)
       .where(eq(users.id, authResult.userId));
@@ -37,6 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       settings: {
         defaultCustomPrompt: user.defaultCustomPrompt,
         defaultSocialPlatforms: (user.defaultSocialPlatforms || []) as SocialPlatform[],
+        defaultAvoidOverlap: user.defaultAvoidOverlap ?? false,
       }
     });
   }
@@ -55,6 +58,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (parsed.data.defaultSocialPlatforms !== undefined) {
       updateData.defaultSocialPlatforms = parsed.data.defaultSocialPlatforms;
     }
+    if (parsed.data.defaultAvoidOverlap !== undefined) {
+      updateData.defaultAvoidOverlap = parsed.data.defaultAvoidOverlap;
+    }
 
     const [updated] = await db
       .update(users)
@@ -63,6 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .returning({
         defaultCustomPrompt: users.defaultCustomPrompt,
         defaultSocialPlatforms: users.defaultSocialPlatforms,
+        defaultAvoidOverlap: users.defaultAvoidOverlap,
       });
 
     if (!updated) {
@@ -73,6 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       settings: {
         defaultCustomPrompt: updated.defaultCustomPrompt,
         defaultSocialPlatforms: (updated.defaultSocialPlatforms || []) as SocialPlatform[],
+        defaultAvoidOverlap: updated.defaultAvoidOverlap ?? false,
       }
     });
   }

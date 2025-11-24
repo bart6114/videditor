@@ -155,7 +155,8 @@ Job Runner (Fly Machine, Python 3.13)
 ## TODOs / Follow-ups
 
 - Look at videoplayer height on project ID page
-- Add concept of organisation so it can have multiple team members
+- Add progress view for transcription job on project ID page (show percentage finished)
+- Add progress view for short generation/analysis job on project ID page (show which shorts are being processed)
 - Set up Stripe
 - Scheduling system for YT/TikTok/Instagram
 

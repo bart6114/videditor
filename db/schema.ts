@@ -51,6 +51,7 @@ export const users = pgTable(
     imageUrl: text('image_url'),
     defaultCustomPrompt: text('default_custom_prompt'), // Default AI instruction for shorts generation
     defaultSocialPlatforms: jsonb('default_social_platforms').$type<string[]>().default(sql`'[]'::jsonb`), // Default platforms for social content generation
+    defaultAvoidOverlap: boolean('default_avoid_overlap').default(false), // Default setting for avoiding overlap with existing shorts
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

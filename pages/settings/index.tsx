@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import WorkspaceLayout from '@/components/layout/WorkspaceLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { useApi } from '@/lib/api/client';
 import { Loader2, Save, Check } from 'lucide-react';
 import { SOCIAL_PLATFORMS, type SocialPlatform } from '@shared/index';
@@ -25,6 +26,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ComponentType<{ size?: number
 interface UserSettings {
   defaultCustomPrompt: string | null;
   defaultSocialPlatforms: SocialPlatform[];
+  defaultAvoidOverlap: boolean;
 }
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
@@ -41,6 +43,7 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [defaultCustomPrompt, setDefaultCustomPrompt] = useState('');
   const [defaultSocialPlatforms, setDefaultSocialPlatforms] = useState<SocialPlatform[]>([]);
+  const [defaultAvoidOverlap, setDefaultAvoidOverlap] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export default function Settings() {
         const data = await call<{ settings: UserSettings }>('/v1/user/settings');
         setDefaultCustomPrompt(data.settings.defaultCustomPrompt || '');
         setDefaultSocialPlatforms(data.settings.defaultSocialPlatforms || []);
+        setDefaultAvoidOverlap(data.settings.defaultAvoidOverlap ?? false);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load settings');
       } finally {
@@ -77,6 +81,7 @@ export default function Settings() {
         body: JSON.stringify({
           defaultCustomPrompt: defaultCustomPrompt.trim() || null,
           defaultSocialPlatforms,
+          defaultAvoidOverlap,
         }),
       });
       setSaved(true);
@@ -114,9 +119,9 @@ export default function Settings() {
 
         <div className="space-y-6">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-2">AI Settings</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">Content Generation Preferences</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Configure how the AI generates shorts from your videos
+              Set your default preferences for AI-powered shorts generation
             </p>
 
             <div className="space-y-4">
@@ -166,6 +171,25 @@ export default function Settings() {
                     )
                   })}
                 </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">
+                  Overlap Prevention
+                </label>
+                <div className="flex items-center gap-3 py-2">
+                  <Switch
+                    id="defaultAvoidOverlap"
+                    checked={defaultAvoidOverlap}
+                    onCheckedChange={setDefaultAvoidOverlap}
+                  />
+                  <label htmlFor="defaultAvoidOverlap" className="text-sm text-foreground cursor-pointer">
+                    Avoid overlap with existing shorts by default
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  When enabled, the AI will automatically avoid selecting content that overlaps with your existing shorts. You can still override this on a per-project basis.
+                </p>
               </div>
 
               <div className="flex items-center gap-3">
