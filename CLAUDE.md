@@ -42,6 +42,14 @@ Job Runner (Fly Machine, Python 3.13)
 - `npm run db:migrate` – apply migrations to `DATABASE_URL`
 - `npm run db:studio` – inspect Neon DB via Drizzle
 
+**IMPORTANT: Drizzle Migration Workflow**
+1. **Make schema changes** in `db/schema.ts` (never touch migration files directly)
+2. **Generate migration**: `npm run db:generate` (creates SQL + snapshot files)
+3. **Review the generated SQL** in `drizzle/migrations/XXXX_name.sql`
+4. **Apply migration**: `npm run db:migrate`
+
+**NEVER manually create or edit migration SQL files.** Drizzle tracks schema state via snapshot files in `drizzle/migrations/meta/`. If you manually create migrations, these snapshots become out of sync and drizzle-kit will malfunction. If migrations get corrupted, the correct fix is to regenerate all migrations from scratch (delete `drizzle/migrations/*`, recreate `meta/_journal.json` with empty entries array, then `npm run db:generate`).
+
 ## Key Files
 
 **Next.js App:**
