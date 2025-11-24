@@ -157,8 +157,6 @@ Job Runner (Fly Machine, Python 3.13)
 - Look at videoplayer height on project ID page
 - Add concept of organisation so it can have multiple team members
 - Set up Stripe
-- Check for remaining stubs
-- Clean up job types
 - Scheduling system for YT/TikTok/Instagram
 
 ---
