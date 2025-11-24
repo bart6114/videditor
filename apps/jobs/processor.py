@@ -81,8 +81,6 @@ class JobProcessor:
                     JobType.THUMBNAIL.value: "🖼️",
                     JobType.TRANSCRIPTION.value: "📝",
                     JobType.ANALYSIS.value: "🤖",
-                    JobType.CUTTING.value: "✂️",
-                    JobType.DELIVERY.value: "📦",
                 }.get(job.type, "⚙️")
 
                 self.logger.info(f"{job_emoji} Processing {job.type} job", job_id=job_id, type=job.type)
@@ -94,10 +92,6 @@ class JobProcessor:
                     result_data = await self._handle_transcription(job, session)
                 elif job.type == JobType.ANALYSIS.value:
                     result_data = await self._handle_analysis(job, session)
-                elif job.type == JobType.CUTTING.value:
-                    result_data = await self._handle_cutting(job, session)
-                elif job.type == JobType.DELIVERY.value:
-                    result_data = await self._handle_delivery(job, session)
                 else:
                     raise ValueError(f"Unknown job type: {job.type}")
 
@@ -759,54 +753,6 @@ class JobProcessor:
                     temp_video_path=temp_video_path,
                     error=str(error),
                 )
-
-    async def _handle_cutting(
-        self, job: ProcessingJob, session: AsyncSession
-    ) -> dict[str, Any]:
-        """
-        Handle cutting job (stub).
-
-        Args:
-            job: Processing job
-            session: Database session
-
-        Returns:
-            Job result dictionary
-        """
-        if not job.project_id:
-            raise ValueError("Cutting job requires projectId")
-
-        self.logger.info(
-            "Cutting job (stub implementation)",
-            job_id=job.id,
-            project_id=job.project_id,
-        )
-
-        # TODO: Implement FFmpeg video cutting based on analysis results
-
-        return {"message": "Cutting completed (stub)"}
-
-    async def _handle_delivery(
-        self, job: ProcessingJob, session: AsyncSession
-    ) -> dict[str, Any]:
-        """
-        Handle delivery job (stub).
-
-        Args:
-            job: Processing job
-            session: Database session
-
-        Returns:
-            Job result dictionary
-        """
-        self.logger.info(
-            "Delivery job (stub implementation)",
-            job_id=job.id,
-        )
-
-        # TODO: Implement delivery logic (upload to CDN, notify user, etc.)
-
-        return {"message": "Delivery completed (stub)"}
 
     async def _enqueue_job(
         self,

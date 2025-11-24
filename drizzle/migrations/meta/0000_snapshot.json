@@ -1,127 +1,9 @@
 {
-  "id": "012c04d0-dc5e-45ac-adc9-792653c4fc05",
+  "id": "115a3358-2db9-40ca-84ee-ee24238db352",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.media_assets": {
-      "name": "media_assets",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "short_id": {
-          "name": "short_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "asset_kind",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "bucket": {
-          "name": "bucket",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "object_key": {
-          "name": "object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_media_assets_project_kind": {
-          "name": "idx_media_assets_project_kind",
-          "columns": [
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "media_assets_project_id_projects_id_fk": {
-          "name": "media_assets_project_id_projects_id_fk",
-          "tableFrom": "media_assets",
-          "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "media_assets_short_id_shorts_id_fk": {
-          "name": "media_assets_short_id_shorts_id_fk",
-          "tableFrom": "media_assets",
-          "tableTo": "shorts",
-          "columnsFrom": [
-            "short_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.processing_jobs": {
       "name": "processing_jobs",
       "schema": "",
@@ -158,19 +40,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'queued'"
-        },
-        "progress": {
-          "name": "progress",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "machine_id": {
-          "name": "machine_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
         },
         "payload": {
           "name": "payload",
@@ -482,14 +351,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
+        "transcription_slice": {
+          "name": "transcription_slice",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -534,6 +397,12 @@
         },
         "metadata": {
           "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "social_content": {
+          "name": "social_content",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
@@ -857,7 +726,7 @@
           "name": "email",
           "type": "varchar(255)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "full_name": {
           "name": "full_name",
@@ -870,6 +739,19 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "default_custom_prompt": {
+          "name": "default_custom_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "default_social_platforms": {
+          "name": "default_social_platforms",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
         },
         "created_at": {
           "name": "created_at",
@@ -920,17 +802,6 @@
     }
   },
   "enums": {
-    "public.asset_kind": {
-      "name": "asset_kind",
-      "schema": "public",
-      "values": [
-        "source",
-        "transcript",
-        "clip",
-        "thumbnail",
-        "analysis"
-      ]
-    },
     "public.job_status": {
       "name": "job_status",
       "schema": "public",
@@ -946,11 +817,9 @@
       "name": "job_type",
       "schema": "public",
       "values": [
-        "ingest",
+        "thumbnail",
         "transcription",
-        "analysis",
-        "clip_render",
-        "delivery"
+        "analysis"
       ]
     },
     "public.project_status": {
@@ -963,8 +832,6 @@
         "processing",
         "transcribing",
         "analyzing",
-        "rendering",
-        "delivering",
         "completed",
         "error"
       ]

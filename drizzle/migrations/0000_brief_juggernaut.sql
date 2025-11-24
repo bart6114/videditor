@@ -1,29 +1,14 @@
-CREATE TYPE "public"."asset_kind" AS ENUM('source', 'transcript', 'clip', 'thumbnail', 'analysis');--> statement-breakpoint
 CREATE TYPE "public"."job_status" AS ENUM('queued', 'running', 'succeeded', 'failed', 'canceled');--> statement-breakpoint
-CREATE TYPE "public"."job_type" AS ENUM('ingest', 'transcription', 'analysis', 'clip_render', 'delivery');--> statement-breakpoint
-CREATE TYPE "public"."project_status" AS ENUM('uploading', 'ready', 'queued', 'processing', 'transcribing', 'analyzing', 'rendering', 'delivering', 'completed', 'error');--> statement-breakpoint
+CREATE TYPE "public"."job_type" AS ENUM('thumbnail', 'transcription', 'analysis');--> statement-breakpoint
+CREATE TYPE "public"."project_status" AS ENUM('uploading', 'ready', 'queued', 'processing', 'transcribing', 'analyzing', 'completed', 'error');--> statement-breakpoint
 CREATE TYPE "public"."short_status" AS ENUM('pending', 'processing', 'completed', 'error');--> statement-breakpoint
 CREATE TYPE "public"."subscription_status" AS ENUM('active', 'canceled', 'past_due', 'trialing', 'incomplete');--> statement-breakpoint
-CREATE TABLE "media_assets" (
-	"id" varchar(255) PRIMARY KEY NOT NULL,
-	"project_id" varchar(255),
-	"short_id" varchar(255),
-	"kind" "asset_kind" NOT NULL,
-	"bucket" text NOT NULL,
-	"object_key" text NOT NULL,
-	"size_bytes" bigint,
-	"metadata" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "processing_jobs" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"project_id" varchar(255),
 	"short_id" varchar(255),
 	"type" "job_type" NOT NULL,
 	"status" "job_status" DEFAULT 'queued' NOT NULL,
-	"progress" real DEFAULT 0,
-	"machine_id" varchar(255),
 	"payload" jsonb,
 	"result" jsonb,
 	"error_message" text,
@@ -54,8 +39,7 @@ CREATE TABLE "projects" (
 CREATE TABLE "shorts" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"project_id" varchar(255) NOT NULL,
-	"title" text NOT NULL,
-	"description" text NOT NULL,
+	"transcription_slice" text NOT NULL,
 	"start_time" double precision NOT NULL,
 	"end_time" double precision NOT NULL,
 	"output_object_key" text,
@@ -63,6 +47,7 @@ CREATE TABLE "shorts" (
 	"status" "short_status" DEFAULT 'pending' NOT NULL,
 	"error_message" text,
 	"metadata" jsonb,
+	"social_content" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -94,23 +79,22 @@ CREATE TABLE "transcriptions" (
 --> statement-breakpoint
 CREATE TABLE "users" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
-	"email" varchar(255) NOT NULL,
+	"email" varchar(255),
 	"full_name" varchar(255),
 	"image_url" text,
+	"default_custom_prompt" text,
+	"default_social_platforms" jsonb DEFAULT '[]'::jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-ALTER TABLE "media_assets" ADD CONSTRAINT "media_assets_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "media_assets" ADD CONSTRAINT "media_assets_short_id_shorts_id_fk" FOREIGN KEY ("short_id") REFERENCES "public"."shorts"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "processing_jobs" ADD CONSTRAINT "processing_jobs_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "processing_jobs" ADD CONSTRAINT "processing_jobs_short_id_shorts_id_fk" FOREIGN KEY ("short_id") REFERENCES "public"."shorts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "shorts" ADD CONSTRAINT "shorts_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transcriptions" ADD CONSTRAINT "transcriptions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "idx_media_assets_project_kind" ON "media_assets" USING btree ("project_id","kind");--> statement-breakpoint
 CREATE INDEX "idx_processing_jobs_project_id" ON "processing_jobs" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX "idx_processing_jobs_status" ON "processing_jobs" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_processing_jobs_type" ON "processing_jobs" USING btree ("type");--> statement-breakpoint

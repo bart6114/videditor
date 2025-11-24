@@ -32,8 +32,6 @@ class JobType(str, Enum):
     THUMBNAIL = "thumbnail"
     TRANSCRIPTION = "transcription"
     ANALYSIS = "analysis"
-    CUTTING = "cutting"
-    DELIVERY = "delivery"
 
 
 class JobStatus(str, Enum):
@@ -55,8 +53,6 @@ class ProjectStatus(str, Enum):
     PROCESSING = "processing"
     TRANSCRIBING = "transcribing"
     ANALYZING = "analyzing"
-    RENDERING = "rendering"
-    DELIVERING = "delivering"
     COMPLETED = "completed"
     ERROR = "error"
 
@@ -79,7 +75,7 @@ class ProcessingJob(Base):
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=True, index=True)
     short_id = Column(String(255), nullable=True)
-    type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'cutting', 'delivery', name='job_type', create_type=False), nullable=False, index=True)
+    type = Column(ENUM('thumbnail', 'transcription', 'analysis', name='job_type', create_type=False), nullable=False, index=True)
     status = Column(ENUM('queued', 'running', 'succeeded', 'failed', 'canceled', name='job_status', create_type=False), nullable=False, default="queued", index=True)
     payload = Column(JSONB, nullable=True)
     result = Column(JSONB, nullable=True)
@@ -111,7 +107,7 @@ class Project(Base):
     thumbnail_url = Column(Text, nullable=True)
     duration_seconds = Column(Double, nullable=True)
     file_size_bytes = Column(BigInteger, nullable=True)
-    status = Column(ENUM('uploading', 'ready', 'queued', 'processing', 'transcribing', 'analyzing', 'rendering', 'delivering', 'completed', 'error', name='project_status', create_type=False), nullable=False, default="uploading")
+    status = Column(ENUM('uploading', 'ready', 'queued', 'processing', 'transcribing', 'analyzing', 'completed', 'error', name='project_status', create_type=False), nullable=False, default="uploading")
     priority = Column(Float, nullable=True, default=0)
     error_message = Column(Text, nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=True)

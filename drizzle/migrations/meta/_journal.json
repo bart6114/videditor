@@ -5,64 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1763555978648,
-      "tag": "0000_melodic_alex_wilder",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1763560890280,
-      "tag": "0001_fearless_morg",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1763562235242,
-      "tag": "0002_harsh_skullbuster",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1763562682710,
-      "tag": "0003_panoramic_medusa",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1763581349616,
-      "tag": "0004_concerned_roughhouse",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1763584910989,
-      "tag": "0005_crazy_warlock",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1763717542624,
-      "tag": "0006_third_microchip",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1763817600000,
-      "tag": "0007_shorts_transcription_slice",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1763900400000,
-      "tag": "0008_add_social_content_fields",
+      "when": 1763992433361,
+      "tag": "0000_brief_juggernaut",
       "breakpoints": true
     }
   ]

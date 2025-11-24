@@ -5,15 +5,13 @@ export const PROJECT_STATUSES = [
   'processing',
   'transcribing',
   'analyzing',
-  'rendering',
-  'delivering',
   'completed',
   'error',
 ] as const;
 
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
-export const JOB_TYPES = ['thumbnail', 'transcription', 'analysis', 'cutting', 'delivery'] as const;
+export const JOB_TYPES = ['thumbnail', 'transcription', 'analysis'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 export const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'canceled'] as const;

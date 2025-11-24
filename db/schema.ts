@@ -28,8 +28,6 @@ export const projectStatusEnum = pgEnum('project_status', [
   'processing',
   'transcribing',
   'analyzing',
-  'rendering',
-  'delivering',
   'completed',
   'error',
 ]);
@@ -40,8 +38,6 @@ export const jobTypeEnum = pgEnum('job_type', [
   'thumbnail',
   'transcription',
   'analysis',
-  'cutting',
-  'delivery',
 ]);
 
 export const jobStatusEnum = pgEnum('job_status', ['queued', 'running', 'succeeded', 'failed', 'canceled']);
