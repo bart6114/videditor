@@ -9,6 +9,7 @@ import {
   ReactNode,
 } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useApi } from '@/lib/api/client';
 
 interface Organization {
   id: string;
@@ -49,56 +50,34 @@ interface OrganizationProviderProps {
 }
 
 export function OrganizationProvider({ children }: OrganizationProviderProps) {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { call } = useApi();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchWithAuth = useCallback(
-    async (url: string, options: RequestInit = {}) => {
-      const token = await getToken();
-      return fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-    },
-    [getToken]
-  );
-
   const fetchOrganizations = useCallback(async () => {
     try {
-      const response = await fetchWithAuth('/api/v1/organizations');
-      if (!response.ok) {
-        throw new Error('Failed to fetch organizations');
-      }
-      const data = await response.json();
+      const data = await call<{ organizations: Organization[] }>('/v1/organizations');
       setOrganizations(data.organizations);
-      return data.organizations as Organization[];
+      return data.organizations;
     } catch (err) {
       console.error('Error fetching organizations:', err);
       throw err;
     }
-  }, [fetchWithAuth]);
+  }, [call]);
 
   const fetchCurrentOrganization = useCallback(async () => {
     try {
-      const response = await fetchWithAuth('/api/v1/organizations/current');
-      if (!response.ok) {
-        throw new Error('Failed to fetch current organization');
-      }
-      const data = await response.json();
+      const data = await call<{ organization: Organization }>('/v1/organizations/current');
       setCurrentOrganization(data.organization);
-      return data.organization as Organization;
+      return data.organization;
     } catch (err) {
       console.error('Error fetching current organization:', err);
       throw err;
     }
-  }, [fetchWithAuth]);
+  }, [call]);
 
   const refreshOrganizations = useCallback(async () => {
     try {
@@ -119,14 +98,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
   const switchOrganization = useCallback(
     async (organizationId: string) => {
       try {
-        const response = await fetchWithAuth(
-          `/api/v1/organizations/${organizationId}/switch`,
-          { method: 'POST' }
-        );
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to switch organization');
-        }
+        await call(`/v1/organizations/${organizationId}/switch`, { method: 'POST' });
 
         // Update current organization from list
         const org = organizations.find((o) => o.id === organizationId);
@@ -141,7 +113,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
         throw err;
       }
     },
-    [fetchWithAuth, fetchCurrentOrganization, organizations]
+    [call, fetchCurrentOrganization, organizations]
   );
 
   // Initial load

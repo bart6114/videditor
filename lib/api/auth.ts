@@ -1,5 +1,5 @@
 import type { NextApiRequest } from 'next';
-import { verifyToken } from '@clerk/backend';
+import { verifyToken, createClerkClient, type ClerkClient } from '@clerk/backend';
 import { getDb } from '@server/db';
 import { ensureUserExists } from '@server/db/queries/users';
 import { getUserDefaultOrganization } from '@server/db/queries/organizations';
@@ -19,6 +19,49 @@ type ClerkUserData = {
   fullName?: string;
   imageUrl?: string;
 };
+
+// Singleton clerk client for API calls
+let clerkClient: ClerkClient | null = null;
+
+function getClerkClient(): ClerkClient | null {
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) return null;
+
+  if (!clerkClient) {
+    clerkClient = createClerkClient({ secretKey });
+  }
+  return clerkClient;
+}
+
+/**
+ * Fetch user's primary email from Clerk API
+ * Only called when JWT doesn't contain email (e.g., some OAuth providers like GitHub)
+ */
+async function fetchUserEmailFromClerk(userId: string): Promise<string | undefined> {
+  try {
+    const client = getClerkClient();
+    if (!client) return undefined;
+
+    const user = await client.users.getUser(userId);
+
+    // Priority: primaryEmailAddress > verified email > any email
+    if (user.primaryEmailAddress?.emailAddress) {
+      return user.primaryEmailAddress.emailAddress;
+    }
+
+    const verifiedEmail = user.emailAddresses?.find(
+      (e) => e.verification?.status === 'verified'
+    );
+    if (verifiedEmail?.emailAddress) {
+      return verifiedEmail.emailAddress;
+    }
+
+    return user.emailAddresses?.[0]?.emailAddress;
+  } catch (error) {
+    console.warn('Failed to fetch user email from Clerk:', error);
+    return undefined;
+  }
+}
 
 function extractBearerToken(authorization?: string | string[]): string | null {
   if (!authorization) {
@@ -50,10 +93,13 @@ async function verifyClerkToken(token: string): Promise<ClerkUserData | null> {
     // Extract user data from JWT claims
     if (payload && typeof payload.sub === 'string') {
       const userId = payload.sub;
-      const email = payload.email as string | undefined;
+      let email = payload.email as string | undefined;
 
-      // Email is optional - some OAuth providers (GitHub, etc.) don't always provide it
-      // This is normal and expected behavior
+      // If email not in JWT, fetch from Clerk API
+      // This handles OAuth providers (GitHub, etc.) that don't include email in token
+      if (!email) {
+        email = await fetchUserEmailFromClerk(userId);
+      }
 
       return {
         userId,

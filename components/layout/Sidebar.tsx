@@ -1,15 +1,13 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
-  FolderOpen,
-  Settings,
+  Video,
   User,
   LogOut,
   CreditCard,
   Building2,
   ChevronDown,
-  ChevronRight,
   Check,
   Users,
   Sliders,
@@ -18,11 +16,8 @@ import { useClerk, useUser } from '@clerk/nextjs';
 import { MonkeyLogo } from '@/components/MonkeyLogo';
 import { useOrganizationSafe } from '@/contexts/OrganizationContext';
 
-const mainNavigation = [
-  { name: 'Projects', href: '/projects', icon: FolderOpen },
-];
-
-const settingsNavigation = [
+const navigation = [
+  { name: 'Projects', href: '/projects', icon: Video },
   { name: 'Preferences', href: '/settings', icon: Sliders },
   { name: 'Billing', href: '/settings/billing', icon: CreditCard },
   { name: 'Organization', href: '/settings/organization', icon: Users },
@@ -35,15 +30,6 @@ export default function Sidebar() {
   const { user } = useUser();
   const orgContext = useOrganizationSafe();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
-  const [settingsExpanded, setSettingsExpanded] = useState(false);
-
-  // Auto-expand settings section when on a settings page
-  const isOnSettingsPage = router.pathname.startsWith('/settings');
-  useEffect(() => {
-    if (isOnSettingsPage) {
-      setSettingsExpanded(true);
-    }
-  }, [isOnSettingsPage]);
 
   const handleLogout = async () => {
     await signOut();
@@ -69,9 +55,38 @@ export default function Sidebar() {
         <MonkeyLogo size="lg" linkTo="/projects" showText={false} />
       </div>
 
-      {/* Organization Switcher */}
-      {orgContext && orgContext.currentOrganization && (
-        <div className="px-3 py-4 border-b border-border/50">
+      {/* Navigation */}
+      <nav className="flex-1 space-y-1.5 px-3 py-6">
+        {navigation.map((item) => {
+          const isActive = item.href === '/settings'
+            ? router.pathname === '/settings'
+            : router.pathname === item.href || router.pathname.startsWith(item.href + '/');
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`
+                group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
+                ${
+                  isActive
+                    ? 'bg-primary/15 text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }
+              `}
+            >
+              <Icon className={`mr-3 h-5 w-5 transition-transform duration-200 ${!isActive && 'group-hover:scale-110'}`} />
+              {item.name}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Organization Switcher & User Profile */}
+      <div className="border-t border-border/50 p-4 space-y-3">
+        {/* Organization Switcher */}
+        {orgContext && orgContext.currentOrganization && (
           <div className="relative">
             <button
               onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
@@ -95,14 +110,14 @@ export default function Sidebar() {
               />
             </button>
 
-            {/* Dropdown */}
+            {/* Dropdown - opens upward */}
             {orgDropdownOpen && (
               <>
                 <div
                   className="fixed inset-0 z-10"
                   onClick={() => setOrgDropdownOpen(false)}
                 />
-                <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-popover border border-border rounded-lg shadow-lg py-1 max-h-64 overflow-y-auto">
+                <div className="absolute left-0 right-0 bottom-full mb-1 z-20 bg-popover border border-border rounded-lg shadow-lg py-1 max-h-64 overflow-y-auto">
                   {orgContext.organizations.map((org) => (
                     <button
                       key={org.id}
@@ -129,91 +144,9 @@ export default function Sidebar() {
               </>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1.5 px-3 py-6">
-        {/* Main navigation items */}
-        {mainNavigation.map((item) => {
-          const isActive = router.pathname === item.href || router.pathname.startsWith(item.href + '/');
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`
-                group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
-                ${
-                  isActive
-                    ? 'bg-primary/15 text-primary shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                }
-              `}
-            >
-              <Icon className={`mr-3 h-5 w-5 transition-transform duration-200 ${!isActive && 'group-hover:scale-110'}`} />
-              {item.name}
-            </Link>
-          );
-        })}
-
-        {/* Settings section with collapsible sub-items */}
-        <div className="pt-4">
-          <button
-            onClick={() => setSettingsExpanded(!settingsExpanded)}
-            className={`
-              group flex w-full items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
-              ${
-                isOnSettingsPage
-                  ? 'bg-primary/15 text-primary shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-              }
-            `}
-          >
-            <Settings className={`mr-3 h-5 w-5 transition-transform duration-200 ${!isOnSettingsPage && 'group-hover:scale-110'}`} />
-            <span className="flex-1 text-left">Settings</span>
-            <ChevronRight
-              className={`h-4 w-4 transition-transform duration-200 ${
-                settingsExpanded ? 'rotate-90' : ''
-              }`}
-            />
-          </button>
-
-          {/* Settings sub-items */}
-          {settingsExpanded && (
-            <div className="mt-1 ml-4 space-y-1 border-l border-border/50 pl-3">
-              {settingsNavigation.map((item) => {
-                const isActive = item.href === '/settings'
-                  ? router.pathname === '/settings'
-                  : router.pathname === item.href;
-                const Icon = item.icon;
-
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`
-                      group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200
-                      ${
-                        isActive
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                      }
-                    `}
-                  >
-                    <Icon className={`mr-3 h-4 w-4 transition-transform duration-200 ${!isActive && 'group-hover:scale-110'}`} />
-                    {item.name}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </nav>
-
-      {/* User Profile & Logout */}
-      <div className="border-t border-border/50 p-4 space-y-3">
+        {/* User Profile */}
         {user && (
           <div className="px-2 py-2 rounded-lg bg-secondary/50">
             <div className="flex items-center gap-3">

@@ -95,7 +95,7 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <WorkspaceLayout title="Settings">
+      <WorkspaceLayout title="Preferences">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
@@ -104,10 +104,10 @@ export default function Settings() {
   }
 
   return (
-    <WorkspaceLayout title="Settings">
+    <WorkspaceLayout title="Preferences">
       <div className="max-w-4xl">
         <div className="mb-6">
-          <h2 className="text-2xl font-semibold text-foreground mb-2">Settings</h2>
+          <h2 className="text-2xl font-semibold text-foreground mb-2">Preferences</h2>
           <p className="text-muted-foreground">Manage your preferences</p>
         </div>
 

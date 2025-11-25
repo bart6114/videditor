@@ -273,15 +273,6 @@ export default function OrganizationSettings() {
                 />
               </div>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block text-foreground">
-                  Credits
-                </label>
-                <p className="text-2xl font-bold text-foreground">
-                  {currentOrganization.credits}
-                </p>
-              </div>
-
               {isOwner && (
                 <div className="flex items-center gap-3">
                   <Button onClick={handleSave} disabled={saving}>
@@ -336,18 +327,20 @@ export default function OrganizationSettings() {
                           <Crown className="w-5 h-5 text-amber-500" />
                         ) : (
                           <span className="text-sm font-medium text-primary">
-                            {(member.name || member.email)[0].toUpperCase()}
+                            {member.email[0].toUpperCase()}
                           </span>
                         )}
                       </div>
                       <div>
                         <p className="font-medium text-foreground">
-                          {member.name || 'Unknown'}
+                          {member.email}
                           {member.role === 'owner' && (
                             <span className="ml-2 text-xs text-amber-500 font-normal">Owner</span>
                           )}
                         </p>
-                        <p className="text-sm text-muted-foreground">{member.email}</p>
+                        {member.name && (
+                          <p className="text-sm text-muted-foreground">{member.name}</p>
+                        )}
                       </div>
                     </div>
                     {isOwner && member.role !== 'owner' && (
