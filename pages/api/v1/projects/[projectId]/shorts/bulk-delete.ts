@@ -23,8 +23,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const db = getDb();
 
-  // Fetch the shorts to get object keys (also verifies ownership)
-  const shortsToDelete = await getShortsByIds(db, shortIds, authResult.userId);
+  // Fetch the shorts to get object keys (also verifies ownership via organization)
+  const shortsToDelete = await getShortsByIds(db, shortIds, authResult.organizationId);
 
   if (shortsToDelete.length === 0) {
     return failure(res, 404, 'No shorts found or you do not have permission');
@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   await Promise.allSettled(deletePromises);
 
   // Delete from database (cascade handles processing_jobs)
-  const deleted = await deleteShorts(db, shortIds, authResult.userId);
+  const deleted = await deleteShorts(db, shortIds, authResult.organizationId);
 
   return success(res, {
     deleted: deleted.length,

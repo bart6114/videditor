@@ -14,9 +14,9 @@ export async function getShortsByProjectId(db: DB, projectId: string) {
 }
 
 /**
- * Get short by ID (with ownership verification via project)
+ * Get short by ID (with ownership verification via project's organization)
  */
-export async function getShortById(db: DB, shortId: string, userId: string) {
+export async function getShortById(db: DB, shortId: string, organizationId: string) {
   const [result] = await db
     .select({
       short: shorts,
@@ -24,7 +24,7 @@ export async function getShortById(db: DB, shortId: string, userId: string) {
     })
     .from(shorts)
     .innerJoin(projects, eq(shorts.projectId, projects.id))
-    .where(and(eq(shorts.id, shortId), eq(projects.userId, userId)))
+    .where(and(eq(shorts.id, shortId), eq(projects.organizationId, organizationId)))
     .limit(1);
 
   return result ? { ...result.short, project: result.project } : null;
@@ -54,11 +54,11 @@ export async function updateShort(db: DB, shortId: string, updates: Partial<Shor
 }
 
 /**
- * Delete short (with ownership verification via project)
+ * Delete short (with ownership verification via project's organization)
  */
-export async function deleteShort(db: DB, shortId: string, userId: string) {
+export async function deleteShort(db: DB, shortId: string, organizationId: string) {
   // First verify ownership
-  const short = await getShortById(db, shortId, userId);
+  const short = await getShortById(db, shortId, organizationId);
   if (!short) {
     return null;
   }
@@ -90,9 +90,9 @@ export async function updateShortStatus(
 }
 
 /**
- * Get multiple shorts by IDs (with ownership verification via project)
+ * Get multiple shorts by IDs (with ownership verification via project's organization)
  */
-export async function getShortsByIds(db: DB, shortIds: string[], userId: string) {
+export async function getShortsByIds(db: DB, shortIds: string[], organizationId: string) {
   if (shortIds.length === 0) {
     return [];
   }
@@ -103,21 +103,21 @@ export async function getShortsByIds(db: DB, shortIds: string[], userId: string)
     })
     .from(shorts)
     .innerJoin(projects, eq(shorts.projectId, projects.id))
-    .where(and(inArray(shorts.id, shortIds), eq(projects.userId, userId)));
+    .where(and(inArray(shorts.id, shortIds), eq(projects.organizationId, organizationId)));
 
   return results.map((r) => r.short);
 }
 
 /**
- * Delete multiple shorts (with ownership verification via project)
+ * Delete multiple shorts (with ownership verification via project's organization)
  */
-export async function deleteShorts(db: DB, shortIds: string[], userId: string) {
+export async function deleteShorts(db: DB, shortIds: string[], organizationId: string) {
   if (shortIds.length === 0) {
     return [];
   }
 
   // First verify ownership of all shorts
-  const ownedShorts = await getShortsByIds(db, shortIds, userId);
+  const ownedShorts = await getShortsByIds(db, shortIds, organizationId);
   const ownedShortIds = ownedShorts.map((s) => s.id);
 
   if (ownedShortIds.length === 0) {

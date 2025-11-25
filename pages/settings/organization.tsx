@@ -14,7 +14,9 @@ import {
   Crown,
   Users,
   Link as LinkIcon,
+  AlertCircle,
 } from 'lucide-react';
+import { useRouter } from 'next/router';
 
 interface Member {
   userId: string;
@@ -34,8 +36,9 @@ interface Invite {
 }
 
 export default function OrganizationSettings() {
+  const router = useRouter();
   const { call } = useApi();
-  const { currentOrganization, refreshCurrentOrganization } = useOrganization();
+  const { currentOrganization, refreshCurrentOrganization, isLoading: contextLoading } = useOrganization();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -88,15 +91,19 @@ export default function OrganizationSettings() {
   }, [call, currentOrganization, isOwner]);
 
   useEffect(() => {
+    // Set loading to false once context is loaded, regardless of whether org exists
+    if (!contextLoading) {
+      setLoading(false);
+    }
+
     if (currentOrganization) {
       setOrgName(currentOrganization.name);
-      setLoading(false);
       loadMembers();
       if (isOwner) {
         loadInvites();
       }
     }
-  }, [currentOrganization, loadMembers, loadInvites, isOwner]);
+  }, [currentOrganization, contextLoading, loadMembers, loadInvites, isOwner]);
 
   async function handleSave() {
     if (!currentOrganization || !isOwner) return;
@@ -193,11 +200,30 @@ export default function OrganizationSettings() {
     setTimeout(() => setCopiedInvite(null), 2000);
   }
 
-  if (loading || !currentOrganization) {
+  if (loading || contextLoading) {
     return (
       <WorkspaceLayout title="Organization Settings">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </WorkspaceLayout>
+    );
+  }
+
+  if (!currentOrganization) {
+    return (
+      <WorkspaceLayout title="Organization Settings">
+        <div className="max-w-4xl">
+          <Card className="p-8 text-center">
+            <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Organization Found</h2>
+            <p className="text-muted-foreground mb-4">
+              You don't have an organization set up yet.
+            </p>
+            <Button onClick={() => router.push('/projects')}>
+              Go to Projects
+            </Button>
+          </Card>
         </div>
       </WorkspaceLayout>
     );

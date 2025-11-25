@@ -1,11 +1,13 @@
 import { relations } from 'drizzle-orm';
 import {
   users,
+  organizations,
   subscriptions,
   projects,
   transcriptions,
   shorts,
   processingJobs,
+  creditTransactions,
 } from './schema';
 
 /**
@@ -13,21 +15,33 @@ import {
  * This enables Drizzle's relational query API
  */
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one }) => ({
+  defaultOrganization: one(organizations, {
+    fields: [users.defaultOrganizationId],
+    references: [organizations.id],
+  }),
+}));
+
+export const organizationsRelations = relations(organizations, ({ many }) => ({
   subscriptions: many(subscriptions),
   projects: many(projects),
+  creditTransactions: many(creditTransactions),
 }));
 
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
-  user: one(users, {
-    fields: [subscriptions.userId],
-    references: [users.id],
+  organization: one(organizations, {
+    fields: [subscriptions.organizationId],
+    references: [organizations.id],
   }),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
-  user: one(users, {
-    fields: [projects.userId],
+  organization: one(organizations, {
+    fields: [projects.organizationId],
+    references: [organizations.id],
+  }),
+  createdBy: one(users, {
+    fields: [projects.createdById],
     references: [users.id],
   }),
   transcription: one(transcriptions),
@@ -53,5 +67,16 @@ export const processingJobsRelations = relations(processingJobs, ({ one }) => ({
   project: one(projects, {
     fields: [processingJobs.projectId],
     references: [projects.id],
+  }),
+}));
+
+export const creditTransactionsRelations = relations(creditTransactions, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [creditTransactions.organizationId],
+    references: [organizations.id],
+  }),
+  performedBy: one(users, {
+    fields: [creditTransactions.performedById],
+    references: [users.id],
   }),
 }));

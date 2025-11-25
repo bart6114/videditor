@@ -18,8 +18,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const shortId = req.query.shortId as string;
   const db = getDb();
 
-  // Fetch the short to get object keys (also verifies ownership)
-  const short = await getShortById(db, shortId, authResult.userId);
+  // Fetch the short to get object keys (also verifies ownership via organization)
+  const short = await getShortById(db, shortId, authResult.organizationId);
 
   if (!short) {
     return failure(res, 404, 'Short not found');
@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   await Promise.allSettled(deletePromises);
 
   // Delete from database (cascade handles processing_jobs)
-  await deleteShort(db, shortId, authResult.userId);
+  await deleteShort(db, shortId, authResult.organizationId);
 
   return success(res, { deleted: true });
 }

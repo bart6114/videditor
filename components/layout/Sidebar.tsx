@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FolderOpen,
   Settings,
@@ -9,20 +9,24 @@ import {
   CreditCard,
   Building2,
   ChevronDown,
+  ChevronRight,
   Check,
-  Plus,
   Users,
+  Sliders,
 } from 'lucide-react';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { MonkeyLogo } from '@/components/MonkeyLogo';
 import { useOrganizationSafe } from '@/contexts/OrganizationContext';
 
-const navigation = [
+const mainNavigation = [
   { name: 'Projects', href: '/projects', icon: FolderOpen },
+];
+
+const settingsNavigation = [
+  { name: 'Preferences', href: '/settings', icon: Sliders },
   { name: 'Billing', href: '/settings/billing', icon: CreditCard },
-  { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Organization', href: '/settings/organization', icon: Users },
-  { name: 'Account', href: '/account', icon: User },
+  { name: 'Account', href: '/settings/account', icon: User },
 ];
 
 export default function Sidebar() {
@@ -31,6 +35,15 @@ export default function Sidebar() {
   const { user } = useUser();
   const orgContext = useOrganizationSafe();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
+  const [settingsExpanded, setSettingsExpanded] = useState(false);
+
+  // Auto-expand settings section when on a settings page
+  const isOnSettingsPage = router.pathname.startsWith('/settings');
+  useEffect(() => {
+    if (isOnSettingsPage) {
+      setSettingsExpanded(true);
+    }
+  }, [isOnSettingsPage]);
 
   const handleLogout = async () => {
     await signOut();
@@ -121,11 +134,9 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1.5 px-3 py-6">
-        {navigation.map((item) => {
-          // Special handling for settings vs billing to avoid overlap
-          const isActive = item.href === '/settings'
-            ? router.pathname === '/settings'
-            : router.pathname === item.href || router.pathname.startsWith(item.href + '/');
+        {/* Main navigation items */}
+        {mainNavigation.map((item) => {
+          const isActive = router.pathname === item.href || router.pathname.startsWith(item.href + '/');
           const Icon = item.icon;
 
           return (
@@ -146,6 +157,59 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Settings section with collapsible sub-items */}
+        <div className="pt-4">
+          <button
+            onClick={() => setSettingsExpanded(!settingsExpanded)}
+            className={`
+              group flex w-full items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
+              ${
+                isOnSettingsPage
+                  ? 'bg-primary/15 text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }
+            `}
+          >
+            <Settings className={`mr-3 h-5 w-5 transition-transform duration-200 ${!isOnSettingsPage && 'group-hover:scale-110'}`} />
+            <span className="flex-1 text-left">Settings</span>
+            <ChevronRight
+              className={`h-4 w-4 transition-transform duration-200 ${
+                settingsExpanded ? 'rotate-90' : ''
+              }`}
+            />
+          </button>
+
+          {/* Settings sub-items */}
+          {settingsExpanded && (
+            <div className="mt-1 ml-4 space-y-1 border-l border-border/50 pl-3">
+              {settingsNavigation.map((item) => {
+                const isActive = item.href === '/settings'
+                  ? router.pathname === '/settings'
+                  : router.pathname === item.href;
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`
+                      group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200
+                      ${
+                        isActive
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                      }
+                    `}
+                  >
+                    <Icon className={`mr-3 h-4 w-4 transition-transform duration-200 ${!isActive && 'group-hover:scale-110'}`} />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* User Profile & Logout */}

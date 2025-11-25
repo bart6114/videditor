@@ -46,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { projects } = await import('@server/db/schema');
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
 
-  if (!project || project.userId !== authResult.userId) {
+  if (!project || project.organizationId !== authResult.organizationId) {
     return failure(res, 404, 'Project not found');
   }
 

@@ -135,13 +135,6 @@ export const users = pgTable(
     // Organization - user's currently active organization
     defaultOrganizationId: varchar('default_organization_id', { length: 255 })
       .references(() => organizations.id, { onDelete: 'set null' }),
-    // DEPRECATED: Credit system fields - these are now on organizations table
-    // Will be removed after data migration
-    credits: integer('credits').default(50).notNull(),
-    stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
-    autoTopUpEnabled: boolean('auto_top_up_enabled').default(false).notNull(),
-    autoTopUpThreshold: integer('auto_top_up_threshold').default(5),
-    autoTopUpAmount: integer('auto_top_up_amount').default(10),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -155,10 +148,6 @@ export const subscriptions = pgTable(
   'subscriptions',
   {
     id: varchar('id', { length: 255 }).primaryKey(),
-    // DEPRECATED: userId - subscriptions now belong to organizations
-    userId: varchar('user_id', { length: 255 })
-      .references(() => users.id, { onDelete: 'cascade' }),
-    // NEW: organizationId - subscriptions belong to organizations
     organizationId: varchar('organization_id', { length: 255 })
       .references(() => organizations.id, { onDelete: 'cascade' }),
     stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
@@ -172,7 +161,6 @@ export const subscriptions = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    userIdIdx: index('idx_subscriptions_user_id').on(table.userId),
     organizationIdIdx: index('idx_subscriptions_organization_id').on(table.organizationId),
     stripeCustomerIdIdx: index('idx_subscriptions_stripe_customer_id').on(table.stripeCustomerId),
     stripeSubscriptionIdIdx: index('idx_subscriptions_subscription_id').on(table.stripeSubscriptionId),
@@ -183,13 +171,8 @@ export const projects = pgTable(
   'projects',
   {
     id: varchar('id', { length: 255 }).primaryKey(),
-    // DEPRECATED: userId - projects now belong to organizations
-    userId: varchar('user_id', { length: 255 })
-      .references(() => users.id, { onDelete: 'cascade' }),
-    // NEW: organizationId - projects belong to organizations
     organizationId: varchar('organization_id', { length: 255 })
       .references(() => organizations.id, { onDelete: 'cascade' }),
-    // NEW: createdById - tracks which user created the project
     createdById: varchar('created_by_id', { length: 255 })
       .references(() => users.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
@@ -207,7 +190,6 @@ export const projects = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
   },
   (table) => ({
-    userIdIdx: index('idx_projects_user_id').on(table.userId),
     organizationIdIdx: index('idx_projects_organization_id').on(table.organizationId),
     statusIdx: index('idx_projects_status').on(table.status),
     createdAtIdx: index('idx_projects_created_at').on(table.createdAt),
@@ -307,13 +289,8 @@ export const creditTransactions = pgTable(
   'credit_transactions',
   {
     id: varchar('id', { length: 255 }).primaryKey(),
-    // DEPRECATED: userId - credit transactions now belong to organizations
-    userId: varchar('user_id', { length: 255 })
-      .references(() => users.id, { onDelete: 'cascade' }),
-    // NEW: organizationId - credit transactions belong to organizations
     organizationId: varchar('organization_id', { length: 255 })
       .references(() => organizations.id, { onDelete: 'cascade' }),
-    // NEW: performedById - tracks which user performed the action
     performedById: varchar('performed_by_id', { length: 255 })
       .references(() => users.id, { onDelete: 'set null' }),
     type: creditTransactionTypeEnum('type').notNull(),
@@ -325,7 +302,6 @@ export const creditTransactions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    userIdIdx: index('idx_credit_transactions_user_id').on(table.userId),
     organizationIdIdx: index('idx_credit_transactions_organization_id').on(table.organizationId),
     typeIdx: index('idx_credit_transactions_type').on(table.type),
     createdAtIdx: index('idx_credit_transactions_created_at').on(table.createdAt),
