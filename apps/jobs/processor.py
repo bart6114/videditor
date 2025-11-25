@@ -145,10 +145,10 @@ class JobProcessor:
         payload = job.payload or {}
         source_object_key = payload.get("sourceObjectKey")
         source_bucket = payload.get("sourceBucket")
-        user_id = payload.get("userId")
+        organization_id = payload.get("organizationId")
 
-        if not source_object_key or not source_bucket or not user_id:
-            raise ValueError("Thumbnail job requires sourceObjectKey, sourceBucket, and userId in payload")
+        if not source_object_key or not source_bucket or not organization_id:
+            raise ValueError("Thumbnail job requires sourceObjectKey, sourceBucket, and organizationId in payload")
 
         self.logger.info(
             "🖼️  Starting thumbnail generation",
@@ -223,8 +223,8 @@ class JobProcessor:
             )
 
             # Generate thumbnail object key
-            # Pattern: {userId}/projects/{projectId}/{timestamp}-thumbnail.jpg
-            thumbnail_object_key = f"{user_id}/projects/{job.project_id}/{int(datetime.now(timezone.utc).timestamp() * 1000)}-thumbnail.jpg"
+            # Pattern: {organizationId}/projects/{projectId}/{timestamp}-thumbnail.jpg
+            thumbnail_object_key = f"{organization_id}/projects/{job.project_id}/{int(datetime.now(timezone.utc).timestamp() * 1000)}-thumbnail.jpg"
 
             # Upload thumbnail to Tigris
             self.logger.info(
@@ -592,7 +592,7 @@ class JobProcessor:
                     )
 
                     # Upload clip to Tigris
-                    clip_object_key = f"{project.user_id}/projects/{job.project_id}/shorts/{short_id}.mp4"
+                    clip_object_key = f"{project.organization_id}/projects/{job.project_id}/shorts/{short_id}.mp4"
                     self.logger.info(
                         "Uploading clip to Tigris",
                         short_id=short_id,
@@ -607,7 +607,7 @@ class JobProcessor:
                     )
 
                     # Upload thumbnail to Tigris
-                    thumb_object_key = f"{project.user_id}/projects/{job.project_id}/shorts/{short_id}-thumb.jpg"
+                    thumb_object_key = f"{project.organization_id}/projects/{job.project_id}/shorts/{short_id}-thumb.jpg"
                     await upload_to_tigris(
                         self.config,
                         self.config.TIGRIS_BUCKET,

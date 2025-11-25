@@ -57,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       projectId: project.id,
       sourceObjectKey: project.sourceObjectKey,
       sourceBucket: project.sourceBucket,
-      userId: authResult.userId,
+      organizationId: authResult.organizationId,
     },
   });
 

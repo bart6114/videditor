@@ -119,7 +119,6 @@ class Project(Base):
 
     id = Column(String(255), primary_key=True)
     organization_id = Column(String(255), nullable=False, index=True)
-    user_id = Column(String(255), nullable=True, index=True)  # Deprecated, use organization_id
     created_by_id = Column(String(255), nullable=True)  # User who created the project
     title = Column(Text, nullable=False)
     source_object_key = Column(Text, nullable=False)
