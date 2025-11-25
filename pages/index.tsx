@@ -62,7 +62,7 @@ export default function Home() {
 
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 text-primary rounded-full text-sm font-semibold mb-8 shadow-glow">
               <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-              Early Access - Still Learning
+              Early Access
             </div>
 
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8 leading-[1.1] bg-gradient-to-br from-foreground via-foreground/90 to-foreground/70 bg-clip-text text-transparent max-w-5xl mx-auto">
@@ -91,7 +91,7 @@ export default function Home() {
             </div>
 
             <p className="text-sm text-muted-foreground/70 mt-8">
-              Free while we're in beta • No credit card needed
+              50 free shorts to start • No credit card needed to get started
             </p>
           </div>
         </div>
@@ -395,15 +395,20 @@ export default function Home() {
                     </Button>
                   </div>
 
-                  <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground/60">
+                  <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground/60 flex-wrap">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                      <span>Free during beta</span>
+                      <span>50 free shorts</span>
                     </div>
                     <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                      <span>No credit card needed</span>
+                      <span>No credit card to start</span>
+                    </div>
+                    <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                      <span>No subscriptions</span>
                     </div>
                   </div>
                 </div>
