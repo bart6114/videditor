@@ -2,9 +2,15 @@ import type { NextApiRequest } from 'next';
 import { verifyToken } from '@clerk/backend';
 import { getDb } from '@server/db';
 import { ensureUserExists } from '@server/db/queries/users';
+import { getUserDefaultOrganization } from '@server/db/queries/organizations';
 
 type AuthResult =
-  | { authenticated: true; userId: string }
+  | {
+      authenticated: true;
+      userId: string;
+      organizationId: string;
+      role: 'owner' | 'member';
+    }
   | { authenticated: false; error: string };
 
 type ClerkUserData = {
@@ -73,10 +79,11 @@ export async function authenticate(req: NextApiRequest): Promise<AuthResult> {
     const userData = await verifyClerkToken(bearerToken);
 
     if (userData) {
+      const db = getDb();
+
       // JIT user provisioning: ensure user exists in database
       // Email is optional - some OAuth providers don't provide it
       try {
-        const db = getDb();
         await ensureUserExists(
           db,
           userData.userId,
@@ -90,7 +97,21 @@ export async function authenticate(req: NextApiRequest): Promise<AuthResult> {
         // The user is still authenticated via Clerk
       }
 
-      return { authenticated: true, userId: userData.userId };
+      // Get user's default organization
+      const defaultOrg = await getUserDefaultOrganization(db, userData.userId);
+      if (!defaultOrg) {
+        return {
+          authenticated: false,
+          error: 'User has no organization. Please contact support.',
+        };
+      }
+
+      return {
+        authenticated: true,
+        userId: userData.userId,
+        organizationId: defaultOrg.id,
+        role: defaultOrg.role,
+      };
     }
 
     // If bearer token exists but verification failed, reject immediately
@@ -105,4 +126,11 @@ export async function authenticate(req: NextApiRequest): Promise<AuthResult> {
     authenticated: false,
     error: 'Missing authentication. Please provide Authorization header with Bearer token.',
   };
+}
+
+/**
+ * Helper to check if the authenticated user is an owner of their organization
+ */
+export function requireOwner(authResult: AuthResult): authResult is AuthResult & { role: 'owner' } {
+  return authResult.authenticated && authResult.role === 'owner';
 }

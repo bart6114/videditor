@@ -4,6 +4,7 @@ import { ClerkProvider, useUser } from '@clerk/nextjs'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { useEffect } from 'react'
 import posthog from 'posthog-js'
+import { OrganizationProvider } from '@/contexts/OrganizationContext'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -35,9 +36,11 @@ function AppContent({ Component, pageProps }: AppProps) {
   }, [user])
 
   return (
-    <div className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
-      <Component {...pageProps} />
-    </div>
+    <OrganizationProvider>
+      <div className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
+        <Component {...pageProps} />
+      </div>
+    </OrganizationProvider>
   )
 }
 

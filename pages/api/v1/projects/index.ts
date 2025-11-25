@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
-import { listUserProjects } from '@server/db/queries/projects';
+import { listOrganizationProjects } from '@server/db/queries/projects';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { createTigrisClient, createPresignedDownload } from '@/lib/tigris';
@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const db = getDb();
-  const projects = await listUserProjects(db, authResult.userId);
+  const projects = await listOrganizationProjects(db, authResult.organizationId);
 
   // Transform thumbnailUrl from object key to presigned URL
   const tigrisClient = createTigrisClient();

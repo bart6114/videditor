@@ -1,10 +1,12 @@
 import { eq } from 'drizzle-orm';
 import type { DB } from '../index';
-import { users, type NewUser } from '../schema';
+import { users, organizations, organizationMembers, type NewUser } from '../schema';
+import crypto from 'crypto';
 
 /**
  * Ensure user exists in database (upsert pattern)
  * Creates user if doesn't exist, updates metadata if exists
+ * Also creates a personal organization for new users
  *
  * @param db - Drizzle database instance
  * @param userId - Clerk user ID
@@ -19,33 +21,73 @@ export async function ensureUserExists(
   fullName?: string,
   imageUrl?: string
 ): Promise<void> {
-  await db
-    .insert(users)
-    .values({
-      id: userId,
-      email: email ?? null,
+  // Check if user already exists
+  const [existingUser] = await db
+    .select({ id: users.id, defaultOrganizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (existingUser) {
+    // User exists - just update metadata
+    const updateSet: Record<string, unknown> = {
       fullName: fullName ?? null,
       imageUrl: imageUrl ?? null,
-    })
-    .onConflictDoNothing({ target: users.id });
+      updatedAt: new Date(),
+    };
 
-  // Build update set dynamically - only update fields that are provided
-  // This prevents overwriting existing email with null when user logs in via provider without email
-  const updateSet: Record<string, unknown> = {
-    fullName: fullName ?? null,
-    imageUrl: imageUrl ?? null,
-    updatedAt: new Date(),
-  };
+    // Only update email if explicitly provided
+    if (email !== undefined) {
+      updateSet.email = email;
+    }
 
-  // Only update email if explicitly provided
-  if (email !== undefined) {
-    updateSet.email = email;
+    await db.update(users).set(updateSet).where(eq(users.id, userId));
+    return;
   }
 
-  await db
-    .update(users)
-    .set(updateSet)
-    .where(eq(users.id, userId));
+  // New user - create user and organization
+  const orgId = `org_${crypto.randomUUID()}`;
+  const memberId = `mem_${crypto.randomUUID()}`;
+
+  // Generate org name
+  const orgName = fullName
+    ? `${fullName}'s Workspace`
+    : email
+      ? `${email.split('@')[0]}'s Workspace`
+      : 'Personal Workspace';
+
+  // Generate slug
+  const baseSlug = orgName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .substring(0, 50);
+  const slug = `${baseSlug}-${crypto.randomUUID().slice(0, 8)}`;
+
+  // Create organization first
+  await db.insert(organizations).values({
+    id: orgId,
+    name: orgName,
+    slug,
+    credits: 50, // New users start with 50 free credits
+  });
+
+  // Create user with default organization
+  await db.insert(users).values({
+    id: userId,
+    email: email ?? null,
+    fullName: fullName ?? null,
+    imageUrl: imageUrl ?? null,
+    defaultOrganizationId: orgId,
+  });
+
+  // Add user as owner of organization
+  await db.insert(organizationMembers).values({
+    id: memberId,
+    organizationId: orgId,
+    userId: userId,
+    role: 'owner',
+  });
 }
 
 /**

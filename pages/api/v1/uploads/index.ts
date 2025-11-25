@@ -39,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const presigned = await createPresignedUpload(tigrisClient, {
     filename: payload.filename,
     contentType: payload.contentType,
-    userId: authResult.userId,
+    userId: authResult.organizationId, // Use org ID for storage path
     projectId,
   });
 
@@ -47,7 +47,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .insert(projects)
     .values({
       id: projectId,
-      userId: authResult.userId,
+      organizationId: authResult.organizationId,
+      createdById: authResult.userId,
       title: payload.filename,
       sourceObjectKey: presigned.objectKey,
       sourceBucket: presigned.bucket,

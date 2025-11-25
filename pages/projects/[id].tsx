@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Head from 'next/head'
+import Link from 'next/link'
 import { useRouter } from 'next/router'
 import dynamic from 'next/dynamic'
 import { useAuth } from '@clerk/nextjs'
@@ -105,6 +106,7 @@ export default function ProjectDetail() {
   const [editingTitle, setEditingTitle] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
+  const [userCredits, setUserCredits] = useState<number | null>(null)
 
   // Multi-select state for shorts
   const [selectedShortIds, setSelectedShortIds] = useState<Set<string>>(new Set())
@@ -195,24 +197,30 @@ export default function ProjectDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shorts.length, selectedShortIds.size])
 
-  // Load user's default settings
+  // Load user's default settings and credits
   useEffect(() => {
     if (defaultPromptLoaded) return
 
     async function loadDefaultSettings() {
       try {
-        const data = await call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean } }>('/v1/user/settings')
-        if (data.settings.defaultCustomPrompt) {
-          setCustomPrompt(data.settings.defaultCustomPrompt)
+        const [settingsData, creditsData] = await Promise.all([
+          call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean } }>('/v1/user/settings'),
+          call<{ credits: number }>('/v1/billing/credits'),
+        ])
+
+        if (settingsData.settings.defaultCustomPrompt) {
+          setCustomPrompt(settingsData.settings.defaultCustomPrompt)
           setUsingDefaultPrompt(true)
         }
-        if (data.settings.defaultSocialPlatforms?.length > 0) {
-          setSocialPlatforms(data.settings.defaultSocialPlatforms)
+        if (settingsData.settings.defaultSocialPlatforms?.length > 0) {
+          setSocialPlatforms(settingsData.settings.defaultSocialPlatforms)
           setUsingDefaultPlatforms(true)
         }
-        if (data.settings.defaultAvoidOverlap !== undefined) {
-          setAvoidExistingOverlap(data.settings.defaultAvoidOverlap)
+        if (settingsData.settings.defaultAvoidOverlap !== undefined) {
+          setAvoidExistingOverlap(settingsData.settings.defaultAvoidOverlap)
         }
+
+        setUserCredits(creditsData.credits)
       } catch (error) {
         // Silently ignore - user just won't have defaults prefilled
       } finally {
@@ -275,8 +283,25 @@ export default function ProjectDetail() {
           },
         }),
       })
+
+      // Refresh credits after successful job creation
+      try {
+        const creditsData = await call<{ credits: number }>('/v1/billing/credits')
+        setUserCredits(creditsData.credits)
+      } catch {
+        // Silently ignore credit refresh errors
+      }
     } catch (error) {
       console.error('Error analyzing:', error)
+
+      // Refresh credits to show current balance
+      try {
+        const creditsData = await call<{ credits: number }>('/v1/billing/credits')
+        setUserCredits(creditsData.credits)
+      } catch {
+        // Silently ignore credit refresh errors
+      }
+
       alert(error instanceof Error ? error.message : 'Failed to generate shorts')
       setIsGeneratingShorts(false)
       setShortsCountBeforeGenerate(null)
@@ -833,23 +858,49 @@ export default function ProjectDetail() {
                       })}
                     </div>
                   </div>
-                  <Button
-                    onClick={handleAnalyze}
-                    disabled={analyzing || !transcription}
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    {analyzing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating {shortsCount} shorts...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Generate {shortsCount} Shorts with AI
-                      </>
+                  <div className="space-y-2">
+                    <Button
+                      onClick={handleAnalyze}
+                      disabled={analyzing || !transcription || (userCredits !== null && userCredits < shortsCount)}
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      {analyzing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating {shortsCount} shorts...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate {shortsCount} Shorts with AI
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Credit cost indicator */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Cost: {shortsCount} credit{shortsCount !== 1 ? 's' : ''}
+                      </span>
+                      {userCredits !== null && (
+                        <span className={userCredits < shortsCount ? 'text-destructive' : 'text-muted-foreground'}>
+                          Balance: {userCredits} credit{userCredits !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Insufficient credits warning */}
+                    {userCredits !== null && userCredits < shortsCount && (
+                      <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                        <p className="text-sm text-destructive">
+                          Insufficient credits. You need {shortsCount - userCredits} more credit{shortsCount - userCredits !== 1 ? 's' : ''}.{' '}
+                          <Link href="/settings/billing" className="underline font-medium hover:text-destructive/80">
+                            Add credits
+                          </Link>
+                        </p>
+                      </div>
                     )}
-                  </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}

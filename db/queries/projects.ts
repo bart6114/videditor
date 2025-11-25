@@ -3,9 +3,9 @@ import type { DB } from '../index';
 import { projects, transcriptions, shorts, type NewProject, type Project } from '../schema';
 
 /**
- * List all projects for a user with shorts count and transcription status
+ * List all projects for an organization with shorts count and transcription status
  */
-export async function listUserProjects(db: DB, userId: string, limit: number = 100) {
+export async function listOrganizationProjects(db: DB, organizationId: string, limit: number = 100) {
   // Get projects with aggregated data
   const results = await db
     .select({
@@ -16,7 +16,7 @@ export async function listUserProjects(db: DB, userId: string, limit: number = 1
     .from(projects)
     .leftJoin(shorts, eq(projects.id, shorts.projectId))
     .leftJoin(transcriptions, eq(projects.id, transcriptions.projectId))
-    .where(eq(projects.userId, userId))
+    .where(eq(projects.organizationId, organizationId))
     .groupBy(projects.id, transcriptions.id)
     .orderBy(desc(projects.createdAt))
     .limit(limit);
@@ -30,13 +30,18 @@ export async function listUserProjects(db: DB, userId: string, limit: number = 1
 }
 
 /**
- * Get project by ID (with ownership verification)
+ * @deprecated Use listOrganizationProjects instead
  */
-export async function getProjectById(db: DB, projectId: string, userId: string) {
+export const listUserProjects = listOrganizationProjects;
+
+/**
+ * Get project by ID (with organization ownership verification)
+ */
+export async function getProjectById(db: DB, projectId: string, organizationId: string) {
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+    .where(and(eq(projects.id, projectId), eq(projects.organizationId, organizationId)))
     .limit(1);
   return project ?? null;
 }
@@ -44,12 +49,12 @@ export async function getProjectById(db: DB, projectId: string, userId: string) 
 /**
  * Get project with related transcription and shorts
  */
-export async function getProjectWithRelations(db: DB, projectId: string, userId: string) {
+export async function getProjectWithRelations(db: DB, projectId: string, organizationId: string) {
   // Get project
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+    .where(and(eq(projects.id, projectId), eq(projects.organizationId, organizationId)))
     .limit(1);
 
   if (!project) {
@@ -91,7 +96,7 @@ export async function createProject(db: DB, project: NewProject) {
 export async function updateProject(
   db: DB,
   projectId: string,
-  userId: string,
+  organizationId: string,
   updates: Partial<Project>
 ) {
   const [updated] = await db
@@ -100,18 +105,18 @@ export async function updateProject(
       ...updates,
       updatedAt: new Date(),
     })
-    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+    .where(and(eq(projects.id, projectId), eq(projects.organizationId, organizationId)))
     .returning();
   return updated ?? null;
 }
 
 /**
- * Delete project (with ownership verification)
+ * Delete project (with organization ownership verification)
  */
-export async function deleteProject(db: DB, projectId: string, userId: string) {
+export async function deleteProject(db: DB, projectId: string, organizationId: string) {
   const [deleted] = await db
     .delete(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+    .where(and(eq(projects.id, projectId), eq(projects.organizationId, organizationId)))
     .returning({ id: projects.id });
   return deleted ?? null;
 }

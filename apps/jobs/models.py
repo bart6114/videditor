@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
+    Boolean,
     Column,
     Double,
     Float,
@@ -67,6 +68,23 @@ class ShortStatus(str, Enum):
 
 
 # SQLAlchemy ORM Models
+class Organization(Base):
+    """Organization database model."""
+
+    __tablename__ = "organizations"
+
+    id = Column(String(255), primary_key=True)
+    name = Column(Text, nullable=False)
+    slug = Column(String(255), nullable=False, unique=True, index=True)
+    credits = Column(BigInteger, nullable=False, default=0)
+    stripe_customer_id = Column(String(255), nullable=True)
+    auto_top_up_enabled = Column(Boolean, nullable=False, default=False)
+    auto_top_up_threshold = Column(BigInteger, nullable=False, default=5)
+    auto_top_up_amount = Column(BigInteger, nullable=False, default=10)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
 class ProcessingJob(Base):
     """Processing job database model."""
 
@@ -100,7 +118,9 @@ class Project(Base):
     __tablename__ = "projects"
 
     id = Column(String(255), primary_key=True)
-    user_id = Column(String(255), nullable=False, index=True)
+    organization_id = Column(String(255), nullable=False, index=True)
+    user_id = Column(String(255), nullable=True, index=True)  # Deprecated, use organization_id
+    created_by_id = Column(String(255), nullable=True)  # User who created the project
     title = Column(Text, nullable=False)
     source_object_key = Column(Text, nullable=False)
     source_bucket = Column(Text, nullable=False)

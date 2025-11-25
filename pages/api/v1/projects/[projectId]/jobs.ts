@@ -7,6 +7,13 @@ import { enqueueJob } from '@/lib/jobs';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { JOB_TYPES, SOCIAL_PLATFORMS, type JobType } from '@shared/index';
+import {
+  getUserCredits,
+  deductCredits,
+  calculateJobCost,
+  getUserCreditInfo,
+} from '@/lib/credits';
+import { triggerAutoTopUpIfNeeded } from '@/lib/credits/auto-topup';
 
 const analysisPayloadSchema = z.object({
   shortsCount: z.number().int().min(1).max(10).optional(),
@@ -58,10 +65,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return failure(res, 400, 'Invalid job payload', parsed.error.flatten());
     }
 
-    const project = await getProjectWithRelations(db, projectId, authResult.userId);
+    const project = await getProjectWithRelations(db, projectId, authResult.organizationId);
 
     if (!project) {
       return failure(res, 404, 'Project not found');
+    }
+
+    // Check and deduct credits for analysis jobs
+    if (parsed.data.type === 'analysis') {
+      const payload = parsed.data.payload as { shortsCount?: number; socialPlatforms?: string[] } | undefined;
+      const creditCost = calculateJobCost('analysis', payload);
+
+      if (creditCost > 0) {
+        // Check balance
+        const currentCredits = await getUserCredits(db, authResult.organizationId);
+
+        if (currentCredits < creditCost) {
+          return failure(res, 402, 'Insufficient credits', {
+            required: creditCost,
+            available: currentCredits,
+            message: `You need ${creditCost} credit${creditCost !== 1 ? 's' : ''} to generate ${payload?.shortsCount ?? 3} short${(payload?.shortsCount ?? 3) !== 1 ? 's' : ''}`,
+          });
+        }
+
+        // Deduct credits
+        const transaction = await deductCredits(db, authResult.organizationId, creditCost, {
+          projectId,
+          shortsCount: payload?.shortsCount ?? 3,
+          description: `Generated ${payload?.shortsCount ?? 3} short${(payload?.shortsCount ?? 3) !== 1 ? 's' : ''} for project`,
+          performedById: authResult.userId,
+        });
+
+        if (!transaction) {
+          return failure(res, 402, 'Insufficient credits');
+        }
+
+        // Trigger auto top-up check (async, don't block the response)
+        triggerAutoTopUpIfNeeded(db, authResult.organizationId).catch((err) => {
+          console.error('Auto top-up error:', err);
+        });
+      }
     }
 
     const job = await enqueueJob({

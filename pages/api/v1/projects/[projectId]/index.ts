@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // DELETE - Delete project and all its assets
   if (req.method === 'DELETE') {
-    const result = await getProjectWithRelations(db, projectId, authResult.userId);
+    const result = await getProjectWithRelations(db, projectId, authResult.organizationId);
 
     if (!result) {
       return failure(res, 404, 'Project not found');
@@ -52,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await Promise.allSettled(deletePromises);
 
     // Delete from database (cascade handles all relations)
-    await deleteProject(db, projectId, authResult.userId);
+    await deleteProject(db, projectId, authResult.organizationId);
 
     return success(res, { deleted: true });
   }
@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return failure(res, 400, parseResult.error.errors[0].message);
     }
 
-    const updated = await updateProject(db, projectId, authResult.userId, {
+    const updated = await updateProject(db, projectId, authResult.organizationId, {
       title: parseResult.data.title,
     });
 
@@ -80,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // GET - Get project with relations
-  const result = await getProjectWithRelations(db, projectId, authResult.userId);
+  const result = await getProjectWithRelations(db, projectId, authResult.organizationId);
 
   if (!result) {
     return failure(res, 404, 'Project not found');

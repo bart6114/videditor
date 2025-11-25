@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       metadata: payload.metadata ?? undefined,
       updatedAt: new Date(),
     })
-    .where(and(eq(projects.id, payload.projectId), eq(projects.userId, authResult.userId)))
+    .where(and(eq(projects.id, payload.projectId), eq(projects.organizationId, authResult.organizationId)))
     .returning();
 
   if (!project) {
