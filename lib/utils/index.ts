@@ -40,8 +40,3 @@ export function formatRelativeTime(isoTimestamp: string): string {
   if (months < 12) return months === 1 ? '1 month ago' : `${months} months ago`
   return years === 1 ? '1 year ago' : `${years} years ago`
 }
-
-export function calculateVideoCost(durationInSeconds: number): number {
-  // $0.01 per second
-  return durationInSeconds * 0.01
-}
