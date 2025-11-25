@@ -574,7 +574,7 @@ export default function ProjectDetail() {
           {/* Top Row: 2-Column Grid */}
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Left Column: Video Player */}
-            <Card className="bg-card border-border">
+            <Card className="bg-card border-border h-full flex flex-col">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -621,20 +621,20 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+              <CardContent className="flex-1 flex flex-col">
+                <div className="flex-1 min-h-[300px] bg-black rounded-lg overflow-hidden relative flex items-center justify-center">
                   {playbackUrl ? (
                     <>
                       {!videoPlayerLoaded ? (
                         <div
-                          className="w-full h-full cursor-pointer group relative"
+                          className="absolute inset-0 cursor-pointer group flex items-center justify-center"
                           onClick={() => setVideoPlayerLoaded(true)}
                         >
                           {project.thumbnailUrl ? (
                             <img
                               src={project.thumbnailUrl}
                               alt={project.title}
-                              className="w-full h-full object-cover"
+                              className="max-w-full max-h-full object-contain"
                             />
                           ) : (
                             <div className="w-full h-full bg-muted" />
@@ -648,14 +648,16 @@ export default function ProjectDetail() {
                           </div>
                         </div>
                       ) : (
-                        <ReactPlayer
-                          url={playbackUrl}
-                          controls
-                          width="100%"
-                          height="100%"
-                          playing={true}
-                          onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds)}
-                        />
+                        <div className="absolute inset-0">
+                          <ReactPlayer
+                            url={playbackUrl}
+                            controls
+                            width="100%"
+                            height="100%"
+                            playing={true}
+                            onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds)}
+                          />
+                        </div>
                       )}
                     </>
                   ) : (
