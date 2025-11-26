@@ -110,6 +110,7 @@ async def analyze_transcript_for_shorts(
     max_length: int = 60,
     custom_prompt: str | None = None,
     existing_shorts: list[dict[str, Any]] | None = None,
+    model: str = "openai/gpt-4o",
 ) -> list[ShortSuggestion]:
     """
     Analyze transcript using OpenRouter GPT-4o to identify viral short opportunities.
@@ -222,7 +223,7 @@ Return ONLY the JSON array, no other text."""
                     "HTTP-Referer": "https://videditor.app",
                 },
                 json={
-                    "model": "openai/gpt-4o",
+                    "model": model,
                     "messages": [
                         {
                             "role": "user",
@@ -344,6 +345,7 @@ async def generate_social_content(
     api_key: str,
     transcription: str,
     platforms: list[str],
+    model: str = "openai/gpt-4o",
 ) -> dict[str, Any]:
     """
     Generate social media content for a short video clip.
@@ -425,7 +427,7 @@ IMPORTANT:
                     "HTTP-Referer": "https://videditor.app",
                 },
                 json={
-                    "model": "openai/gpt-4o-mini",
+                    "model": model,
                     "messages": [
                         {
                             "role": "user",

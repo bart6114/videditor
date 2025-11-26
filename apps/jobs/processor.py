@@ -515,6 +515,7 @@ class JobProcessor:
             max_length=max_length,
             custom_prompt=custom_prompt,
             existing_shorts=existing_shorts,
+            model=self.config.OPENROUTER_ANALYSIS_MODEL,
         )
 
         self.logger.info(
@@ -632,6 +633,7 @@ class JobProcessor:
                                 api_key=self.config.OPENROUTER_API_KEY,
                                 transcription=suggestion.transcription,
                                 platforms=social_platforms,
+                                model=self.config.OPENROUTER_SOCIAL_MODEL,
                             )
                             self.logger.info(
                                 "Social content generated",
