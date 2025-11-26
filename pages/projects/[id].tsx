@@ -204,7 +204,7 @@ export default function ProjectDetail() {
     async function loadDefaultSettings() {
       try {
         const [settingsData, creditsData] = await Promise.all([
-          call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean } }>('/v1/user/settings'),
+          call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean; defaultPreferredLength: number; defaultMaxLength: number } }>('/v1/user/settings'),
           call<{ credits: number }>('/v1/billing/credits'),
         ])
 
@@ -218,6 +218,12 @@ export default function ProjectDetail() {
         }
         if (settingsData.settings.defaultAvoidOverlap !== undefined) {
           setAvoidExistingOverlap(settingsData.settings.defaultAvoidOverlap)
+        }
+        if (settingsData.settings.defaultPreferredLength) {
+          setPreferredLength(settingsData.settings.defaultPreferredLength)
+        }
+        if (settingsData.settings.defaultMaxLength) {
+          setMaxLength(settingsData.settings.defaultMaxLength)
         }
 
         setUserCredits(creditsData.credits)
@@ -723,7 +729,14 @@ export default function ProjectDetail() {
                       min={1}
                       max={15}
                       value={shortsCount}
-                      onChange={(e) => setShortsCount(Math.min(15, Math.max(1, parseInt(e.target.value) || 1)))}
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value);
+                        setShortsCount(isNaN(parsed) ? 0 : parsed);
+                      }}
+                      onBlur={() => {
+                        const clamped = Math.max(1, Math.min(15, shortsCount || 1));
+                        setShortsCount(clamped);
+                      }}
                       disabled={analyzing}
                       className="bg-background border-input text-foreground"
                     />
@@ -739,10 +752,13 @@ export default function ProjectDetail() {
                         max={120}
                         value={preferredLength}
                         onChange={(e) => {
-                          const value = Math.min(120, Math.max(15, parseInt(e.target.value) || 45))
-                          setPreferredLength(value)
-                          // Ensure max is at least as large as preferred
-                          if (maxLength < value) setMaxLength(value)
+                          const parsed = parseInt(e.target.value);
+                          setPreferredLength(isNaN(parsed) ? 0 : parsed);
+                        }}
+                        onBlur={() => {
+                          const clamped = Math.max(15, Math.min(120, preferredLength || 15));
+                          setPreferredLength(clamped);
+                          if (maxLength < clamped) setMaxLength(clamped);
                         }}
                         disabled={analyzing}
                         className="bg-background border-input text-foreground"
@@ -761,10 +777,12 @@ export default function ProjectDetail() {
                         max={120}
                         value={maxLength}
                         onChange={(e) => {
-                          const value = Math.min(120, Math.max(15, parseInt(e.target.value) || 60))
-                          setMaxLength(value)
-                          // Ensure preferred doesn't exceed max
-                          if (preferredLength > value) setPreferredLength(value)
+                          const parsed = parseInt(e.target.value);
+                          setMaxLength(isNaN(parsed) ? 0 : parsed);
+                        }}
+                        onBlur={() => {
+                          const clamped = Math.max(15, Math.min(120, maxLength || 15));
+                          setMaxLength(Math.max(clamped, preferredLength));
                         }}
                         disabled={analyzing}
                         className="bg-background border-input text-foreground"
