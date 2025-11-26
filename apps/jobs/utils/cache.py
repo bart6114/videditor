@@ -86,7 +86,9 @@ class VideoCache:
                 project_id=project_id,
                 video_key=video_key,
             )
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            # Run blocking flock in thread pool to avoid blocking the event loop
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, fcntl.flock, lock_fd, fcntl.LOCK_EX)
 
             # Check if file exists and is fresh
             # (another job may have downloaded while we waited for lock)
