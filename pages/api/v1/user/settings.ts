@@ -11,7 +11,18 @@ const updateSettingsSchema = z.object({
   defaultCustomPrompt: z.string().max(2000).nullable().optional(),
   defaultSocialPlatforms: z.array(z.enum(SOCIAL_PLATFORMS)).optional(),
   defaultAvoidOverlap: z.boolean().optional(),
-});
+  defaultPreferredLength: z.number().int().min(15).max(120).optional(),
+  defaultMaxLength: z.number().int().min(15).max(120).optional(),
+}).refine(
+  (data) => {
+    // If both are provided, maxLength must be >= preferredLength
+    if (data.defaultPreferredLength !== undefined && data.defaultMaxLength !== undefined) {
+      return data.defaultMaxLength >= data.defaultPreferredLength;
+    }
+    return true;
+  },
+  { message: 'Max length must be greater than or equal to preferred length' }
+);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const authResult = await authenticate(req);
@@ -27,6 +38,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         defaultCustomPrompt: users.defaultCustomPrompt,
         defaultSocialPlatforms: users.defaultSocialPlatforms,
         defaultAvoidOverlap: users.defaultAvoidOverlap,
+        defaultPreferredLength: users.defaultPreferredLength,
+        defaultMaxLength: users.defaultMaxLength,
       })
       .from(users)
       .where(eq(users.id, authResult.userId));
@@ -40,6 +53,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         defaultCustomPrompt: user.defaultCustomPrompt,
         defaultSocialPlatforms: (user.defaultSocialPlatforms || []) as SocialPlatform[],
         defaultAvoidOverlap: user.defaultAvoidOverlap ?? false,
+        defaultPreferredLength: user.defaultPreferredLength ?? 45,
+        defaultMaxLength: user.defaultMaxLength ?? 60,
       }
     });
   }
@@ -61,6 +76,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (parsed.data.defaultAvoidOverlap !== undefined) {
       updateData.defaultAvoidOverlap = parsed.data.defaultAvoidOverlap;
     }
+    if (parsed.data.defaultPreferredLength !== undefined) {
+      updateData.defaultPreferredLength = parsed.data.defaultPreferredLength;
+    }
+    if (parsed.data.defaultMaxLength !== undefined) {
+      updateData.defaultMaxLength = parsed.data.defaultMaxLength;
+    }
 
     const [updated] = await db
       .update(users)
@@ -70,6 +91,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         defaultCustomPrompt: users.defaultCustomPrompt,
         defaultSocialPlatforms: users.defaultSocialPlatforms,
         defaultAvoidOverlap: users.defaultAvoidOverlap,
+        defaultPreferredLength: users.defaultPreferredLength,
+        defaultMaxLength: users.defaultMaxLength,
       });
 
     if (!updated) {
@@ -81,6 +104,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         defaultCustomPrompt: updated.defaultCustomPrompt,
         defaultSocialPlatforms: (updated.defaultSocialPlatforms || []) as SocialPlatform[],
         defaultAvoidOverlap: updated.defaultAvoidOverlap ?? false,
+        defaultPreferredLength: updated.defaultPreferredLength ?? 45,
+        defaultMaxLength: updated.defaultMaxLength ?? 60,
       }
     });
   }

@@ -27,6 +27,8 @@ interface UserSettings {
   defaultCustomPrompt: string | null;
   defaultSocialPlatforms: SocialPlatform[];
   defaultAvoidOverlap: boolean;
+  defaultPreferredLength: number;
+  defaultMaxLength: number;
 }
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
@@ -44,6 +46,8 @@ export default function Settings() {
   const [defaultCustomPrompt, setDefaultCustomPrompt] = useState('');
   const [defaultSocialPlatforms, setDefaultSocialPlatforms] = useState<SocialPlatform[]>([]);
   const [defaultAvoidOverlap, setDefaultAvoidOverlap] = useState(false);
+  const [defaultPreferredLength, setDefaultPreferredLength] = useState(45);
+  const [defaultMaxLength, setDefaultMaxLength] = useState(60);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,6 +57,8 @@ export default function Settings() {
         setDefaultCustomPrompt(data.settings.defaultCustomPrompt || '');
         setDefaultSocialPlatforms(data.settings.defaultSocialPlatforms || []);
         setDefaultAvoidOverlap(data.settings.defaultAvoidOverlap ?? false);
+        setDefaultPreferredLength(data.settings.defaultPreferredLength ?? 45);
+        setDefaultMaxLength(data.settings.defaultMaxLength ?? 60);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load settings');
       } finally {
@@ -82,6 +88,8 @@ export default function Settings() {
           defaultCustomPrompt: defaultCustomPrompt.trim() || null,
           defaultSocialPlatforms,
           defaultAvoidOverlap,
+          defaultPreferredLength,
+          defaultMaxLength,
         }),
       });
       setSaved(true);
@@ -189,6 +197,63 @@ export default function Settings() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   When enabled, the AI will automatically avoid selecting content that overlaps with your existing shorts. You can still override this on a per-project basis.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">
+                  Default Short Duration
+                </label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Set your preferred and maximum short duration (15-120 seconds)
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Preferred Length (seconds)
+                    </label>
+                    <input
+                      type="number"
+                      min={15}
+                      max={120}
+                      value={defaultPreferredLength}
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value);
+                        setDefaultPreferredLength(isNaN(parsed) ? 0 : parsed);
+                      }}
+                      onBlur={() => {
+                        const clamped = Math.max(15, Math.min(120, defaultPreferredLength || 15));
+                        setDefaultPreferredLength(clamped);
+                        if (defaultMaxLength < clamped) {
+                          setDefaultMaxLength(clamped);
+                        }
+                      }}
+                      className="w-full bg-input border border-border text-foreground rounded-lg px-4 py-2 transition-colors duration-200 hover:border-primary/50 focus:border-primary outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Max Length (seconds)
+                    </label>
+                    <input
+                      type="number"
+                      min={15}
+                      max={120}
+                      value={defaultMaxLength}
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value);
+                        setDefaultMaxLength(isNaN(parsed) ? 0 : parsed);
+                      }}
+                      onBlur={() => {
+                        const clamped = Math.max(15, Math.min(120, defaultMaxLength || 15));
+                        setDefaultMaxLength(Math.max(clamped, defaultPreferredLength));
+                      }}
+                      className="w-full bg-input border border-border text-foreground rounded-lg px-4 py-2 transition-colors duration-200 hover:border-primary/50 focus:border-primary outline-none"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  The AI will target the preferred length but may extend up to the max length when needed for content continuity. You can override these per-project.
                 </p>
               </div>
 

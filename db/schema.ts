@@ -132,6 +132,8 @@ export const users = pgTable(
     defaultCustomPrompt: text('default_custom_prompt'), // Default AI instruction for shorts generation
     defaultSocialPlatforms: jsonb('default_social_platforms').$type<string[]>().default(sql`'[]'::jsonb`), // Default platforms for social content generation
     defaultAvoidOverlap: boolean('default_avoid_overlap').default(false), // Default setting for avoiding overlap with existing shorts
+    defaultPreferredLength: integer('default_preferred_length').default(45), // Default preferred short length in seconds (15-120)
+    defaultMaxLength: integer('default_max_length').default(60), // Default maximum short length in seconds (15-120)
     // Organization - user's currently active organization
     defaultOrganizationId: varchar('default_organization_id', { length: 255 })
       .references(() => organizations.id, { onDelete: 'set null' }),

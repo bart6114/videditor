@@ -43,6 +43,13 @@
       "when": 1764075133710,
       "tag": "0005_rich_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1764149242748,
+      "tag": "0006_milky_butterfly",
+      "breakpoints": true
     }
   ]
 }

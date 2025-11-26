@@ -102,6 +102,63 @@ def format_transcript_for_ai(segments: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def extract_context_window(
+    segments: list[dict[str, Any]],
+    start_time: float,
+    end_time: float,
+    char_limit: int = 2000,
+) -> tuple[str, str]:
+    """
+    Extract surrounding context from transcript segments.
+
+    Args:
+        segments: List of transcript segments with start, end, text
+        start_time: Start time of the segment in seconds
+        end_time: End time of the segment in seconds
+        char_limit: Maximum characters to extract before/after (default 2000)
+
+    Returns:
+        Tuple of (context_before, context_after)
+    """
+    # Collect segments before the start time
+    before_segments = []
+    for seg in segments:
+        if seg["end"] <= start_time:
+            before_segments.append(seg)
+
+    # Collect segments after the end time
+    after_segments = []
+    for seg in segments:
+        if seg["start"] >= end_time:
+            after_segments.append(seg)
+
+    # Build context_before by taking segments from the end (closest to our segment)
+    context_before = ""
+    for seg in reversed(before_segments):
+        text = seg["text"].strip()
+        if len(context_before) + len(text) + 1 > char_limit:
+            # Add partial text if we have room
+            remaining = char_limit - len(context_before)
+            if remaining > 50:  # Only add if meaningful amount
+                context_before = text[-remaining:].lstrip() + " " + context_before
+            break
+        context_before = text + " " + context_before if context_before else text
+
+    # Build context_after by taking segments from the start (closest to our segment)
+    context_after = ""
+    for seg in after_segments:
+        text = seg["text"].strip()
+        if len(context_after) + len(text) + 1 > char_limit:
+            # Add partial text if we have room
+            remaining = char_limit - len(context_after)
+            if remaining > 50:  # Only add if meaningful amount
+                context_after = context_after + " " + text[:remaining].rstrip()
+            break
+        context_after = context_after + " " + text if context_after else text
+
+    return context_before.strip(), context_after.strip()
+
+
 async def analyze_transcript_for_shorts(
     api_key: str,
     transcript_segments: list[dict[str, Any]],
@@ -346,6 +403,8 @@ async def generate_social_content(
     transcription: str,
     platforms: list[str],
     model: str = "openai/gpt-4o",
+    context_before: str | None = None,
+    context_after: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate social media content for a short video clip.
@@ -354,6 +413,9 @@ async def generate_social_content(
         api_key: OpenRouter API key
         transcription: The transcription text of the short video clip
         platforms: List of platforms to generate content for (youtube, instagram, tiktok, linkedin)
+        model: The model to use for generation
+        context_before: Optional context from before the segment (~2000 chars)
+        context_after: Optional context from after the segment (~2000 chars)
 
     Returns:
         Dictionary with content for each platform, e.g.:
@@ -397,10 +459,27 @@ async def generate_social_content(
         elif platform == "linkedin":
             output_format["linkedin"] = {"caption": "Generated caption here"}
 
+    # Build transcript section with optional context
+    if context_before or context_after:
+        transcript_section = f"""For context, here is the surrounding transcript from the full video:
+
+[CONTEXT BEFORE THE CLIP]
+{context_before if context_before else "(beginning of video)"}
+
+[THE VIDEO CLIP - Generate content based on THIS segment]
+{transcription}
+
+[CONTEXT AFTER THE CLIP]
+{context_after if context_after else "(end of video)"}
+
+Use the surrounding context to better understand what the speaker is discussing, but generate content specifically for the video clip section."""
+    else:
+        transcript_section = f"""Video Transcript:
+{transcription}"""
+
     prompt = f"""You are a social media content expert. Based on the following video transcript, generate optimized social media content for the specified platforms.
 
-Video Transcript:
-{transcription}
+{transcript_section}
 
 Generate content for these platforms with the following guidelines:
 

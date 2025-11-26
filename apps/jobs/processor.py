@@ -25,7 +25,7 @@ from models import (
 from utils.storage import download_from_tigris, upload_to_tigris
 from utils.transcription import transcribe_video
 from utils.ffmpeg import extract_clip, extract_thumbnail, get_video_duration
-from utils.ai import analyze_transcript_for_shorts, generate_social_content
+from utils.ai import analyze_transcript_for_shorts, extract_context_window, generate_social_content
 
 
 class JobProcessor:
@@ -627,16 +627,26 @@ class JobProcessor:
                     social_content_data = None
                     if social_platforms:
                         try:
+                            # Extract surrounding context for better LLM understanding
+                            context_before, context_after = extract_context_window(
+                                segments=transcription.segments,
+                                start_time=suggestion.start_time,
+                                end_time=suggestion.end_time,
+                            )
                             self.logger.info(
                                 "Generating social content for short",
                                 short_id=short_id,
                                 platforms=social_platforms,
+                                context_before_len=len(context_before),
+                                context_after_len=len(context_after),
                             )
                             social_content_data = await generate_social_content(
                                 api_key=self.config.OPENROUTER_API_KEY,
                                 transcription=suggestion.transcription,
                                 platforms=social_platforms,
                                 model=self.config.OPENROUTER_SOCIAL_MODEL,
+                                context_before=context_before,
+                                context_after=context_after,
                             )
                             self.logger.info(
                                 "Social content generated",

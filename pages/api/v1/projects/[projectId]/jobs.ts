@@ -16,7 +16,7 @@ import {
 import { triggerAutoTopUpIfNeeded } from '@/lib/credits/auto-topup';
 
 const analysisPayloadSchema = z.object({
-  shortsCount: z.number().int().min(1).max(10).optional(),
+  shortsCount: z.number().int().min(1).max(15).optional(),
   preferredLength: z.number().int().min(15).max(120).optional(),
   maxLength: z.number().int().min(15).max(120).optional(),
   customPrompt: z.string().optional(),
