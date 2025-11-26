@@ -43,7 +43,7 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'video/*': ['.mp4', '.mov', '.avi', '.mkv', '.webm']
+      'video/*': ['.mp4', '.mov']
     },
     maxFiles: 1,
     disabled: uploading,
@@ -172,7 +172,7 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
                   Drag & drop or click to browse
                 </p>
                 <p className="text-xs text-muted-foreground/70">
-                  MP4, MOV, AVI, MKV, WebM • Up to 2GB
+                  MP4, MOV • Up to 2GB
                 </p>
               </>
             )}
