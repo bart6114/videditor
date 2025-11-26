@@ -29,9 +29,9 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
         return
       }
 
-      // Validate file size (1GB max)
-      if (videoFile.size > 1024 * 1024 * 1024) {
-        setError('File size must be less than 1GB')
+      // Validate file size (2GB max)
+      if (videoFile.size > 2 * 1024 * 1024 * 1024) {
+        setError('File size must be less than 2GB')
         return
       }
 
@@ -172,7 +172,7 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
                   Drag & drop or click to browse
                 </p>
                 <p className="text-xs text-muted-foreground/70">
-                  MP4, MOV, AVI, MKV, WebM • Up to 1GB
+                  MP4, MOV, AVI, MKV, WebM • Up to 2GB
                 </p>
               </>
             )}
