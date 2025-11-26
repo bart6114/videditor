@@ -45,6 +45,9 @@ class JobRunnerConfig(BaseSettings):
     OPENROUTER_ANALYSIS_MODEL: str = "openai/gpt-4o"
     OPENROUTER_SOCIAL_MODEL: str = "openai/gpt-4o"
 
+    # Transcription
+    WHISPER_MODEL: str = "base"
+
     # Tigris storage
     TIGRIS_ENDPOINT: HttpUrl
     TIGRIS_REGION: str = Field(min_length=1)

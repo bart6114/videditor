@@ -362,7 +362,10 @@ class JobProcessor:
                 job_id=job.id,
                 temp_file_path=temp_file_path,
             )
-            transcription_result = await transcribe_video(temp_file_path)
+            transcription_result = await transcribe_video(
+                temp_file_path,
+                model_size=self.config.WHISPER_MODEL,
+            )
 
             # Save transcription to database
             self.logger.info(
