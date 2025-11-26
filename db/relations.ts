@@ -2,7 +2,6 @@ import { relations } from 'drizzle-orm';
 import {
   users,
   organizations,
-  subscriptions,
   projects,
   transcriptions,
   shorts,
@@ -23,16 +22,8 @@ export const usersRelations = relations(users, ({ one }) => ({
 }));
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
-  subscriptions: many(subscriptions),
   projects: many(projects),
   creditTransactions: many(creditTransactions),
-}));
-
-export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
-  organization: one(organizations, {
-    fields: [subscriptions.organizationId],
-    references: [organizations.id],
-  }),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({

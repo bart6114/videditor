@@ -11,6 +11,7 @@ from config import JobRunnerConfig
 from database import get_session_factory
 from models import JobStatus, ProcessingJob
 from processor import JobProcessor
+from utils.cache import init_video_cache, run_cleanup_loop
 
 
 class JobWorker:
@@ -35,6 +36,7 @@ class JobWorker:
         self.processor = processor
         self.running = False
         self.poll_task: asyncio.Task[None] | None = None
+        self.cleanup_task: asyncio.Task[None] | None = None
         self.active_jobs: set[str] = set()
         self.concurrency = config.JOB_CONCURRENCY
         self.poll_interval_ms = config.POLL_INTERVAL_MS
@@ -170,6 +172,24 @@ class JobWorker:
             self.logger.warning("Worker already running")
             return
 
+        # Initialize video cache if enabled
+        if self.config.VIDEO_CACHE_ENABLED:
+            video_cache = init_video_cache(
+                cache_dir=self.config.VIDEO_CACHE_DIR,
+                ttl_seconds=self.config.VIDEO_CACHE_TTL_SECONDS,
+            )
+            # Clear cache on startup for clean slate
+            video_cache.clear_all()
+            self.logger.info(
+                "Video cache initialized",
+                cache_dir=self.config.VIDEO_CACHE_DIR,
+                ttl_seconds=self.config.VIDEO_CACHE_TTL_SECONDS,
+            )
+            # Start background cleanup task
+            self.cleanup_task = asyncio.create_task(
+                run_cleanup_loop(video_cache, interval_seconds=300)
+            )
+
         self.running = True
         self.poll_task = asyncio.create_task(self._poll_loop())
 
@@ -189,6 +209,15 @@ class JobWorker:
             except asyncio.CancelledError:
                 pass
             self.poll_task = None
+
+        # Cancel cleanup task
+        if self.cleanup_task:
+            self.cleanup_task.cancel()
+            try:
+                await self.cleanup_task
+            except asyncio.CancelledError:
+                pass
+            self.cleanup_task = None
 
         # Wait for active jobs to complete (with timeout)
         max_wait_s = 30

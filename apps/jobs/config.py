@@ -48,6 +48,11 @@ class JobRunnerConfig(BaseSettings):
     # Transcription
     WHISPER_MODEL: str = "base"
 
+    # Video cache (for short processing)
+    VIDEO_CACHE_DIR: str = "/tmp/videditor-cache"
+    VIDEO_CACHE_TTL_SECONDS: int = Field(default=3600, ge=60)  # 1 hour default
+    VIDEO_CACHE_ENABLED: bool = True
+
     # Tigris storage
     TIGRIS_ENDPOINT: HttpUrl
     TIGRIS_REGION: str = Field(min_length=1)

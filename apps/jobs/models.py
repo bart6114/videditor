@@ -33,6 +33,7 @@ class JobType(str, Enum):
     THUMBNAIL = "thumbnail"
     TRANSCRIPTION = "transcription"
     ANALYSIS = "analysis"
+    SHORT_PROCESSING = "short_processing"
 
 
 class JobStatus(str, Enum):
@@ -67,6 +68,16 @@ class ShortStatus(str, Enum):
     ERROR = "error"
 
 
+class ShortTaskStatus(str, Enum):
+    """Short task status enumeration."""
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    DONE = "done"
+    ERROR = "error"
+    SKIPPED = "skipped"
+
+
 # SQLAlchemy ORM Models
 class Organization(Base):
     """Organization database model."""
@@ -93,7 +104,7 @@ class ProcessingJob(Base):
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=True, index=True)
     short_id = Column(String(255), nullable=True)
-    type = Column(ENUM('thumbnail', 'transcription', 'analysis', name='job_type', create_type=False), nullable=False, index=True)
+    type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'short_processing', name='job_type', create_type=False), nullable=False, index=True)
     status = Column(ENUM('queued', 'running', 'succeeded', 'failed', 'canceled', name='job_status', create_type=False), nullable=False, default="queued", index=True)
     payload = Column(JSONB, nullable=True)
     result = Column(JSONB, nullable=True)
@@ -158,6 +169,7 @@ class Short(Base):
 
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=False, index=True)
+    analysis_job_id = Column(String(255), nullable=True)  # FK to processing_jobs
     transcription_slice = Column(Text, nullable=False)
     start_time = Column(Double, nullable=False)
     end_time = Column(Double, nullable=False)
@@ -167,6 +179,7 @@ class Short(Base):
     error_message = Column(Text, nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=True)
     social_content = Column(JSONB, nullable=True)  # Generated social media content per platform
+    tasks = Column(JSONB, nullable=True)  # {clip_extraction, thumbnail_extraction, social_content} task statuses
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 

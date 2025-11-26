@@ -15,14 +15,6 @@ import {
   unique,
 } from 'drizzle-orm/pg-core';
 
-export const subscriptionStatusEnum = pgEnum('subscription_status', [
-  'active',
-  'canceled',
-  'past_due',
-  'trialing',
-  'incomplete',
-]);
-
 export const projectStatusEnum = pgEnum('project_status', [
   'uploading',
   'ready',
@@ -40,6 +32,7 @@ export const jobTypeEnum = pgEnum('job_type', [
   'thumbnail',
   'transcription',
   'analysis',
+  'short_processing',
 ]);
 
 export const jobStatusEnum = pgEnum('job_status', ['queued', 'running', 'succeeded', 'failed', 'canceled']);
@@ -146,29 +139,6 @@ export const users = pgTable(
   })
 );
 
-export const subscriptions = pgTable(
-  'subscriptions',
-  {
-    id: varchar('id', { length: 255 }).primaryKey(),
-    organizationId: varchar('organization_id', { length: 255 })
-      .references(() => organizations.id, { onDelete: 'cascade' }),
-    stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
-    stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
-    stripePriceId: varchar('stripe_price_id', { length: 255 }),
-    status: subscriptionStatusEnum('status').notNull(),
-    currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
-    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
-    cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    organizationIdIdx: index('idx_subscriptions_organization_id').on(table.organizationId),
-    stripeCustomerIdIdx: index('idx_subscriptions_stripe_customer_id').on(table.stripeCustomerId),
-    stripeSubscriptionIdIdx: index('idx_subscriptions_subscription_id').on(table.stripeSubscriptionId),
-  })
-);
-
 export const projects = pgTable(
   'projects',
   {
@@ -227,6 +197,8 @@ export const shorts = pgTable(
     projectId: varchar('project_id', { length: 255 })
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
+    analysisJobId: varchar('analysis_job_id', { length: 255 })
+      .references(() => processingJobs.id, { onDelete: 'set null' }),
     transcriptionSlice: text('transcription_slice').notNull(),
     startTime: doublePrecision('start_time').notNull(),
     endTime: doublePrecision('end_time').notNull(),
@@ -236,6 +208,11 @@ export const shorts = pgTable(
     errorMessage: text('error_message'),
     metadata: jsonb('metadata'),
     socialContent: jsonb('social_content'), // Generated social media content per platform
+    tasks: jsonb('tasks').$type<{
+      clip_extraction: 'pending' | 'processing' | 'done' | 'error';
+      thumbnail_extraction: 'pending' | 'processing' | 'done' | 'error';
+      social_content: 'pending' | 'processing' | 'done' | 'error' | 'skipped';
+    }>(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -272,9 +249,6 @@ export const processingJobs = pgTable(
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
-
-export type Subscription = typeof subscriptions.$inferSelect;
-export type NewSubscription = typeof subscriptions.$inferInsert;
 
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;

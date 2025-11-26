@@ -34,7 +34,7 @@ import {
   Pencil,
 } from 'lucide-react'
 import type { Project, Short, Transcription } from '@server/db/schema'
-import { SOCIAL_PLATFORMS, type SocialPlatform } from '@shared/index'
+import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortTasks } from '@shared/index'
 import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
@@ -125,13 +125,12 @@ export default function ProjectDetail() {
   }
 
   const toggleSelectAll = () => {
-    const completedShorts = shorts.filter((s) => s.status === 'completed')
-    if (selectedShortIds.size === completedShorts.length) {
+    if (selectedShortIds.size === shorts.length) {
       // Deselect all
       setSelectedShortIds(new Set())
     } else {
-      // Select all completed shorts
-      setSelectedShortIds(new Set(completedShorts.map((s) => s.id)))
+      // Select all shorts
+      setSelectedShortIds(new Set(shorts.map((s) => s.id)))
     }
   }
 
@@ -140,8 +139,7 @@ export default function ProjectDetail() {
   }
 
   const isAllSelected = () => {
-    const completedShorts = shorts.filter((s) => s.status === 'completed')
-    return completedShorts.length > 0 && selectedShortIds.size === completedShorts.length
+    return shorts.length > 0 && selectedShortIds.size === shorts.length
   }
 
   const isSomeSelected = () => {
@@ -158,9 +156,13 @@ export default function ProjectDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  // Poll for updates while generating shorts
+  // Poll for updates while generating shorts OR while shorts are pending/processing
   useEffect(() => {
-    if (!isGeneratingShorts || !id) return
+    // Check if there are pending/processing shorts
+    const hasPendingShorts = shorts.some(s => s.status === 'pending' || s.status === 'processing')
+
+    if (!isGeneratingShorts && !hasPendingShorts) return
+    if (!id) return
 
     const interval = setInterval(async () => {
       // Fetch both project data and jobs in parallel
@@ -196,8 +198,11 @@ export default function ProjectDetail() {
         )
         setActiveJob(analysisJob || null)
 
-        // Stop polling when job completes
-        if (!analysisJob) {
+        // Stop polling when job completes AND no pending shorts
+        const stillHasPendingShorts = (projectData.shorts || []).some(
+          s => s.status === 'pending' || s.status === 'processing'
+        )
+        if (!analysisJob && !stillHasPendingShorts) {
           setIsGeneratingShorts(false)
         }
       } catch (error) {
@@ -207,7 +212,7 @@ export default function ProjectDetail() {
 
     return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGeneratingShorts, id, call])
+  }, [isGeneratingShorts, id, call, shorts])
 
   // Keyboard shortcut for select all (Ctrl/Cmd+A)
   useEffect(() => {
@@ -776,10 +781,17 @@ export default function ProjectDetail() {
                       type="number"
                       min={1}
                       max={15}
-                      value={shortsCount}
+                      value={shortsCount || ''}
                       onChange={(e) => {
-                        const parsed = parseInt(e.target.value);
-                        setShortsCount(isNaN(parsed) ? 0 : parsed);
+                        const val = e.target.value;
+                        if (val === '') {
+                          setShortsCount(0);
+                        } else {
+                          const parsed = parseInt(val, 10);
+                          if (!isNaN(parsed)) {
+                            setShortsCount(parsed);
+                          }
+                        }
                       }}
                       onBlur={() => {
                         const clamped = Math.max(1, Math.min(15, shortsCount || 1));
@@ -929,7 +941,7 @@ export default function ProjectDetail() {
                   <div className="space-y-2">
                     <Button
                       onClick={handleAnalyze}
-                      disabled={analyzing || !!activeJob || !transcription || (userCredits !== null && userCredits < shortsCount)}
+                      disabled={analyzing || !!activeJob || !transcription || userCredits === null || userCredits < shortsCount}
                       className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {analyzing ? (
@@ -999,18 +1011,11 @@ export default function ProjectDetail() {
                       ) : activeJob.progress?.phase === 'generating' ? (
                         <>
                           <p className="font-medium text-foreground mb-1">
-                            Generating short {activeJob.progress.current} of {activeJob.progress.total}...
+                            Creating short containers...
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Extracting clips and creating thumbnails
+                            Queueing {activeJob.progress.total} shorts for processing
                           </p>
-                          {/* Progress bar */}
-                          <div className="mt-2 h-2 bg-primary/20 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary transition-all duration-300"
-                              style={{ width: `${(activeJob.progress.current / activeJob.progress.total) * 100}%` }}
-                            />
-                          </div>
                         </>
                       ) : (
                         <>
@@ -1022,6 +1027,33 @@ export default function ProjectDetail() {
                           </p>
                         </>
                       )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Shorts Processing Progress (after analysis completes) */}
+            {!activeJob && shorts.length > 0 && shorts.some(s => s.status === 'pending' || s.status === 'processing') && (
+              <Card className="bg-primary/5 border-primary/30">
+                <CardContent className="py-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground mb-1">
+                        Processing shorts...
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {shorts.filter(s => s.status === 'completed').length} of {shorts.length} completed
+                      </p>
+                      <div className="mt-2 h-2 bg-primary/20 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all duration-300"
+                          style={{ width: `${(shorts.filter(s => s.status === 'completed').length / shorts.length) * 100}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -1137,7 +1169,7 @@ export default function ProjectDetail() {
                           <Checkbox
                             checked={isAllSelected() ? true : isSomeSelected() ? 'indeterminate' : false}
                             onCheckedChange={toggleSelectAll}
-                            disabled={shorts.filter((s) => s.status === 'completed').length === 0}
+                            disabled={shorts.length === 0}
                           />
                         </th>
                         <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Thumbnail</th>
@@ -1173,7 +1205,6 @@ export default function ProjectDetail() {
                               checked={selectedShortIds.has(short.id)}
                               onCheckedChange={() => toggleShortSelection(short.id)}
                               onClick={(e) => e.stopPropagation()}
-                              disabled={short.status !== 'completed'}
                             />
                           </td>
                           {/* Thumbnail */}
@@ -1213,15 +1244,50 @@ export default function ProjectDetail() {
                           </td>
                           {/* Status */}
                           <td className="py-3 pr-4">
-                            <Badge
-                              variant={
-                                short.status === 'completed' ? 'default' :
-                                short.status === 'error' ? 'destructive' : 'secondary'
-                              }
-                              className="text-xs"
-                            >
-                              {short.status}
-                            </Badge>
+                            {short.status === 'pending' ? (
+                              <Badge variant="secondary" className="text-xs">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Queued
+                              </Badge>
+                            ) : short.status === 'processing' ? (
+                              <div className="flex flex-col gap-1">
+                                <Badge variant="secondary" className="text-xs">
+                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                  Processing
+                                </Badge>
+                                {(short as Short & { tasks?: ShortTasks }).tasks && (
+                                  <div className="flex gap-1.5 text-xs text-muted-foreground" title="Clip | Thumbnail | Social">
+                                    <span title="Clip extraction">
+                                      {(short as Short & { tasks?: ShortTasks }).tasks!.clip_extraction === 'done' ? '✓' :
+                                       (short as Short & { tasks?: ShortTasks }).tasks!.clip_extraction === 'processing' ? '⏳' :
+                                       (short as Short & { tasks?: ShortTasks }).tasks!.clip_extraction === 'error' ? '✗' : '○'}
+                                    </span>
+                                    <span title="Thumbnail extraction">
+                                      {(short as Short & { tasks?: ShortTasks }).tasks!.thumbnail_extraction === 'done' ? '✓' :
+                                       (short as Short & { tasks?: ShortTasks }).tasks!.thumbnail_extraction === 'processing' ? '⏳' :
+                                       (short as Short & { tasks?: ShortTasks }).tasks!.thumbnail_extraction === 'error' ? '✗' : '○'}
+                                    </span>
+                                    {(short as Short & { tasks?: ShortTasks }).tasks!.social_content !== 'skipped' && (
+                                      <span title="Social content">
+                                        {(short as Short & { tasks?: ShortTasks }).tasks!.social_content === 'done' ? '✓' :
+                                         (short as Short & { tasks?: ShortTasks }).tasks!.social_content === 'processing' ? '⏳' :
+                                         (short as Short & { tasks?: ShortTasks }).tasks!.social_content === 'error' ? '✗' : '○'}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <Badge
+                                variant={
+                                  short.status === 'completed' ? 'default' :
+                                  short.status === 'error' ? 'destructive' : 'secondary'
+                                }
+                                className="text-xs"
+                              >
+                                {short.status}
+                              </Badge>
+                            )}
                           </td>
                           {/* Actions */}
                           <td className="py-3">
