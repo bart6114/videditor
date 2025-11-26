@@ -83,7 +83,7 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
   const [isGeneratingShorts, setIsGeneratingShorts] = useState(false)
-  const [shortsCountBeforeGenerate, setShortsCountBeforeGenerate] = useState<number | null>(null)
+  const [activeJob, setActiveJob] = useState<{ id: string; status: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } } | null>(null)
   const [shortsCount, setShortsCount] = useState(3)
   const [preferredLength, setPreferredLength] = useState(45)
   const [maxLength, setMaxLength] = useState(60)
@@ -162,21 +162,52 @@ export default function ProjectDetail() {
   useEffect(() => {
     if (!isGeneratingShorts || !id) return
 
-    const interval = setInterval(() => {
-      loadProjectData()
+    const interval = setInterval(async () => {
+      // Fetch both project data and jobs in parallel
+      try {
+        const [projectData, jobsData] = await Promise.all([
+          call<{
+            project: Project
+            transcription: Transcription | null
+            shorts: Short[]
+          }>(`/v1/projects/${id}`),
+          call<{ jobs: Array<{ id: string; type: string; status: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
+        ])
+
+        // Update project/shorts data (preserve URLs)
+        setProject((prev) => {
+          const newProject = projectData.project as Project & { videoUrl?: string; thumbnailUrl?: string }
+          if (prev) {
+            if ((prev as any).videoUrl) {
+              ;(newProject as any).videoUrl = (prev as any).videoUrl
+            }
+            if ((prev as any).thumbnailUrl) {
+              ;(newProject as any).thumbnailUrl = (prev as any).thumbnailUrl
+            }
+          }
+          return newProject
+        })
+        setTranscription(projectData.transcription)
+        setShorts(projectData.shorts || [])
+
+        // Find active analysis job
+        const analysisJob = jobsData.jobs.find(
+          (j) => j.type === 'analysis' && ['queued', 'running'].includes(j.status)
+        )
+        setActiveJob(analysisJob || null)
+
+        // Stop polling when job completes
+        if (!analysisJob) {
+          setIsGeneratingShorts(false)
+        }
+      } catch (error) {
+        console.error('Error polling for updates:', error)
+      }
     }, 3000)
 
     return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGeneratingShorts, id])
-
-  // Detect when new shorts arrive to hide progress indicator
-  useEffect(() => {
-    if (shortsCountBeforeGenerate !== null && shorts.length > shortsCountBeforeGenerate) {
-      setIsGeneratingShorts(false)
-      setShortsCountBeforeGenerate(null)
-    }
-  }, [shorts.length, shortsCountBeforeGenerate])
+  }, [isGeneratingShorts, id, call])
 
   // Keyboard shortcut for select all (Ctrl/Cmd+A)
   useEffect(() => {
@@ -240,11 +271,15 @@ export default function ProjectDetail() {
     if (!id || typeof id !== 'string') return
 
     try {
-      const data = await call<{
-        project: Project
-        transcription: Transcription | null
-        shorts: Short[]
-      }>(`/v1/projects/${id}`)
+      // Fetch project data and jobs in parallel
+      const [data, jobsData] = await Promise.all([
+        call<{
+          project: Project
+          transcription: Transcription | null
+          shorts: Short[]
+        }>(`/v1/projects/${id}`),
+        call<{ jobs: Array<{ id: string; type: string; status: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
+      ])
 
       // Preserve existing URLs to prevent video player restart during polling
       setProject((prev) => {
@@ -262,6 +297,17 @@ export default function ProjectDetail() {
       })
       setTranscription(data.transcription)
       setShorts(data.shorts || [])
+
+      // Check for active analysis job (e.g., user refreshed page mid-generation)
+      const activeAnalysisJob = jobsData.jobs.find(
+        (j) => j.type === 'analysis' && ['queued', 'running'].includes(j.status)
+      )
+      if (activeAnalysisJob) {
+        setActiveJob(activeAnalysisJob)
+        setIsGeneratingShorts(true) // Resume showing progress
+      } else {
+        setActiveJob(null)
+      }
     } catch (error) {
       console.error('Error loading project:', error)
     } finally {
@@ -271,11 +317,10 @@ export default function ProjectDetail() {
 
   async function handleAnalyze() {
     setAnalyzing(true)
-    setShortsCountBeforeGenerate(shorts.length)
     setIsGeneratingShorts(true)
 
     try {
-      await call(`/v1/projects/${id}/jobs`, {
+      const jobData = await call<{ job: { id: string; status: string } }>(`/v1/projects/${id}/jobs`, {
         method: 'POST',
         body: JSON.stringify({
           type: 'analysis',
@@ -289,6 +334,9 @@ export default function ProjectDetail() {
           },
         }),
       })
+
+      // Set the active job immediately
+      setActiveJob({ id: jobData.job.id, status: jobData.job.status })
 
       // Refresh credits after successful job creation
       try {
@@ -310,7 +358,7 @@ export default function ProjectDetail() {
 
       alert(error instanceof Error ? error.message : 'Failed to generate shorts')
       setIsGeneratingShorts(false)
-      setShortsCountBeforeGenerate(null)
+      setActiveJob(null)
     } finally {
       setAnalyzing(false)
     }
@@ -881,13 +929,18 @@ export default function ProjectDetail() {
                   <div className="space-y-2">
                     <Button
                       onClick={handleAnalyze}
-                      disabled={analyzing || !transcription || (userCredits !== null && userCredits < shortsCount)}
+                      disabled={analyzing || !!activeJob || !transcription || (userCredits !== null && userCredits < shortsCount)}
                       className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {analyzing ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Generating {shortsCount} shorts...
+                        </>
+                      ) : activeJob ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generation in progress...
                         </>
                       ) : (
                         <>
@@ -926,7 +979,7 @@ export default function ProjectDetail() {
             )}
 
             {/* Generation Progress Indicator */}
-            {(analyzing || isGeneratingShorts) && (
+            {activeJob && (
               <Card className="bg-primary/5 border-primary/30 shadow-glow">
                 <CardContent className="py-6">
                   <div className="flex items-center gap-4">
@@ -934,12 +987,41 @@ export default function ProjectDetail() {
                       <Loader2 className="w-6 h-6 animate-spin text-primary" />
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-foreground mb-1">
-                        Generating shorts...
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        AI is analyzing your video to find the best moments
-                      </p>
+                      {activeJob.progress?.phase === 'analyzing' ? (
+                        <>
+                          <p className="font-medium text-foreground mb-1">
+                            Analyzing transcript...
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            AI is finding the best moments for shorts
+                          </p>
+                        </>
+                      ) : activeJob.progress?.phase === 'generating' ? (
+                        <>
+                          <p className="font-medium text-foreground mb-1">
+                            Generating short {activeJob.progress.current} of {activeJob.progress.total}...
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Extracting clips and creating thumbnails
+                          </p>
+                          {/* Progress bar */}
+                          <div className="mt-2 h-2 bg-primary/20 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-all duration-300"
+                              style={{ width: `${(activeJob.progress.current / activeJob.progress.total) * 100}%` }}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-foreground mb-1">
+                            Starting generation...
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Preparing to analyze your video
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>

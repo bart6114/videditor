@@ -256,6 +256,7 @@ export const processingJobs = pgTable(
     status: jobStatusEnum('status').notNull().default('queued'),
     payload: jsonb('payload'),
     result: jsonb('result'),
+    progress: jsonb('progress').$type<{ phase: 'analyzing' | 'generating'; current: number; total: number }>(),
     errorMessage: text('error_message'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),

@@ -97,6 +97,7 @@ class ProcessingJob(Base):
     status = Column(ENUM('queued', 'running', 'succeeded', 'failed', 'canceled', name='job_status', create_type=False), nullable=False, default="queued", index=True)
     payload = Column(JSONB, nullable=True)
     result = Column(JSONB, nullable=True)
+    progress = Column(JSONB, nullable=True)  # {phase: 'analyzing'|'generating', current: N, total: M}
     error_message = Column(Text, nullable=True)
     started_at = Column(TIMESTAMP(timezone=True), nullable=True)
     completed_at = Column(TIMESTAMP(timezone=True), nullable=True)

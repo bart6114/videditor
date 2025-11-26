@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import structlog
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import JobRunnerConfig
@@ -454,7 +454,7 @@ class JobProcessor:
             max_length=max_length,
         )
 
-        # Update project status
+        # Update project status and set initial progress
         await session.execute(
             update(Project)
             .where(Project.id == job.project_id)
@@ -464,6 +464,9 @@ class JobProcessor:
             )
         )
         await session.commit()
+
+        # Set progress to analyzing phase
+        await self._update_job_progress(session, job.id, phase="analyzing", current=0, total=0)
 
         # Fetch project to get source video info
         project_stmt = select(Project).where(Project.id == job.project_id).limit(1)
@@ -527,6 +530,9 @@ class JobProcessor:
             num_suggestions=len(suggestions),
         )
 
+        # Update progress to generating phase
+        await self._update_job_progress(session, job.id, phase="generating", current=0, total=len(suggestions))
+
         # Download source video once for all clips
         temp_fd, temp_video_path = tempfile.mkstemp(
             suffix=".mp4",
@@ -552,6 +558,34 @@ class JobProcessor:
 
             # Process each suggested short
             for idx, suggestion in enumerate(suggestions):
+                # Check if a short with the same time range already exists (idempotency for retries)
+                existing_short_result = await session.execute(
+                    text("""
+                        SELECT id FROM shorts
+                        WHERE project_id = :project_id
+                        AND ABS(start_time - :start_time) < 0.5
+                        AND ABS(end_time - :end_time) < 0.5
+                        AND status = 'completed'
+                    """),
+                    {
+                        "project_id": job.project_id,
+                        "start_time": suggestion.start_time,
+                        "end_time": suggestion.end_time,
+                    }
+                )
+                existing_short = existing_short_result.fetchone()
+                if existing_short:
+                    self.logger.info(
+                        f"⏭️ Skipping existing short {idx + 1}/{len(suggestions)} (already completed)",
+                        job_id=job.id,
+                        existing_short_id=existing_short[0],
+                        start=suggestion.start_time,
+                        end=suggestion.end_time,
+                    )
+                    # Update progress to reflect this short is done
+                    await self._update_job_progress(session, job.id, phase="generating", current=idx + 1, total=len(suggestions))
+                    continue
+
                 short_id = str(uuid.uuid4())
 
                 self.logger.info(
@@ -688,6 +722,9 @@ class JobProcessor:
                         short_id=short_id,
                     )
 
+                    # Update progress after each short
+                    await self._update_job_progress(session, job.id, phase="generating", current=idx + 1, total=len(suggestions))
+
                 except Exception as error:
                     self.logger.error(
                         "Failed to process short",
@@ -706,6 +743,9 @@ class JobProcessor:
                     )
                     session.add(short)
                     await session.commit()
+
+                    # Still update progress to move forward
+                    await self._update_job_progress(session, job.id, phase="generating", current=idx + 1, total=len(suggestions))
 
                 finally:
                     # Clean up temp files for this short
@@ -754,6 +794,36 @@ class JobProcessor:
                     temp_video_path=temp_video_path,
                     error=str(error),
                 )
+
+    async def _update_job_progress(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        phase: str,
+        current: int = 0,
+        total: int = 0,
+    ) -> None:
+        """
+        Update job progress in database.
+
+        Args:
+            session: Database session
+            job_id: Job ID
+            phase: Current phase ('analyzing' or 'generating')
+            current: Current item number (0-indexed becomes 1-indexed for display)
+            total: Total number of items
+        """
+        import json
+        progress_data = {"phase": phase, "current": current, "total": total}
+        await session.execute(
+            update(ProcessingJob)
+            .where(ProcessingJob.id == job_id)
+            .values(
+                progress=progress_data,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await session.commit()
 
     async def _enqueue_job(
         self,
