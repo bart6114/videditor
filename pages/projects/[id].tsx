@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Head from 'next/head'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import dynamic from 'next/dynamic'
@@ -798,10 +799,12 @@ export default function ProjectDetail() {
                           onClick={() => setVideoPlayerLoaded(true)}
                         >
                           {project.thumbnailUrl ? (
-                            <img
+                            <Image
                               src={project.thumbnailUrl}
                               alt={project.title}
-                              className="max-w-full max-h-full object-contain"
+                              fill
+                              className="object-contain"
+                              unoptimized
                             />
                           ) : (
                             <div className="w-full h-full bg-muted" />
@@ -1428,10 +1431,12 @@ export default function ProjectDetail() {
                           <td className="py-3 pr-4">
                             <div className="w-20 aspect-[9/16] bg-black rounded overflow-hidden relative flex-shrink-0">
                               {short.thumbnailUrl ? (
-                                <img
+                                <Image
                                   src={short.thumbnailUrl}
                                   alt="Short thumbnail"
-                                  className="w-full h-full object-cover"
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-muted">

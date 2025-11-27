@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
 import {
@@ -151,10 +152,13 @@ export default function Sidebar() {
           <div className="px-2 py-2 rounded-lg bg-secondary/50">
             <div className="flex items-center gap-3">
               {user.imageUrl && (
-                <img
+                <Image
                   src={user.imageUrl}
                   alt={user.fullName || user.emailAddresses[0]?.emailAddress || 'User'}
-                  className="w-9 h-9 rounded-full ring-2 ring-primary/20"
+                  width={36}
+                  height={36}
+                  className="rounded-full ring-2 ring-primary/20"
+                  unoptimized
                 />
               )}
               <div className="flex-1 min-w-0">

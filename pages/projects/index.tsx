@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Head from 'next/head'
+import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { useUser } from '@clerk/nextjs'
 import { useApi } from '@/lib/api/client'
@@ -223,10 +224,12 @@ export default function Projects() {
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-secondary overflow-hidden">
                     {project.thumbnailUrl ? (
-                      <img
+                      <Image
                         src={project.thumbnailUrl}
                         alt={project.title}
-                        className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${isProcessing(project.status) ? 'opacity-40' : ''}`}
+                        fill
+                        className={`object-cover transition-all duration-300 group-hover:scale-105 ${isProcessing(project.status) ? 'opacity-40' : ''}`}
+                        unoptimized
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">

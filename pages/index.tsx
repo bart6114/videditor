@@ -78,7 +78,7 @@ export default function Home() {
               </p>
               <p className="text-xl md:text-2xl text-muted-foreground/90 font-light leading-relaxed">
                 So we built this. AI handles the boring parts (transcription, finding moments where things happen).
-                You handle the craft - deciding what's actually worth sharing.
+                You handle the craft - deciding what&apos;s actually worth sharing.
               </p>
             </div>
 
@@ -109,13 +109,13 @@ export default function Home() {
                   We believe in <span className="text-foreground font-medium">authentic content</span>. The kind that comes from real people with something to say.
                 </p>
                 <p>
-                  But if you're creating long-form videos - whether it's interviews, tutorials, or just documenting what you're working on -
+                  But if you&apos;re creating long-form videos - whether it&apos;s interviews, tutorials, or just documenting what you&apos;re working on -
                   turning that into shorter, platform-ready pieces is time-consuming. Really time-consuming.
                 </p>
                 <p>
-                  This tool doesn't try to replace the creative decisions. It handles the tedious parts - transcribing your video,
-                  identifying segments where something's actually happening, and cutting them out.
-                  You still decide what's worth publishing.
+                  This tool doesn&apos;t try to replace the creative decisions. It handles the tedious parts - transcribing your video,
+                  identifying segments where something&apos;s actually happening, and cutting them out.
+                  You still decide what&apos;s worth publishing.
                 </p>
                 <p className="text-xl font-medium bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent pt-2">
                   AI augments your workflow. You stay in control of your voice.
@@ -193,7 +193,7 @@ export default function Home() {
               </div>
               <h3 className="text-2xl font-bold mb-3 text-foreground">AI Processes It</h3>
               <p className="text-muted-foreground text-base leading-relaxed">
-                We transcribe your video and identify segments where something's happening. It's not perfect, but it's pretty good.
+                We transcribe your video and identify segments where something&apos;s happening. It&apos;s not perfect, but it&apos;s pretty good.
               </p>
             </div>
 
@@ -210,7 +210,7 @@ export default function Home() {
               </div>
               <h3 className="text-2xl font-bold mb-3 text-foreground">You Decide What to Keep</h3>
               <p className="text-muted-foreground text-base leading-relaxed">
-                Preview the suggested clips, download the ones you like. Or ignore all of them - you're in charge.
+                Preview the suggested clips, download the ones you like. Or ignore all of them - you&apos;re in charge.
               </p>
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function Home() {
                   <div className="flex-1">
                     <h3 className="text-3xl font-bold mb-3 text-foreground">Automatic Transcription</h3>
                     <p className="text-muted-foreground text-lg leading-relaxed">
-                      We transcribe your entire video so the AI knows what's being said. Saves you from manually marking timestamps.
+                      We transcribe your entire video so the AI knows what&apos;s being said. Saves you from manually marking timestamps.
                     </p>
                   </div>
                 </div>
@@ -282,7 +282,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-2xl font-bold mb-3 text-foreground">Segment Detection</h3>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  Finds parts of your video where something's happening - topic changes, interesting moments, complete thoughts. Sometimes it misses. Sometimes it nails it.
+                  Finds parts of your video where something&apos;s happening - topic changes, interesting moments, complete thoughts. Sometimes it misses. Sometimes it nails it.
                 </p>
                 {/* Mockup area - Timeline */}
                 <div className="flex-1 rounded-xl bg-muted/20 border border-border/50 p-4">
@@ -384,7 +384,7 @@ export default function Home() {
                   </p>
 
                   <p className="text-lg text-muted-foreground/70 mb-10 max-w-xl mx-auto">
-                    We're still working out the kinks, but it works pretty well.
+                    We&apos;re still working out the kinks, but it works pretty well.
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">

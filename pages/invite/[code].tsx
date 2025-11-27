@@ -135,7 +135,7 @@ export default function InviteAcceptPage() {
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-2">Welcome!</h1>
           <p className="text-muted-foreground mb-4">
-            You've joined {invite?.organizationName}
+            You&apos;ve joined {invite?.organizationName}
           </p>
           <p className="text-sm text-muted-foreground">
             Redirecting to your projects...
@@ -157,7 +157,7 @@ export default function InviteAcceptPage() {
             Join {invite?.organizationName}
           </h1>
           <p className="text-muted-foreground">
-            You've been invited to join this organization
+            You&apos;ve been invited to join this organization
           </p>
         </div>
 

@@ -218,7 +218,7 @@ export default function OrganizationSettings() {
             <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">No Organization Found</h2>
             <p className="text-muted-foreground mb-4">
-              You don't have an organization set up yet.
+              You don&apos;t have an organization set up yet.
             </p>
             <Button onClick={() => router.push('/projects')}>
               Go to Projects
