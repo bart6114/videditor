@@ -1,5 +1,6 @@
 """AI-powered video analysis using OpenRouter."""
 
+import asyncio
 import json
 from typing import Any
 
@@ -493,65 +494,82 @@ IMPORTANT:
 - Tailor the tone and style to each platform's audience
 - Keep content authentic and avoid clickbait
 - Use relevant hashtags where appropriate
+- Fix any typos or transcription errors from the source transcript in your generated content
 - Return ONLY the JSON object, no other text."""
 
-    # Call OpenRouter API
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    # Retry configuration
+    max_retries = 3
+    retry_base_delay = 1.0  # seconds
+
+    last_error: Exception | None = None
+
+    for attempt in range(max_retries):
         try:
-            response = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://videditor.app",
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt,
-                        }
-                    ],
-                    "temperature": 0.7,
-                    "max_tokens": 2000,
-                },
+            # Call OpenRouter API
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://videditor.app",
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": prompt,
+                            }
+                        ],
+                        "temperature": 0.7,
+                        "max_tokens": 2000,
+                    },
+                )
+                response.raise_for_status()
+
+            # Parse response
+            result = response.json()
+            logger.debug("openrouter_response_social_content", result=result)
+
+            # Extract content from response
+            content = result["choices"][0]["message"]["content"]
+
+            # Parse JSON from content
+            content = content.strip()
+            if content.startswith("```json"):
+                content = content[7:]
+            elif content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
+
+            social_content = json.loads(content)
+
+            logger.info(
+                "social_content_generated",
+                platforms=list(social_content.keys()),
             )
-            response.raise_for_status()
-        except httpx.HTTPError as e:
-            logger.error("openrouter_api_error_social_content", error=str(e))
-            raise
 
-    # Parse response
-    result = response.json()
-    logger.debug("openrouter_response_social_content", result=result)
+            return social_content
 
-    # Extract content from response
-    try:
-        content = result["choices"][0]["message"]["content"]
-    except (KeyError, IndexError) as e:
-        logger.error("invalid_openrouter_response_social_content", error=str(e), result=result)
-        raise ValueError("Invalid response format from OpenRouter") from e
-
-    # Parse JSON from content
-    content = content.strip()
-    if content.startswith("```json"):
-        content = content[7:]
-    elif content.startswith("```"):
-        content = content[3:]
-    if content.endswith("```"):
-        content = content[:-3]
-    content = content.strip()
-
-    try:
-        social_content = json.loads(content)
-    except json.JSONDecodeError as e:
-        logger.error("failed_to_parse_social_content_json", error=str(e), content=content)
-        raise ValueError("Failed to parse JSON response from AI") from e
-
-    logger.info(
-        "social_content_generated",
-        platforms=list(social_content.keys()),
-    )
-
-    return social_content
+        except (httpx.HTTPError, json.JSONDecodeError, KeyError, IndexError, ValueError) as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                delay = retry_base_delay * (2 ** attempt)  # 1s, 2s
+                logger.warning(
+                    "social_content_retry",
+                    attempt=attempt + 1,
+                    max_retries=max_retries,
+                    delay_seconds=delay,
+                    error=str(e),
+                )
+                await asyncio.sleep(delay)
+            else:
+                logger.error(
+                    "social_content_failed_all_retries",
+                    attempts=max_retries,
+                    error=str(e),
+                )
+                raise

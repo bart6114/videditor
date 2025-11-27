@@ -159,6 +159,7 @@ Job Runner (Fly Machine, Python 3.13)
 - ~~Short container architecture refactor~~ ✅ Done
 - Update frontend to show pending shorts with task-level progress (clip ✓, thumbnail ✓, social ⏳)
 - Scheduling system for YT/TikTok/Instagram
+- Allow custom instructions for social content generation (user-defined prompts/style preferences)
 
 ---
 
