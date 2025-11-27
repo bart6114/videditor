@@ -125,6 +125,143 @@ async def extract_thumbnail(
         raise
 
 
+async def extract_audio(
+    video_path: str,
+    output_path: str,
+    bitrate: str = "64k",
+    sample_rate: int = 16000,
+    channels: int = 1,
+) -> float:
+    """
+    Extract audio from video file, optimized for transcription.
+
+    Args:
+        video_path: Path to input video
+        output_path: Path for output audio file (should be .mp3)
+        bitrate: Audio bitrate (default: 64k for speech)
+        sample_rate: Sample rate in Hz (default: 16000, Whisper's native rate)
+        channels: Number of audio channels (default: 1 for mono)
+
+    Returns:
+        Duration of the audio in seconds
+
+    Raises:
+        RuntimeError: If ffmpeg command fails
+    """
+    try:
+        # Ensure output directory exists
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Build ffmpeg command
+        # -vn: disable video
+        # -ar: sample rate
+        # -ac: audio channels
+        # -b:a: audio bitrate
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-i", video_path,
+            "-vn",  # No video
+            "-ar", str(sample_rate),
+            "-ac", str(channels),
+            "-b:a", bitrate,
+            "-y",  # Overwrite output file
+            output_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            raise RuntimeError(f"ffmpeg audio extraction failed: {error_msg}")
+
+        # Get duration of extracted audio
+        duration = await get_video_duration(output_path)
+
+        logger.info(
+            "extracted_audio",
+            video_path=video_path,
+            output_path=output_path,
+            duration=duration,
+            bitrate=bitrate,
+            sample_rate=sample_rate,
+        )
+
+        return duration
+
+    except Exception as e:
+        logger.error(
+            "failed_to_extract_audio",
+            error=str(e),
+            video_path=video_path,
+            output_path=output_path,
+        )
+        raise
+
+
+async def split_audio_chunk(
+    audio_path: str,
+    output_path: str,
+    start_time: float,
+    duration: float,
+) -> None:
+    """
+    Extract a chunk from an audio file using stream copy (no re-encoding).
+
+    Args:
+        audio_path: Path to input audio file
+        output_path: Path for output chunk file
+        start_time: Start time in seconds
+        duration: Duration in seconds
+
+    Raises:
+        RuntimeError: If ffmpeg command fails
+    """
+    try:
+        # Ensure output directory exists
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Build ffmpeg command
+        # -ss: seek to start time
+        # -t: duration
+        # -c copy: stream copy (no re-encoding, fast)
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-ss", str(start_time),
+            "-t", str(duration),
+            "-i", audio_path,
+            "-c", "copy",
+            "-y",  # Overwrite output file
+            output_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            raise RuntimeError(f"ffmpeg audio split failed: {error_msg}")
+
+        logger.info(
+            "split_audio_chunk",
+            audio_path=audio_path,
+            output_path=output_path,
+            start_time=start_time,
+            duration=duration,
+        )
+
+    except Exception as e:
+        logger.error(
+            "failed_to_split_audio_chunk",
+            error=str(e),
+            audio_path=audio_path,
+            output_path=output_path,
+        )
+        raise
+
+
 async def extract_clip(
     video_path: str,
     output_path: str,

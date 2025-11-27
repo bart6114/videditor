@@ -186,11 +186,12 @@ class Short(Base):
 
 # Pydantic Models for validation and serialization
 class WhisperSegment(BaseModel):
-    """Whisper transcription segment."""
+    """Whisper transcription segment with optional speaker diarization."""
 
     start: float
     end: float
     text: str
+    speaker: str | None = None  # Speaker label from diarization (e.g., "A:", "B:")
 
 
 class TranscriptionResult(BaseModel):

@@ -361,15 +361,17 @@ class JobProcessor:
                 temp_file_path,
             )
 
-            # Run transcription with faster-whisper
+            # Run transcription with OpenAI Whisper API
             self.logger.info(
-                "Running faster-whisper transcription",
+                "Running OpenAI Whisper transcription",
                 job_id=job.id,
                 temp_file_path=temp_file_path,
             )
             transcription_result = await transcribe_video(
-                temp_file_path,
-                model_size=self.config.WHISPER_MODEL,
+                video_path=temp_file_path,
+                api_key=self.config.OPENAI_API_KEY,
+                chunk_size_mb=self.config.WHISPER_CHUNK_SIZE_MB,
+                audio_bitrate=self.config.WHISPER_AUDIO_BITRATE,
             )
 
             # Save transcription to database

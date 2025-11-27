@@ -13,6 +13,7 @@ import {
   real,
   integer,
   unique,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 export const projectStatusEnum = pgEnum('project_status', [
@@ -178,7 +179,12 @@ export const transcriptions = pgTable(
       .references(() => projects.id, { onDelete: 'cascade' }),
     text: text('text').notNull(),
     segments: jsonb('segments')
-      .$type<Record<string, unknown>[]>()
+      .$type<Array<{
+        start: number;
+        end: number;
+        text: string;
+        speaker: string | null;
+      }>>()
       .default(sql`'[]'::jsonb`)
       .notNull(),
     language: varchar('language', { length: 16 }),
@@ -199,7 +205,7 @@ export const shorts = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
     analysisJobId: varchar('analysis_job_id', { length: 255 })
-      .references(() => processingJobs.id, { onDelete: 'set null' }),
+      .references((): AnyPgColumn => processingJobs.id, { onDelete: 'set null' }),
     transcriptionSlice: text('transcription_slice').notNull(),
     startTime: doublePrecision('start_time').notNull(),
     endTime: doublePrecision('end_time').notNull(),
@@ -229,7 +235,7 @@ export const processingJobs = pgTable(
     id: varchar('id', { length: 255 }).primaryKey(),
     projectId: varchar('project_id', { length: 255 })
       .references(() => projects.id, { onDelete: 'cascade' }),
-    shortId: varchar('short_id', { length: 255 }).references(() => shorts.id, { onDelete: 'cascade' }),
+    shortId: varchar('short_id', { length: 255 }).references((): AnyPgColumn => shorts.id, { onDelete: 'cascade' }),
     type: jobTypeEnum('type').notNull(),
     status: jobStatusEnum('status').notNull().default('queued'),
     payload: jsonb('payload'),

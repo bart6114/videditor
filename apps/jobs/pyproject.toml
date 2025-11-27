@@ -1,7 +1,7 @@
 [project]
 name = "videditor-jobs"
 version = "1.0.0"
-description = "VidEditor.ai job processing worker with FastAPI and faster-whisper"
+description = "VidEditor.ai job processing worker with FastAPI and OpenAI Whisper"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115.0",
@@ -11,7 +11,7 @@ dependencies = [
     "psycopg[binary]>=3.2.3",
     "aioboto3>=13.2.0",
     "boto3>=1.35.81",
-    "faster-whisper>=1.1.0",
+    "openai>=1.50.0",
     "pydantic>=2.10.6",
     "pydantic-settings>=2.7.1",
     "structlog>=24.4.0",

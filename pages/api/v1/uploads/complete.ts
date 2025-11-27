@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const [project] = await db
     .update(projects)
     .set({
-      status: 'ready',
+      status: 'queued',
       durationSeconds: payload.durationSeconds ?? null,
       fileSizeBytes: payload.fileSizeBytes ?? null,
       metadata: payload.metadata ?? undefined,

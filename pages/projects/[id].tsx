@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ShortsSidePanel } from '@/components/shorts-side-panel'
+import { TranscriptionSidePanel } from '@/components/transcription-side-panel'
 import {
   Sparkles,
   Download,
@@ -30,8 +31,11 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Trash2,
   Pencil,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react'
 import type { Project, Short, Transcription } from '@server/db/schema'
 import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortTasks } from '@shared/index'
@@ -99,7 +103,7 @@ export default function ProjectDetail() {
   const [showSocialPrompt, setShowSocialPrompt] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [selectedShort, setSelectedShort] = useState<Short | null>(null)
-  const [transcriptionExpanded, setTranscriptionExpanded] = useState(false) // Collapsed by default
+  const [transcriptionPanelOpen, setTranscriptionPanelOpen] = useState(false)
   const [downloadingAll, setDownloadingAll] = useState(false)
   const [downloadingMetadata, setDownloadingMetadata] = useState(false)
   const [downloadingShortId, setDownloadingShortId] = useState<string | null>(null)
@@ -107,10 +111,20 @@ export default function ProjectDetail() {
   const [deleteShortDialogOpen, setDeleteShortDialogOpen] = useState(false)
   const [shortToDelete, setShortToDelete] = useState<Short | null>(null)
   const [deletingShort, setDeletingShort] = useState(false)
+  const [deleteProjectDialogOpen, setDeleteProjectDialogOpen] = useState(false)
+  const [deletingProject, setDeletingProject] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
   const [userCredits, setUserCredits] = useState<number | null>(null)
+
+  // Transcription job tracking for error/retry handling
+  const [transcriptionJob, setTranscriptionJob] = useState<{
+    id: string;
+    status: string;
+    errorMessage?: string | null;
+  } | null>(null)
+  const [retryingTranscription, setRetryingTranscription] = useState(false)
 
   // Multi-select state for shorts
   const [selectedShortIds, setSelectedShortIds] = useState<Set<string>>(new Set())
@@ -160,12 +174,14 @@ export default function ProjectDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  // Poll for updates while generating shorts OR while shorts are pending/processing
+  // Poll for updates while generating shorts OR while shorts are pending/processing OR while transcription is in progress
   useEffect(() => {
     // Check if there are pending/processing shorts
     const hasPendingShorts = shorts.some(s => s.status === 'pending' || s.status === 'processing')
+    // Check if transcription is in progress
+    const isTranscribing = transcriptionJob && ['queued', 'running'].includes(transcriptionJob.status)
 
-    if (!isGeneratingShorts && !hasPendingShorts) return
+    if (!isGeneratingShorts && !hasPendingShorts && !isTranscribing) return
     if (!id) return
 
     const interval = setInterval(async () => {
@@ -177,7 +193,7 @@ export default function ProjectDetail() {
             transcription: Transcription | null
             shorts: Short[]
           }>(`/v1/projects/${id}`),
-          call<{ jobs: Array<{ id: string; type: string; status: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
+          call<{ jobs: Array<{ id: string; type: string; status: string; errorMessage?: string | null; createdAt?: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
         ])
 
         // Update project/shorts data (preserve URLs)
@@ -195,6 +211,20 @@ export default function ProjectDetail() {
         })
         setTranscription(projectData.transcription)
         setShorts(projectData.shorts || [])
+
+        // Update transcription job status
+        const transcriptionJobs = jobsData.jobs.filter(j => j.type === 'transcription')
+        if (transcriptionJobs.length > 0) {
+          const sortedJobs = [...transcriptionJobs].sort((a, b) =>
+            new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          )
+          const latestJob = sortedJobs[0]
+          setTranscriptionJob({
+            id: latestJob.id,
+            status: latestJob.status,
+            errorMessage: latestJob.errorMessage,
+          })
+        }
 
         // Find active analysis job
         const analysisJob = jobsData.jobs.find(
@@ -216,7 +246,7 @@ export default function ProjectDetail() {
 
     return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGeneratingShorts, id, call, shorts])
+  }, [isGeneratingShorts, id, call, shorts, transcriptionJob])
 
   // Keyboard shortcut for select all (Ctrl/Cmd+A)
   useEffect(() => {
@@ -293,7 +323,7 @@ export default function ProjectDetail() {
           transcription: Transcription | null
           shorts: Short[]
         }>(`/v1/projects/${id}`),
-        call<{ jobs: Array<{ id: string; type: string; status: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
+        call<{ jobs: Array<{ id: string; type: string; status: string; errorMessage?: string | null; createdAt?: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
       ])
 
       // Preserve existing URLs to prevent video player restart during polling
@@ -312,6 +342,23 @@ export default function ProjectDetail() {
       })
       setTranscription(data.transcription)
       setShorts(data.shorts || [])
+
+      // Find the most recent transcription job
+      const transcriptionJobs = jobsData.jobs.filter(j => j.type === 'transcription')
+      if (transcriptionJobs.length > 0) {
+        // Sort by createdAt descending to get the most recent
+        const sortedJobs = [...transcriptionJobs].sort((a, b) =>
+          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        )
+        const latestJob = sortedJobs[0]
+        setTranscriptionJob({
+          id: latestJob.id,
+          status: latestJob.status,
+          errorMessage: latestJob.errorMessage,
+        })
+      } else {
+        setTranscriptionJob(null)
+      }
 
       // Check for active analysis job (e.g., user refreshed page mid-generation)
       const activeAnalysisJob = jobsData.jobs.find(
@@ -377,6 +424,33 @@ export default function ProjectDetail() {
       setActiveJob(null)
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  async function handleRetryTranscription() {
+    if (!project) return
+
+    setRetryingTranscription(true)
+
+    try {
+      await call(`/v1/projects/${id}/jobs`, {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'transcription',
+          payload: {
+            sourceObjectKey: project.sourceObjectKey,
+            sourceBucket: project.sourceBucket,
+          },
+        }),
+      })
+
+      // Reload project data to get fresh state (new job will be queued)
+      await loadProjectData()
+    } catch (error) {
+      console.error('Error retrying transcription:', error)
+      alert(error instanceof Error ? error.message : 'Failed to retry transcription')
+    } finally {
+      setRetryingTranscription(false)
     }
   }
 
@@ -607,6 +681,19 @@ export default function ProjectDetail() {
     setNewTitle('')
   }
 
+  async function handleDeleteProject() {
+    setDeletingProject(true)
+    try {
+      await call(`/v1/projects/${id}`, {
+        method: 'DELETE',
+      })
+      router.push('/projects')
+    } catch (error) {
+      console.error('Error deleting project:', error)
+      setDeletingProject(false)
+    }
+  }
+
   if (loading) {
     return (
       <WorkspaceLayout>
@@ -679,8 +766,18 @@ export default function ProjectDetail() {
                           variant="ghost"
                           onClick={startEditingTitle}
                           className="h-8 w-8 p-0"
+                          title="Edit title"
                         >
                           <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteProjectDialogOpen(true)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Delete project"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     )}
@@ -741,12 +838,12 @@ export default function ProjectDetail() {
 
             {/* Right Column: Transcription + Shorts Generation */}
             <div className="space-y-6">
-            {/* Transcription Section */}
+            {/* Transcription Section - Success State */}
             {transcription && (
               <Card className="bg-card border-border">
                 <CardHeader
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => setTranscriptionExpanded(!transcriptionExpanded)}
+                  onClick={() => setTranscriptionPanelOpen(true)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -754,20 +851,61 @@ export default function ProjectDetail() {
                       <CardTitle className="text-foreground">Transcription</CardTitle>
                       <Badge>Ready</Badge>
                     </div>
-                    {transcriptionExpanded ? (
-                      <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                    )}
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </div>
                 </CardHeader>
-                {transcriptionExpanded && (
-                  <CardContent className="pt-0">
-                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
-                      {transcription.text}
+              </Card>
+            )}
+
+            {/* Transcription Section - In Progress State */}
+            {!transcription && (retryingTranscription || (transcriptionJob && ['queued', 'running'].includes(transcriptionJob.status))) && (
+              <Card className="bg-primary/5 border-primary/30">
+                <CardContent className="py-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground mb-1">
+                        Transcribing video...
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {retryingTranscription || transcriptionJob?.status === 'queued'
+                          ? 'Waiting in queue...'
+                          : 'Processing audio and generating transcript'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Transcription Section - Failed State */}
+            {!transcription && !retryingTranscription && transcriptionJob && transcriptionJob.status === 'failed' && (
+              <Card className="bg-destructive/5 border-destructive/30">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-destructive" />
+                    <CardTitle className="text-foreground">Transcription Failed</CardTitle>
+                    <Badge variant="destructive">Error</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {transcriptionJob.errorMessage && (
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {transcriptionJob.errorMessage}
                     </p>
-                  </CardContent>
-                )}
+                  )}
+                  <Button
+                    onClick={handleRetryTranscription}
+                    disabled={retryingTranscription}
+                    variant="outline"
+                    className="border-destructive/30 hover:bg-destructive/10"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry Transcription
+                  </Button>
+                </CardContent>
               </Card>
             )}
 
@@ -1139,8 +1277,8 @@ export default function ProjectDetail() {
               </Card>
             )}
 
-            {/* No Transcription Placeholder */}
-            {!transcription && (
+            {/* No Transcription Placeholder - Only when no job exists */}
+            {!transcription && !transcriptionJob && !retryingTranscription && (
               <Card className="bg-card border-border border-dashed">
                 <CardContent className="py-12 text-center">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-secondary flex items-center justify-center">
@@ -1148,7 +1286,7 @@ export default function ProjectDetail() {
                   </div>
                   <h3 className="font-semibold text-foreground mb-2">No transcription yet</h3>
                   <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                    The transcription is being processed. It will appear here when ready.
+                    The transcription will start processing shortly.
                   </p>
                 </CardContent>
               </Card>
@@ -1425,6 +1563,13 @@ export default function ProjectDetail() {
           onNavigate={(short) => setSelectedShort(short)}
         />
 
+        {/* Side Panel for viewing transcription */}
+        <TranscriptionSidePanel
+          transcription={transcription}
+          isOpen={transcriptionPanelOpen}
+          onClose={() => setTranscriptionPanelOpen(false)}
+        />
+
         {/* Delete Short Confirmation Dialog */}
         <Dialog open={deleteShortDialogOpen} onOpenChange={setDeleteShortDialogOpen}>
           <DialogContent className="font-sans">
@@ -1462,6 +1607,54 @@ export default function ProjectDetail() {
                   <>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete Short
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Project Confirmation Dialog */}
+        <Dialog open={deleteProjectDialogOpen} onOpenChange={setDeleteProjectDialogOpen}>
+          <DialogContent className="font-sans">
+            <DialogHeader>
+              <DialogTitle className="text-foreground">Delete Project</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                <span className="block mb-2">Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{project?.title}&quot;</span>?</span>
+                <span className="block mb-2">This will permanently delete:</span>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>The original video file</li>
+                  <li>All generated shorts ({shorts.length})</li>
+                  <li>Transcription data</li>
+                  <li>All associated media assets</li>
+                </ul>
+                <span className="block mt-3 font-semibold text-destructive">
+                  This action cannot be undone.
+                </span>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteProjectDialogOpen(false)}
+                disabled={deletingProject}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteProject}
+                disabled={deletingProject}
+              >
+                {deletingProject ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Project
                   </>
                 )}
               </Button>

@@ -45,8 +45,10 @@ class JobRunnerConfig(BaseSettings):
     OPENROUTER_ANALYSIS_MODEL: str = "openai/gpt-4o"
     OPENROUTER_SOCIAL_MODEL: str = "openai/gpt-4o"
 
-    # Transcription
-    WHISPER_MODEL: str = "base"
+    # Transcription (OpenAI Whisper API)
+    OPENAI_API_KEY: str = Field(min_length=1)
+    WHISPER_CHUNK_SIZE_MB: int = Field(default=10, ge=5, le=24)
+    WHISPER_AUDIO_BITRATE: str = "64k"
 
     # Video cache (for short processing)
     VIDEO_CACHE_DIR: str = "/tmp/videditor-cache"

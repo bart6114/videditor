@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import WorkspaceLayout from '@/components/layout/WorkspaceLayout'
-import { Video, Clock, Loader2, CheckCircle, AlertCircle, FileText, Film, Trash2, Calendar } from 'lucide-react'
+import { Video, Clock, Loader2, AlertCircle, FileText, Film, Trash2, Calendar } from 'lucide-react'
 import { formatFileSize, formatRelativeTime } from '@/lib/utils'
 import type { ProjectSummary } from '@/types/projects'
 
@@ -116,42 +116,27 @@ export default function Projects() {
     setDeleteDialogOpen(true)
   }
 
-  function getStatusBadge(status: ProjectSummary['status']) {
-    const statusConfig = {
-      uploading: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Uploading' },
-      ready: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Ready' },
-      queued: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Queued' },
-      processing: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Processing' },
-      transcribing: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Transcribing' },
-      analyzing: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Analyzing' },
-      rendering: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Rendering' },
-      delivering: { icon: Loader2, color: 'text-muted-foreground bg-muted', label: 'Delivering' },
-      completed: { icon: CheckCircle, color: 'text-primary bg-primary/10', label: 'Completed' },
-      error: { icon: AlertCircle, color: 'text-destructive bg-destructive/10', label: 'Error' },
-    } as const
-
-    const config = statusConfig[status] ?? statusConfig.processing
-    const Icon = config.icon
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
-        <Icon className={`w-3 h-3 ${status !== 'completed' && status !== 'error' ? 'animate-spin' : ''}`} />
-        {config.label}
-      </span>
-    )
-  }
-
   function isProcessing(status: ProjectSummary['status']): boolean {
-    return ['queued', 'processing', 'transcribing'].includes(status)
+    return ['uploading', 'queued', 'processing', 'transcribing'].includes(status)
   }
 
-  function getProcessingLabel(status: ProjectSummary['status']): string {
-    const labels = {
-      queued: 'Queued...',
-      processing: 'Processing...',
-      transcribing: 'Transcribing...',
-    } as const
-    return labels[status as keyof typeof labels] || 'Processing...'
+  function getProcessingLabel(status: ProjectSummary['status'], durationSeconds?: number | null): string {
+    // Processing multiplier: ~0.4x video duration for thumbnail + audio + transcription
+    const PROCESSING_MULTIPLIER = 0.4
+
+    const getEstimate = (duration: number | null | undefined) => {
+      if (!duration) return ''
+      const estimatedSeconds = Math.ceil(duration * PROCESSING_MULTIPLIER)
+      const minutes = Math.ceil(estimatedSeconds / 60)
+      return ` (~${minutes}m)`
+    }
+
+    if (status === 'uploading') {
+      return 'Uploading...'
+    }
+
+    // All other processing states show "Processing..." with optional estimate
+    return `Processing...${getEstimate(durationSeconds)}`
   }
 
   // Show loading state while checking authentication
@@ -255,7 +240,7 @@ export default function Projects() {
                           <Loader2 className="w-8 h-8 text-primary animate-spin" />
                         </div>
                         <span className="text-foreground text-sm font-medium">
-                          {getProcessingLabel(project.status)}
+                          {getProcessingLabel(project.status, project.durationSeconds)}
                         </span>
                       </div>
                     )}
@@ -267,10 +252,6 @@ export default function Projects() {
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
-                    {/* Status Badge Overlay */}
-                    <div className="absolute top-2 right-2">
-                      {getStatusBadge(project.status)}
-                    </div>
                   </div>
 
                   <CardContent className="p-4">
