@@ -157,6 +157,79 @@ Job Runner (Fly Machine, Python 3.13)
 - Add progress view for transcription job on project ID page (show percentage finished)
 - Update frontend to show pending shorts with task-level progress (clip ✓, thumbnail ✓, social ⏳)
 - Scheduling system for YT/TikTok/Instagram
+- First-time Fly.io deployment setup (see instructions below)
+
+## First-Time Fly.io Deployment
+
+### 1. Create Fly Apps
+```bash
+fly auth login
+fly apps create videditor-frontend --org personal
+fly apps create videditor-jobs --org personal
+```
+
+### 2. Set Secrets on Frontend
+```bash
+fly secrets set -a videditor-frontend \
+  DATABASE_URL="<your-neon-url>" \
+  CLERK_SECRET_KEY="<your-clerk-secret>" \
+  STRIPE_SECRET_KEY="<your-stripe-secret>" \
+  STRIPE_WEBHOOK_SECRET="<your-stripe-webhook-secret>" \
+  TIGRIS_ACCESS_KEY_ID="<your-tigris-key>" \
+  TIGRIS_SECRET_ACCESS_KEY="<your-tigris-secret>" \
+  TIGRIS_ENDPOINT="https://fly.storage.tigris.dev" \
+  TIGRIS_REGION="auto" \
+  TIGRIS_BUCKET="<your-bucket>" \
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="<your-clerk-pub-key>" \
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="<your-stripe-pub-key>" \
+  NEXT_PUBLIC_APP_URL="https://videditor-frontend.fly.dev"
+```
+
+### 3. Set Secrets on Jobs Worker
+```bash
+fly secrets set -a videditor-jobs \
+  DATABASE_URL="<your-neon-url>" \
+  OPENAI_API_KEY="<your-openai-key>" \
+  OPENROUTER_API_KEY="<your-openrouter-key>" \
+  TIGRIS_ACCESS_KEY_ID="<your-tigris-key>" \
+  TIGRIS_SECRET_ACCESS_KEY="<your-tigris-secret>" \
+  TIGRIS_ENDPOINT="https://fly.storage.tigris.dev" \
+  TIGRIS_REGION="auto" \
+  TIGRIS_BUCKET="<your-bucket>" \
+  JOB_CONCURRENCY="2" \
+  POLL_INTERVAL_MS="1000"
+```
+
+### 4. Add GitHub Secrets for CI/CD
+```bash
+# Get Fly API token
+fly tokens create deploy -x 999999h
+```
+Then in GitHub repo → Settings → Secrets and variables → Actions:
+- Add `DATABASE_URL` (Neon connection string)
+- Add `FLY_API_TOKEN` (from command above)
+
+### 5. Run Initial Migration
+```bash
+DATABASE_URL="<prod-url>" npm run db:migrate
+```
+
+### 6. First Deploy
+```bash
+npm run deploy:frontend
+npm run deploy:jobs
+```
+
+### 7. Configure Stripe Webhook
+1. Go to Stripe Dashboard → Developers → Webhooks
+2. Add endpoint: `https://videditor-frontend.fly.dev/api/v1/webhooks/stripe`
+3. Select events: `checkout.session.completed`, `invoice.paid`, `customer.subscription.*`
+4. Update webhook secret if needed:
+   ```bash
+   fly secrets set -a videditor-frontend STRIPE_WEBHOOK_SECRET="whsec_new_..."
+   ```
+
+After initial setup, every push to `main` triggers automatic migrations and deployment via GitHub Actions.
 
 ---
 
