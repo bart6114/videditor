@@ -9,6 +9,7 @@ import { SOCIAL_PLATFORMS, type SocialPlatform } from '@shared/index';
 
 const updateSettingsSchema = z.object({
   defaultCustomPrompt: z.string().max(2000).nullable().optional(),
+  defaultSocialPrompt: z.string().max(2000).nullable().optional(),
   defaultSocialPlatforms: z.array(z.enum(SOCIAL_PLATFORMS)).optional(),
   defaultAvoidOverlap: z.boolean().optional(),
   defaultPreferredLength: z.number().int().min(15).max(120).optional(),
@@ -36,6 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const [user] = await db
       .select({
         defaultCustomPrompt: users.defaultCustomPrompt,
+        defaultSocialPrompt: users.defaultSocialPrompt,
         defaultSocialPlatforms: users.defaultSocialPlatforms,
         defaultAvoidOverlap: users.defaultAvoidOverlap,
         defaultPreferredLength: users.defaultPreferredLength,
@@ -51,6 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return success(res, {
       settings: {
         defaultCustomPrompt: user.defaultCustomPrompt,
+        defaultSocialPrompt: user.defaultSocialPrompt,
         defaultSocialPlatforms: (user.defaultSocialPlatforms || []) as SocialPlatform[],
         defaultAvoidOverlap: user.defaultAvoidOverlap ?? false,
         defaultPreferredLength: user.defaultPreferredLength ?? 45,
@@ -69,6 +72,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (parsed.data.defaultCustomPrompt !== undefined) {
       updateData.defaultCustomPrompt = parsed.data.defaultCustomPrompt ?? null;
+    }
+    if (parsed.data.defaultSocialPrompt !== undefined) {
+      updateData.defaultSocialPrompt = parsed.data.defaultSocialPrompt ?? null;
     }
     if (parsed.data.defaultSocialPlatforms !== undefined) {
       updateData.defaultSocialPlatforms = parsed.data.defaultSocialPlatforms;
@@ -89,6 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .where(eq(users.id, authResult.userId))
       .returning({
         defaultCustomPrompt: users.defaultCustomPrompt,
+        defaultSocialPrompt: users.defaultSocialPrompt,
         defaultSocialPlatforms: users.defaultSocialPlatforms,
         defaultAvoidOverlap: users.defaultAvoidOverlap,
         defaultPreferredLength: users.defaultPreferredLength,
@@ -102,6 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return success(res, {
       settings: {
         defaultCustomPrompt: updated.defaultCustomPrompt,
+        defaultSocialPrompt: updated.defaultSocialPrompt,
         defaultSocialPlatforms: (updated.defaultSocialPlatforms || []) as SocialPlatform[],
         defaultAvoidOverlap: updated.defaultAvoidOverlap ?? false,
         defaultPreferredLength: updated.defaultPreferredLength ?? 45,

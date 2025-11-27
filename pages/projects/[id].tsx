@@ -88,11 +88,15 @@ export default function ProjectDetail() {
   const [preferredLength, setPreferredLength] = useState(45)
   const [maxLength, setMaxLength] = useState(60)
   const [customPrompt, setCustomPrompt] = useState('')
+  const [customSocialPrompt, setCustomSocialPrompt] = useState('')
   const [avoidExistingOverlap, setAvoidExistingOverlap] = useState(false)
   const [socialPlatforms, setSocialPlatforms] = useState<SocialPlatform[]>([])
   const [defaultPromptLoaded, setDefaultPromptLoaded] = useState(false)
   const [usingDefaultPrompt, setUsingDefaultPrompt] = useState(false)
+  const [usingDefaultSocialPrompt, setUsingDefaultSocialPrompt] = useState(false)
   const [usingDefaultPlatforms, setUsingDefaultPlatforms] = useState(false)
+  const [showAnalysisPrompt, setShowAnalysisPrompt] = useState(false)
+  const [showSocialPrompt, setShowSocialPrompt] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [selectedShort, setSelectedShort] = useState<Short | null>(null)
   const [transcriptionExpanded, setTranscriptionExpanded] = useState(false) // Collapsed by default
@@ -240,13 +244,19 @@ export default function ProjectDetail() {
     async function loadDefaultSettings() {
       try {
         const [settingsData, creditsData] = await Promise.all([
-          call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean; defaultPreferredLength: number; defaultMaxLength: number } }>('/v1/user/settings'),
+          call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean; defaultPreferredLength: number; defaultMaxLength: number } }>('/v1/user/settings'),
           call<{ credits: number }>('/v1/billing/credits'),
         ])
 
         if (settingsData.settings.defaultCustomPrompt) {
           setCustomPrompt(settingsData.settings.defaultCustomPrompt)
           setUsingDefaultPrompt(true)
+          setShowAnalysisPrompt(true) // Auto-expand if user has a default
+        }
+        if (settingsData.settings.defaultSocialPrompt) {
+          setCustomSocialPrompt(settingsData.settings.defaultSocialPrompt)
+          setUsingDefaultSocialPrompt(true)
+          setShowSocialPrompt(true) // Auto-expand if user has a default
         }
         if (settingsData.settings.defaultSocialPlatforms?.length > 0) {
           setSocialPlatforms(settingsData.settings.defaultSocialPlatforms)
@@ -334,6 +344,7 @@ export default function ProjectDetail() {
             preferredLength,
             maxLength,
             customPrompt: customPrompt.trim() || undefined,
+            customSocialPrompt: customSocialPrompt.trim() || undefined,
             avoidExistingOverlap: avoidExistingOverlap || undefined,
             socialPlatforms: socialPlatforms.length > 0 ? socialPlatforms : undefined,
           },
@@ -852,33 +863,52 @@ export default function ProjectDetail() {
                       </p>
                     </div>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Custom Prompt (optional)
-                      </label>
-                      {usingDefaultPrompt && (
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                          using default
-                        </span>
-                      )}
-                    </div>
-                    <textarea
-                      placeholder="e.g., Focus on educational content and actionable tips..."
-                      value={customPrompt}
-                      onChange={(e) => {
-                        setCustomPrompt(e.target.value)
-                        setUsingDefaultPrompt(false)
-                      }}
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowAnalysisPrompt(!showAnalysisPrompt)}
                       disabled={analyzing}
-                      rows={4}
-                      className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {usingDefaultPrompt
-                        ? 'Edit above to override your default, or configure in Settings'
-                        : 'Leave empty to use AI defaults, or set your own default in Settings'}
-                    </p>
+                      className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-foreground">
+                          Custom Analysis Instructions
+                        </span>
+                        {usingDefaultPrompt && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                            using default
+                          </span>
+                        )}
+                        {customPrompt && !usingDefaultPrompt && (
+                          <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                            custom
+                          </span>
+                        )}
+                      </div>
+                      {showAnalysisPrompt ? (
+                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </button>
+                    {showAnalysisPrompt && (
+                      <div className="p-3 border-t border-border">
+                        <textarea
+                          placeholder="e.g., Focus on educational content, prefer clips with strong hooks..."
+                          value={customPrompt}
+                          onChange={(e) => {
+                            setCustomPrompt(e.target.value)
+                            setUsingDefaultPrompt(false)
+                          }}
+                          disabled={analyzing}
+                          rows={3}
+                          className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Guide the AI when identifying the best moments for shorts
+                        </p>
+                      </div>
+                    )}
                   </div>
                   {shorts.length > 0 && (
                     <div className="flex items-center gap-3">
@@ -938,6 +968,55 @@ export default function ProjectDetail() {
                       })}
                     </div>
                   </div>
+                  {socialPlatforms.length > 0 && (
+                    <div className="border border-border rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowSocialPrompt(!showSocialPrompt)}
+                        disabled={analyzing}
+                        className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">
+                            Custom Social Content Instructions
+                          </span>
+                          {usingDefaultSocialPrompt && (
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                              using default
+                            </span>
+                          )}
+                          {customSocialPrompt && !usingDefaultSocialPrompt && (
+                            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                              custom
+                            </span>
+                          )}
+                        </div>
+                        {showSocialPrompt ? (
+                          <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </button>
+                      {showSocialPrompt && (
+                        <div className="p-3 border-t border-border">
+                          <textarea
+                            placeholder="e.g., Use a casual and friendly tone, include relevant emojis, always end with a CTA like 'Follow for more tips!'..."
+                            value={customSocialPrompt}
+                            onChange={(e) => {
+                              setCustomSocialPrompt(e.target.value)
+                              setUsingDefaultSocialPrompt(false)
+                            }}
+                            disabled={analyzing}
+                            rows={3}
+                            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                          />
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Guide the AI when generating titles and captions for social media
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Button
                       onClick={handleAnalyze}

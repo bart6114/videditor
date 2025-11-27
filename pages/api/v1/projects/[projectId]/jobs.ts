@@ -20,6 +20,7 @@ const analysisPayloadSchema = z.object({
   preferredLength: z.number().int().min(15).max(120).optional(),
   maxLength: z.number().int().min(15).max(120).optional(),
   customPrompt: z.string().optional(),
+  customSocialPrompt: z.string().optional(),
   avoidExistingOverlap: z.boolean().optional(),
   socialPlatforms: z.array(z.enum(SOCIAL_PLATFORMS)).optional(),
 });

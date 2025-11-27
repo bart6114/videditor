@@ -123,6 +123,7 @@ export const users = pgTable(
     fullName: varchar('full_name', { length: 255 }),
     imageUrl: text('image_url'),
     defaultCustomPrompt: text('default_custom_prompt'), // Default AI instruction for shorts generation
+    defaultSocialPrompt: text('default_social_prompt'), // Default AI instruction for social content generation
     defaultSocialPlatforms: jsonb('default_social_platforms').$type<string[]>().default(sql`'[]'::jsonb`), // Default platforms for social content generation
     defaultAvoidOverlap: boolean('default_avoid_overlap').default(false), // Default setting for avoiding overlap with existing shorts
     defaultPreferredLength: integer('default_preferred_length').default(45), // Default preferred short length in seconds (15-120)

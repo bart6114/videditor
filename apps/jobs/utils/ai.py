@@ -406,6 +406,7 @@ async def generate_social_content(
     model: str = "openai/gpt-4o",
     context_before: str | None = None,
     context_after: str | None = None,
+    custom_prompt: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate social media content for a short video clip.
@@ -417,6 +418,7 @@ async def generate_social_content(
         model: The model to use for generation
         context_before: Optional context from before the segment (~2000 chars)
         context_after: Optional context from after the segment (~2000 chars)
+        custom_prompt: Optional custom instructions for content generation style/tone
 
     Returns:
         Dictionary with content for each platform, e.g.:
@@ -478,8 +480,18 @@ Use the surrounding context to better understand what the speaker is discussing,
         transcript_section = f"""Video Transcript:
 {transcription}"""
 
-    prompt = f"""You are a social media content expert. Based on the following video transcript, generate optimized social media content for the specified platforms.
+    # Build custom instructions section if provided
+    custom_instructions = ""
+    if custom_prompt:
+        custom_instructions = f"""
+CUSTOM INSTRUCTIONS FROM USER:
+{custom_prompt}
 
+Apply these instructions when generating all content below.
+"""
+
+    prompt = f"""You are a social media content expert. Based on the following video transcript, generate optimized social media content for the specified platforms.
+{custom_instructions}
 {transcript_section}
 
 Generate content for these platforms with the following guidelines:

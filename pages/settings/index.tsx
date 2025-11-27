@@ -25,6 +25,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ComponentType<{ size?: number
 
 interface UserSettings {
   defaultCustomPrompt: string | null;
+  defaultSocialPrompt: string | null;
   defaultSocialPlatforms: SocialPlatform[];
   defaultAvoidOverlap: boolean;
   defaultPreferredLength: number;
@@ -44,6 +45,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [defaultCustomPrompt, setDefaultCustomPrompt] = useState('');
+  const [defaultSocialPrompt, setDefaultSocialPrompt] = useState('');
   const [defaultSocialPlatforms, setDefaultSocialPlatforms] = useState<SocialPlatform[]>([]);
   const [defaultAvoidOverlap, setDefaultAvoidOverlap] = useState(false);
   const [defaultPreferredLength, setDefaultPreferredLength] = useState(45);
@@ -55,6 +57,7 @@ export default function Settings() {
       try {
         const data = await call<{ settings: UserSettings }>('/v1/user/settings');
         setDefaultCustomPrompt(data.settings.defaultCustomPrompt || '');
+        setDefaultSocialPrompt(data.settings.defaultSocialPrompt || '');
         setDefaultSocialPlatforms(data.settings.defaultSocialPlatforms || []);
         setDefaultAvoidOverlap(data.settings.defaultAvoidOverlap ?? false);
         setDefaultPreferredLength(data.settings.defaultPreferredLength ?? 45);
@@ -86,6 +89,7 @@ export default function Settings() {
         method: 'PATCH',
         body: JSON.stringify({
           defaultCustomPrompt: defaultCustomPrompt.trim() || null,
+          defaultSocialPrompt: defaultSocialPrompt.trim() || null,
           defaultSocialPlatforms,
           defaultAvoidOverlap,
           defaultPreferredLength,
@@ -135,7 +139,7 @@ export default function Settings() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block text-foreground">
-                  Default Custom Instruction
+                  Default Analysis Instruction
                 </label>
                 <textarea
                   placeholder="e.g., Focus on educational content, prefer clips with strong hooks, avoid sections with background music..."
@@ -146,7 +150,24 @@ export default function Settings() {
                   className="w-full bg-input border border-border text-foreground rounded-lg px-4 py-3 transition-colors duration-200 hover:border-primary/50 focus:border-primary outline-none resize-none"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  This instruction is automatically applied when generating shorts. You can override it on a per-project basis.
+                  This instruction guides the AI when identifying the best moments for shorts. You can override it on a per-project basis.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">
+                  Default Social Content Instruction
+                </label>
+                <textarea
+                  placeholder="e.g., Use a casual and friendly tone, include relevant emojis, always end with a CTA like 'Follow for more tips!'..."
+                  value={defaultSocialPrompt}
+                  onChange={(e) => setDefaultSocialPrompt(e.target.value)}
+                  rows={4}
+                  maxLength={2000}
+                  className="w-full bg-input border border-border text-foreground rounded-lg px-4 py-3 transition-colors duration-200 hover:border-primary/50 focus:border-primary outline-none resize-none"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  This instruction guides the AI when generating titles and captions for social media platforms. You can override it on a per-project basis.
                 </p>
               </div>
 

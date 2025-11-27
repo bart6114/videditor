@@ -451,6 +451,7 @@ class JobProcessor:
         preferred_length = payload.get("preferredLength", 45)
         max_length = payload.get("maxLength", 60)
         custom_prompt = payload.get("customPrompt")
+        custom_social_prompt = payload.get("customSocialPrompt")
         avoid_existing_overlap = payload.get("avoidExistingOverlap", False)
         social_platforms = payload.get("socialPlatforms", [])
 
@@ -620,6 +621,7 @@ class JobProcessor:
                     "endTime": suggestion.end_time,
                     "transcriptionSlice": suggestion.transcription,
                     "socialPlatforms": social_platforms if social_platforms else None,
+                    "customSocialPrompt": custom_social_prompt if custom_social_prompt else None,
                     "contextBefore": context_before if context_before else None,
                     "contextAfter": context_after if context_after else None,
                 },
@@ -746,6 +748,7 @@ class JobProcessor:
         end_time = payload.get("endTime")
         transcription_slice = payload.get("transcriptionSlice")
         social_platforms = payload.get("socialPlatforms", [])
+        custom_social_prompt = payload.get("customSocialPrompt")
         context_before = payload.get("contextBefore")
         context_after = payload.get("contextAfter")
 
@@ -888,6 +891,7 @@ class JobProcessor:
                         model=self.config.OPENROUTER_SOCIAL_MODEL,
                         context_before=context_before,
                         context_after=context_after,
+                        custom_prompt=custom_social_prompt,
                     )
                     await self._update_short_task(session, short_id, "social_content", ShortTaskStatus.DONE.value)
                     result_data["socialContent"] = social_content_data

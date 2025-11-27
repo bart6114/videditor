@@ -44,6 +44,7 @@ export type ShortProcessingPayload = {
   endTime: number;
   transcriptionSlice: string;
   socialPlatforms?: SocialPlatform[];
+  customSocialPrompt?: string;
   contextBefore?: string;
   contextAfter?: string;
 };
