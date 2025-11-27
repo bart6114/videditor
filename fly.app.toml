@@ -1,8 +1,8 @@
-app = "videditor-frontend"
+app = "videditor-app"
 primary_region = "iad"
 
 [build]
-  dockerfile = "Dockerfile.frontend"
+  dockerfile = "Dockerfile.app"
 
 [env]
   NODE_ENV = "production"

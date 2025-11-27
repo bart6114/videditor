@@ -65,7 +65,7 @@ db/        Drizzle schema + helpers for Neon
 
 Each service has its own Fly config:
 
-- `fly.frontend.toml` – Next.js
+- `fly.app.toml` – Next.js
 - `fly.api.toml` – API service (Dockerfile build or `fly launch`)
 - `fly.jobs.toml` – Job runner
 
@@ -74,7 +74,7 @@ Recommended deployment flow:
 1. Provision Neon + Tigris buckets and fill the env secrets.
 2. `fly deploy --config fly.api.toml`
 3. `fly deploy --config fly.jobs.toml`
-4. `fly deploy --config fly.frontend.toml`
+4. `fly deploy --config fly.app.toml`
 
 Make sure all three apps share the same Fly organization network so they can communicate privately.
 

@@ -121,7 +121,7 @@ Job Runner (Fly Machine, Python 3.13)
 
 ## Fly Deployment Tips
 
-- Use the provided Dockerfiles (`Dockerfile.frontend`, `Dockerfile.jobs`) when running `fly deploy --config fly.<service>.toml`
+- Use the provided Dockerfiles (`Dockerfile.app`, `Dockerfile.jobs`) when running `fly deploy --config fly.<service>.toml`
 - Store secrets via `fly secrets set` (DATABASE_URL, Tigris creds, Clerk keys, Stripe keys, job config)
 - Both services share the same DATABASE_URL (Neon Postgres) and communicate via the `processing_jobs` table
 
@@ -216,7 +216,7 @@ DATABASE_URL="<prod-url>" npm run db:migrate
 
 ### 6. First Deploy
 ```bash
-npm run deploy:frontend
+npm run deploy:app
 npm run deploy:jobs
 ```
 
