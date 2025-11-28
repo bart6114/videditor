@@ -47,12 +47,13 @@ export async function createPresignedDownload(
   client: S3Client,
   objectKey: string,
   expiresIn: number = 3600,
-  filename?: string
+  filename?: string,
+  contentType: string = 'video/mp4'
 ): Promise<string> {
   const commandParams: any = {
     Bucket: process.env.TIGRIS_BUCKET!,
     Key: objectKey,
-    ResponseContentType: 'video/mp4',
+    ResponseContentType: contentType,
   };
 
   // Only set Content-Disposition when filename is provided (forces download)

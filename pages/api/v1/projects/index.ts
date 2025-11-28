@@ -26,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (project.thumbnailUrl) {
         try {
-          thumbnailUrl = await createPresignedDownload(tigrisClient, project.thumbnailUrl, 3600);
+          thumbnailUrl = await createPresignedDownload(tigrisClient, project.thumbnailUrl, 3600, undefined, 'image/jpeg');
         } catch (error) {
           console.error('Failed to generate presigned URL for thumbnail:', project.thumbnailUrl, error);
           // Leave thumbnailUrl as null on error
