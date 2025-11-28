@@ -171,6 +171,7 @@ The `fly.app.toml` file contains `[build.args]` that pass these values to the Do
 ## TODOs / Follow-ups
 
 - Scheduling system for YT/TikTok/Instagram
+- Onboarding flow for new users
 
 ## First-Time Fly.io Deployment
 

@@ -12,3 +12,4 @@ primary_region = "ams"
   size = "shared-cpu-2x"
   memory = "2gb"
   count = 1
+  auto_stop_machines = "off"
