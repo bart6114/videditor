@@ -170,10 +170,7 @@ The `fly.app.toml` file contains `[build.args]` that pass these values to the Do
 
 ## TODOs / Follow-ups
 
-- Add progress view for transcription job on project ID page (show percentage finished)
-- Update frontend to show pending shorts with task-level progress (clip ✓, thumbnail ✓, social ⏳)
 - Scheduling system for YT/TikTok/Instagram
-- First-time Fly.io deployment setup (see instructions below)
 
 ## First-Time Fly.io Deployment
 
