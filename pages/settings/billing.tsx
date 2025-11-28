@@ -290,13 +290,13 @@ function BillingContent() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {CREDIT_PACKAGES.map(({ credits, price }) => (
             <button
               key={credits}
               onClick={() => handlePurchase(credits)}
               disabled={purchasing !== null || paymentMethods.length === 0}
-              className="p-4 border border-border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-4 min-h-[80px] border border-border rounded-lg hover:border-primary/50 hover:bg-primary/5 active:bg-primary/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {purchasing === credits ? (
                 <Loader2 className="w-5 h-5 animate-spin mx-auto" />
@@ -412,7 +412,7 @@ function BillingContent() {
         </div>
 
         {creditInfo?.autoTopUpEnabled && (
-          <div className="grid grid-cols-2 gap-4 p-4 bg-muted/20 rounded-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/20 rounded-lg">
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">
                 Top up when below
@@ -425,7 +425,7 @@ function BillingContent() {
                     creditInfo.autoTopUpAmount
                   )
                 }
-                className="w-full p-2 bg-input border border-border rounded-lg text-foreground"
+                className="w-full p-2 min-h-[44px] bg-input border border-border rounded-lg text-foreground"
               >
                 <option value={3}>3 credits</option>
                 <option value={5}>5 credits</option>
@@ -443,7 +443,7 @@ function BillingContent() {
                     parseInt(e.target.value)
                   )
                 }
-                className="w-full p-2 bg-input border border-border rounded-lg text-foreground"
+                className="w-full p-2 min-h-[44px] bg-input border border-border rounded-lg text-foreground"
               >
                 <option value={10}>10 credits ($1.00)</option>
                 <option value={25}>25 credits ($2.50)</option>

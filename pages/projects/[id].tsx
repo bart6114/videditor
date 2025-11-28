@@ -953,7 +953,7 @@ export default function ProjectDetail() {
                       className="bg-background border-input text-foreground"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium mb-2 block text-foreground">
                         Preferred Length (seconds)
@@ -1300,10 +1300,10 @@ export default function ProjectDetail() {
           {/* Bottom Row: Shorts Table (Full Width) */}
           {shorts.length > 0 && (
             <Card className="bg-card border-border">
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <CardTitle className="text-foreground">
+                    <CardTitle className="text-foreground text-base sm:text-lg">
                       Generated Shorts ({shorts.filter((s) => s.status === 'completed').length}/{shorts.length})
                     </CardTitle>
                     {hasSelections && (
@@ -1312,7 +1312,7 @@ export default function ProjectDetail() {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {hasSelections && (
                       <Button
                         size="sm"
@@ -1320,16 +1320,17 @@ export default function ProjectDetail() {
                         disabled={deletingShort}
                         variant="destructive"
                         title="Delete Selected Shorts"
+                        className="min-h-[44px] sm:min-h-0"
                       >
                         {deletingShort ? (
                           <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Deleting...
+                            <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
+                            <span className="hidden sm:inline">Deleting...</span>
                           </>
                         ) : (
                           <>
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Selected ({selectedShortIds.size})
+                            <Trash2 className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Delete ({selectedShortIds.size})</span>
                           </>
                         )}
                       </Button>
@@ -1340,19 +1341,16 @@ export default function ProjectDetail() {
                       disabled={downloadingMetadata || (hasSelections ? selectedShortIds.size === 0 : shorts.filter((s) => s.status === 'completed').length === 0)}
                       variant="outline"
                       title={hasSelections ? "Download Selected Metadata" : "Download All Metadata"}
+                      className="min-h-[44px] sm:min-h-0"
                     >
                       {downloadingMetadata ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Downloading...
-                        </>
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>
-                          <FileText className="w-4 h-4 mr-2" />
-                          {hasSelections
-                            ? `Metadata (${selectedShortIds.size})`
-                            : 'Metadata'
-                          }
+                          <FileText className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">
+                            {hasSelections ? `Metadata (${selectedShortIds.size})` : 'Metadata'}
+                          </span>
                         </>
                       )}
                     </Button>
@@ -1360,20 +1358,23 @@ export default function ProjectDetail() {
                       size="sm"
                       onClick={handleDownloadAll}
                       disabled={downloadingAll || (hasSelections ? selectedShortIds.size === 0 : shorts.some((s) => s.status !== 'completed'))}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial"
                     >
                       {downloadingAll ? (
                         <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Downloading...
+                          <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
+                          <span className="hidden sm:inline">Downloading...</span>
                         </>
                       ) : (
                         <>
-                          <Download className="w-4 h-4 mr-2" />
-                          {hasSelections
-                            ? `Download Selected (${selectedShortIds.size})`
-                            : `Download All (${shorts.filter((s) => s.status === 'completed').length})`
-                          }
+                          <Download className="w-4 h-4 sm:mr-2" />
+                          <span className="sm:hidden">Download</span>
+                          <span className="hidden sm:inline">
+                            {hasSelections
+                              ? `Download (${selectedShortIds.size})`
+                              : `Download All (${shorts.filter((s) => s.status === 'completed').length})`
+                            }
+                          </span>
                         </>
                       )}
                     </Button>
@@ -1385,17 +1386,17 @@ export default function ProjectDetail() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border text-left">
-                        <th className="pb-3 pr-4 pl-4 w-10">
+                        <th className="pb-3 pr-4 pl-4 w-10 hidden md:table-cell">
                           <Checkbox
                             checked={isAllSelected() ? true : isSomeSelected() ? 'indeterminate' : false}
                             onCheckedChange={toggleSelectAll}
                             disabled={shorts.length === 0}
                           />
                         </th>
-                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Thumbnail</th>
+                        <th className="pb-3 pr-4 pl-4 md:pl-0 text-sm font-medium text-muted-foreground">Thumbnail</th>
                         <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Transcript</th>
-                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Duration</th>
-                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground hidden sm:table-cell">Timestamps</th>
+                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Duration</th>
+                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Timestamps</th>
                         <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Status</th>
                         <th className="pb-3 text-sm font-medium text-muted-foreground">Actions</th>
                       </tr>
@@ -1419,8 +1420,8 @@ export default function ProjectDetail() {
                             }
                           }}
                         >
-                          {/* Checkbox */}
-                          <td className="py-3 pr-4 pl-4">
+                          {/* Checkbox - hidden on mobile */}
+                          <td className="py-3 pr-4 pl-4 hidden md:table-cell">
                             <Checkbox
                               checked={selectedShortIds.has(short.id)}
                               onCheckedChange={() => toggleShortSelection(short.id)}
@@ -1428,7 +1429,7 @@ export default function ProjectDetail() {
                             />
                           </td>
                           {/* Thumbnail */}
-                          <td className="py-3 pr-4">
+                          <td className="py-3 pr-4 pl-4 md:pl-0">
                             <div className="w-20 aspect-[9/16] bg-black rounded overflow-hidden relative flex-shrink-0">
                               {short.thumbnailUrl ? (
                                 <Image
@@ -1451,15 +1452,15 @@ export default function ProjectDetail() {
                               {short.transcriptionSlice}
                             </span>
                           </td>
-                          {/* Duration */}
-                          <td className="py-3 pr-4">
+                          {/* Duration - hidden on mobile */}
+                          <td className="py-3 pr-4 hidden md:table-cell">
                             <div className="flex items-center gap-1 text-sm text-foreground">
                               <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                               {formatDuration(short.endTime - short.startTime)}
                             </div>
                           </td>
-                          {/* Timestamps */}
-                          <td className="py-3 pr-4 hidden sm:table-cell">
+                          {/* Timestamps - hidden on tablet and below */}
+                          <td className="py-3 pr-4 hidden lg:table-cell">
                             <span className="text-sm text-muted-foreground whitespace-nowrap">
                               {formatDuration(short.startTime)} - {formatDuration(short.endTime)}
                             </span>
@@ -1513,34 +1514,32 @@ export default function ProjectDetail() {
                           </td>
                           {/* Actions */}
                           <td className="py-3">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 md:gap-2">
                               {short.status === 'completed' && (
                                 <Button
-                                  size="default"
+                                  size="sm"
                                   variant="outline"
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     handleDownloadShort(short)
                                   }}
                                   disabled={downloadingShortId === short.id}
+                                  className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 p-2 md:px-3"
                                 >
                                   {downloadingShortId === short.id ? (
-                                    <>
-                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                      Downloading
-                                    </>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
                                   ) : (
                                     <>
-                                      <Download className="w-4 h-4 mr-2" />
-                                      Download
+                                      <Download className="w-4 h-4 md:mr-2" />
+                                      <span className="hidden md:inline">Download</span>
                                     </>
                                   )}
                                 </Button>
                               )}
                               <Button
-                                size="default"
+                                size="sm"
                                 variant="ghost"
-                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 p-2"
                                 onClick={(e) => openDeleteShortDialog(short, e)}
                                 title="Delete short"
                               >

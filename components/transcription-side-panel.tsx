@@ -90,17 +90,17 @@ export function TranscriptionSidePanel({
 
       {/* Side Panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-full lg:w-[50%] xl:w-[45%] bg-background border-l border-border shadow-2xl z-50 transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-0 md:inset-auto md:top-0 md:right-0 md:h-full md:w-[55%] lg:w-[50%] xl:w-[45%] bg-background md:border-l border-border shadow-2xl z-50 transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-border">
-            <h2 className="text-lg font-semibold text-foreground">
+          <div className="flex items-center justify-between p-4 md:p-6 border-b border-border">
+            <h2 className="text-base md:text-lg font-semibold text-foreground">
               Transcription
             </h2>
-            <Button size="icon" variant="ghost" onClick={onClose}>
+            <Button size="icon" variant="ghost" onClick={onClose} className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0">
               <X className="w-5 h-5" />
               <span className="sr-only">Close</span>
             </Button>
@@ -108,7 +108,7 @@ export function TranscriptionSidePanel({
 
           {/* Content - Scrollable */}
           <div className="flex-1 overflow-y-auto">
-            <div className="p-6">
+            <div className="p-4 md:p-6">
               {hasSegments ? (
                 <div className="space-y-0">
                   {mergedSegments.map((segment, idx) => (
@@ -143,8 +143,8 @@ export function TranscriptionSidePanel({
             </div>
           </div>
 
-          {/* Footer hint */}
-          <div className="p-4 border-t border-border">
+          {/* Footer hint - hidden on mobile */}
+          <div className="p-4 border-t border-border hidden md:block">
             <p className="text-xs text-muted-foreground text-center">
               Press ESC to close
             </p>

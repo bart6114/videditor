@@ -227,18 +227,18 @@ export function ShortsSidePanel({
 
       {/* Side Panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-full lg:w-[55%] xl:w-[50%] bg-background border-l border-border shadow-2xl z-50 transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-0 md:inset-auto md:top-0 md:right-0 md:h-full md:w-[55%] lg:w-[50%] xl:w-[45%] bg-background md:border-l border-border shadow-2xl z-50 transition-transform duration-300 ease-in-out ${
           selectedShort ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="flex items-start justify-between p-6 border-b border-border">
-            <div className="flex-1 pr-4">
-              <h2 className="text-lg font-semibold text-foreground line-clamp-2">
+          <div className="flex items-start justify-between p-4 md:p-6 border-b border-border">
+            <div className="flex-1 pr-2 md:pr-4">
+              <h2 className="text-base md:text-lg font-semibold text-foreground line-clamp-2">
                 {selectedShort.transcriptionSlice}
               </h2>
-              <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-3 md:gap-4 mt-2 text-xs md:text-sm text-muted-foreground">
                 <span>Duration: {Math.floor(duration)}s</span>
                 {currentIndex >= 0 && (
                   <span>
@@ -247,34 +247,33 @@ export function ShortsSidePanel({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 md:gap-2 shrink-0">
               {selectedShort.status === 'completed' && (
                 <>
                   <Button
-                    size="default"
+                    size="sm"
                     variant="outline"
                     onClick={handleDownloadMetadata}
                     title="Download metadata JSON"
+                    className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 p-2 md:px-3"
                   >
                     <FileText className="w-4 h-4" />
                     <span className="sr-only">Download metadata</span>
                   </Button>
                   <Button
-                    size="default"
+                    size="sm"
                     variant="outline"
                     onClick={handleDownload}
                     disabled={downloading}
                     title="Download video"
+                    className="min-h-[44px] md:min-h-0 p-2 md:px-3"
                   >
                     {downloading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Downloading
-                      </>
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
+                        <Download className="w-4 h-4 md:mr-2" />
+                        <span className="hidden md:inline">Download</span>
                       </>
                     )}
                   </Button>
@@ -284,6 +283,7 @@ export function ShortsSidePanel({
                 size="icon"
                 variant="ghost"
                 onClick={onClose}
+                className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
               >
                 <X className="w-5 h-5" />
                 <span className="sr-only">Close</span>
@@ -293,7 +293,7 @@ export function ShortsSidePanel({
 
           {/* Content - Scrollable */}
           <div className="flex-1 overflow-y-auto">
-            <div className="p-6 space-y-6">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6">
               {/* Video Player */}
               <div className="relative">
                 <div className="relative bg-black aspect-video rounded-lg overflow-hidden">
@@ -359,8 +359,8 @@ export function ShortsSidePanel({
                   )}
                 </div>
 
-                {/* Keyboard hint */}
-                <div className="mt-2 text-center">
+                {/* Keyboard hint - hidden on mobile */}
+                <div className="mt-2 text-center hidden md:block">
                   <p className="text-xs text-muted-foreground">
                     Use ↑ ↓ arrow keys to navigate • ESC to close
                   </p>
