@@ -8,8 +8,10 @@ primary_region = "ams"
   NODE_ENV = "production"
   PORT = "8081"
 
+[http_service]
+  internal_port = 8081
+  min_machines_running = 1
+
 [[vm]]
   size = "shared-cpu-2x"
   memory = "2gb"
-  count = 1
-  auto_stop_machines = "off"
