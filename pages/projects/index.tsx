@@ -122,8 +122,8 @@ export default function Projects() {
   }
 
   function getProcessingLabel(status: ProjectSummary['status'], durationSeconds?: number | null): string {
-    // Processing multiplier: ~0.4x video duration for thumbnail + audio + transcription
-    const PROCESSING_MULTIPLIER = 0.4
+    // Processing multiplier: ~0.3x video duration for thumbnail + audio + transcription
+    const PROCESSING_MULTIPLIER = 0.3
 
     const getEstimate = (duration: number | null | undefined) => {
       if (!duration) return ''
