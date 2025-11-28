@@ -18,3 +18,8 @@ primary_region = "ams"
   [http_service.concurrency]
     hard_limit = 100
     soft_limit = 75
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  count = 1

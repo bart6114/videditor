@@ -7,3 +7,8 @@ primary_region = "ams"
 [env]
   NODE_ENV = "production"
   PORT = "8081"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"
+  count = 1
