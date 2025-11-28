@@ -125,6 +125,22 @@ Job Runner (Fly Machine, Python 3.13)
 - Store secrets via `fly secrets set` (DATABASE_URL, Tigris creds, Clerk keys, Stripe keys, job config)
 - Both services share the same DATABASE_URL (Neon Postgres) and communicate via the `processing_jobs` table
 
+## Build Args for NEXT_PUBLIC_* Variables
+
+Next.js inlines `NEXT_PUBLIC_*` environment variables into the JavaScript bundle **at build time**, not runtime. This means:
+
+1. **They must be available during `npm run build`** - not just at container start
+2. **They are safe to expose in `fly.app.toml`** - these are public/publishable keys that end up in the browser anyway
+3. **Secrets should NEVER use NEXT_PUBLIC_ prefix** - anything with this prefix becomes public
+
+The `fly.app.toml` file contains `[build.args]` that pass these values to the Dockerfile during the Fly.io build process. The Dockerfile declares matching `ARG` statements to receive them.
+
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_APP_URL` | Base URL for the app (e.g., https://videditor.ai) |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk's public key for auth (pk_live_*) |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe's public key for payments (pk_live_*) |
+
 ## Python Stack Details
 
 **Core Framework:**
@@ -164,13 +180,13 @@ Job Runner (Fly Machine, Python 3.13)
 ### 1. Create Fly Apps
 ```bash
 fly auth login
-fly apps create videditor-frontend --org personal
+fly apps create videditor-app --org personal
 fly apps create videditor-jobs --org personal
 ```
 
 ### 2. Set Secrets on Frontend
 ```bash
-fly secrets set -a videditor-frontend \
+fly secrets set -a videditor-app \
   DATABASE_URL="<your-neon-url>" \
   CLERK_SECRET_KEY="<your-clerk-secret>" \
   STRIPE_SECRET_KEY="<your-stripe-secret>" \
@@ -182,7 +198,7 @@ fly secrets set -a videditor-frontend \
   TIGRIS_BUCKET="<your-bucket>" \
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="<your-clerk-pub-key>" \
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="<your-stripe-pub-key>" \
-  NEXT_PUBLIC_APP_URL="https://videditor-frontend.fly.dev"
+  NEXT_PUBLIC_APP_URL="https://videditor-app.fly.dev"
 ```
 
 ### 3. Set Secrets on Jobs Worker
@@ -222,11 +238,11 @@ npm run deploy:jobs
 
 ### 7. Configure Stripe Webhook
 1. Go to Stripe Dashboard → Developers → Webhooks
-2. Add endpoint: `https://videditor-frontend.fly.dev/api/v1/webhooks/stripe`
+2. Add endpoint: `https://videditor-app.fly.dev/api/v1/webhooks/stripe`
 3. Select events: `checkout.session.completed`, `invoice.paid`, `customer.subscription.*`
 4. Update webhook secret if needed:
    ```bash
-   fly secrets set -a videditor-frontend STRIPE_WEBHOOK_SECRET="whsec_new_..."
+   fly secrets set -a videditor-app STRIPE_WEBHOOK_SECRET="whsec_new_..."
    ```
 
 After initial setup, every push to `main` triggers automatic migrations and deployment via GitHub Actions.

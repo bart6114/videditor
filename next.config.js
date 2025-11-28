@@ -1,3 +1,8 @@
+// Fix EMFILE "too many open files" error on Fly.io builds
+const fs = require("fs");
+const gracefulFs = require("graceful-fs");
+gracefulFs.gracefulify(fs);
+
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:8787'
 
