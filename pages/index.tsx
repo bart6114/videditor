@@ -1,9 +1,10 @@
 import Head from 'next/head'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
-import { Video, Sparkles, Zap, Upload, Brain, Download, Play } from 'lucide-react'
+import { Sparkles, Upload, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MonkeyLogo } from '@/components/MonkeyLogo'
+import { AppPreviewMockup } from '@/components/AppPreviewMockup'
 
 export default function Home() {
   const { isSignedIn } = useUser()
@@ -123,237 +124,77 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Visual mockup placeholder */}
-            <div className="relative">
-              <div className="absolute inset-0 glow-accent opacity-30" />
-              <div className="relative gradient-border rounded-2xl p-8 bg-card/50 backdrop-blur-sm">
-                <div className="aspect-video bg-muted/30 rounded-xl flex flex-col items-center justify-center border border-border/50 p-6">
-                  {/* Animated video preview mockup */}
-                  <div className="w-full max-w-[300px] space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
-                        <Play className="w-6 h-6 text-primary" />
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <div className="h-2 bg-muted-foreground/20 rounded-full w-3/4" />
-                        <div className="h-2 bg-muted-foreground/20 rounded-full w-1/2" />
-                      </div>
-                    </div>
-                    {/* Progress bar */}
-                    <div className="w-full h-1.5 bg-muted-foreground/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-primary to-accent w-2/3 rounded-full" />
-                    </div>
-                    <p className="text-xs text-muted-foreground/60 text-center">
-                      Interface preview coming soon
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* App Preview Mockup */}
+            <AppPreviewMockup />
           </div>
         </div>
 
-        {/* How It Works */}
+        {/* The Process */}
         <div className="relative container mx-auto px-4 py-32">
-          <div className="text-center mb-20">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground">How It Works</h2>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground">The Process</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Pretty straightforward, actually
+              Upload, process, export. That&apos;s it.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-12 max-w-6xl mx-auto relative">
-            {/* Step 1 */}
-            <div className="relative text-center group">
-              <div className="relative inline-block mb-6">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/50 rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                <div className="relative w-24 h-24 bg-gradient-to-br from-primary/20 to-primary/5 rounded-3xl flex items-center justify-center border border-primary/20">
-                  <Upload className="w-12 h-12 text-primary icon-bounce" />
-                </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold shadow-glow">
-                  1
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold mb-3 text-foreground">Upload Your Video</h3>
-              <p className="text-muted-foreground text-base leading-relaxed">
-                Upload your long-form content. Most common formats work fine.
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="relative text-center group">
-              <div className="relative inline-block mb-6">
-                <div className="absolute inset-0 bg-gradient-to-br from-accent to-accent/50 rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                <div className="relative w-24 h-24 bg-gradient-to-br from-accent/20 to-accent/5 rounded-3xl flex items-center justify-center border border-accent/20">
-                  <Brain className="w-12 h-12 text-accent icon-bounce" />
-                </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-accent text-accent-foreground rounded-full flex items-center justify-center text-sm font-bold shadow-glow">
-                  2
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold mb-3 text-foreground">AI Processes It</h3>
-              <p className="text-muted-foreground text-base leading-relaxed">
-                We transcribe your video and identify segments where something&apos;s happening. It&apos;s not perfect, but it&apos;s pretty good.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="relative text-center group">
-              <div className="relative inline-block mb-6">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                <div className="relative w-24 h-24 bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5 rounded-3xl flex items-center justify-center border border-primary/20">
-                  <Download className="w-12 h-12 text-primary icon-bounce" />
-                </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-primary to-accent text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold shadow-glow">
-                  3
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold mb-3 text-foreground">You Decide What to Keep</h3>
-              <p className="text-muted-foreground text-base leading-relaxed">
-                Preview the suggested clips, download the ones you like. Or ignore all of them - you&apos;re in charge.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Features - Bento Grid */}
-        <div className="relative container mx-auto px-4 py-32">
-          <div className="text-center mb-20">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground">What It Does</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              The tools you need, without the nonsense
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-6 gap-6 max-w-7xl mx-auto auto-rows-[minmax(280px,auto)]">
-            {/* Transcription - Large card (spans 2 columns and 2 rows) */}
-            <div className="md:col-span-4 md:row-span-2 group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 card-tilt">
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {/* Upload */}
+            <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 card-tilt p-8 text-center">
               <div className="absolute inset-0 glow-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="relative h-full p-8 md:p-10 flex flex-col">
-                <div className="flex items-start gap-4 mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/20 shrink-0">
-                    <Video className="w-8 h-8 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-3xl font-bold mb-3 text-foreground">Automatic Transcription</h3>
-                    <p className="text-muted-foreground text-lg leading-relaxed">
-                      We transcribe your entire video so the AI knows what&apos;s being said. Saves you from manually marking timestamps.
-                    </p>
-                  </div>
+              <div className="relative">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-5 border border-primary/20">
+                  <Upload className="w-7 h-7 text-primary" />
                 </div>
-                {/* Mockup area - Transcription */}
-                <div className="flex-1 mt-4 rounded-xl bg-muted/20 border border-border/50 p-6">
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <div className="text-xs text-primary/60 font-mono mt-1">00:12</div>
-                      <div className="flex-1 space-y-1">
-                        <div className="h-2 bg-muted-foreground/20 rounded w-full" />
-                        <div className="h-2 bg-muted-foreground/20 rounded w-5/6" />
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="text-xs text-primary/60 font-mono mt-1">00:18</div>
-                      <div className="flex-1 space-y-1">
-                        <div className="h-2 bg-muted-foreground/20 rounded w-3/4" />
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="text-xs text-primary/60 font-mono mt-1">00:23</div>
-                      <div className="flex-1 flex items-center gap-1">
-                        <div className="h-2 bg-muted-foreground/20 rounded w-1/2" />
-                        <div className="typing-dots flex gap-1">
-                          <span className="w-1 h-1 bg-primary rounded-full"></span>
-                          <span className="w-1 h-1 bg-primary rounded-full"></span>
-                          <span className="w-1 h-1 bg-primary rounded-full"></span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <h3 className="text-xl font-bold mb-3 text-foreground">Upload</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Drop your long-form video. Most formats work.
+                </p>
               </div>
             </div>
 
-            {/* Segment Detection - Tall card (right side, 2 rows) */}
-            <div className="md:col-span-2 md:row-span-2 group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-accent/30 transition-all duration-300 card-tilt">
+            {/* AI Processing */}
+            <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-accent/30 transition-all duration-300 card-tilt p-8 text-center">
               <div className="absolute inset-0 glow-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="relative h-full p-8 flex flex-col">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center mb-5 border border-accent/20">
+              <div className="relative">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center mb-5 border border-accent/20">
                   <Sparkles className="w-7 h-7 text-accent" />
                 </div>
-                <h3 className="text-2xl font-bold mb-3 text-foreground">Segment Detection</h3>
-                <p className="text-muted-foreground leading-relaxed mb-6">
-                  Finds parts of your video where something&apos;s happening - topic changes, interesting moments, complete thoughts. Sometimes it misses. Sometimes it nails it.
+                <h3 className="text-xl font-bold mb-3 text-foreground">AI Finds Moments</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-5">
+                  Transcribes everything, then finds the interesting parts.
                 </p>
-                {/* Mockup area - Timeline */}
-                <div className="flex-1 rounded-xl bg-muted/20 border border-border/50 p-4">
-                  <div className="space-y-3">
-                    {/* Timeline visualization */}
-                    <div className="space-y-2">
-                      <div className="flex gap-1 h-8">
-                        <div className="w-1/4 bg-accent/30 rounded border border-accent/40 flex items-center justify-center">
-                          <div className="text-[8px] text-accent">Clip</div>
-                        </div>
-                        <div className="w-1/6 bg-muted-foreground/10 rounded" />
-                        <div className="w-1/5 bg-accent/30 rounded border border-accent/40 flex items-center justify-center">
-                          <div className="text-[8px] text-accent">Clip</div>
-                        </div>
-                        <div className="flex-1 bg-muted-foreground/10 rounded" />
-                      </div>
-                      <div className="flex gap-1 h-8">
-                        <div className="w-1/3 bg-muted-foreground/10 rounded" />
-                        <div className="w-1/4 bg-accent/30 rounded border border-accent/40 flex items-center justify-center">
-                          <div className="text-[8px] text-accent">Clip</div>
-                        </div>
-                        <div className="flex-1 bg-muted-foreground/10 rounded" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground/60 text-center pt-2">
-                      AI-detected segments
-                    </p>
-                  </div>
+                {/* Visual hint - timeline */}
+                <div className="flex gap-1 h-5 max-w-[140px] mx-auto">
+                  <div className="w-1/4 bg-accent/25 rounded border border-accent/30" />
+                  <div className="w-1/6 bg-muted-foreground/10 rounded" />
+                  <div className="w-1/4 bg-accent/25 rounded border border-accent/30" />
+                  <div className="flex-1 bg-muted-foreground/10 rounded" />
                 </div>
               </div>
             </div>
 
-            {/* Preview & Export - Wide card (full width) */}
-            <div className="md:col-span-6 group relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-card/50 to-primary/5 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 card-tilt">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="relative p-8 md:p-10">
-                <div className="grid md:grid-cols-2 gap-8 items-center">
-                  <div>
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5 flex items-center justify-center mb-6 border border-primary/20">
-                      <Zap className="w-8 h-8 text-primary" />
-                    </div>
-                    <h3 className="text-3xl font-bold mb-4 text-foreground">Preview & Export</h3>
-                    <p className="text-muted-foreground text-lg leading-relaxed mb-6">
-                      Watch the suggested clips, download the ones you want. Works for YouTube Shorts, Instagram Reels, TikTok - standard stuff.
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                      <div className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm text-primary font-medium">
-                        YouTube Shorts
-                      </div>
-                      <div className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm text-primary font-medium">
-                        Instagram Reels
-                      </div>
-                      <div className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm text-primary font-medium">
-                        TikTok
-                      </div>
-                    </div>
+            {/* Export */}
+            <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 card-tilt p-8 text-center">
+              <div className="absolute inset-0 glow-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5 flex items-center justify-center mb-5 border border-primary/20">
+                  <Download className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-foreground">Export</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-5">
+                  Preview clips, download what you like.
+                </p>
+                {/* Visual hint - platform icons */}
+                <div className="flex justify-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-primary">YT</span>
                   </div>
-                  <div className="rounded-xl bg-muted/20 border border-border/50 p-6 aspect-video flex items-center justify-center">
-                    {/* Export preview grid */}
-                    <div className="grid grid-cols-2 gap-3 w-full max-w-[280px]">
-                      <div className="aspect-[9/16] bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg border border-primary/30 flex items-center justify-center relative overflow-hidden">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Download className="w-6 h-6 text-primary/60" />
-                        </div>
-                      </div>
-                      <div className="aspect-[9/16] bg-gradient-to-br from-accent/20 to-accent/5 rounded-lg border border-accent/30 flex items-center justify-center relative overflow-hidden">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Download className="w-6 h-6 text-accent/60" />
-                        </div>
-                      </div>
-                    </div>
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-primary">IG</span>
+                  </div>
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-primary">TT</span>
                   </div>
                 </div>
               </div>
