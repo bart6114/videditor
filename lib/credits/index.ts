@@ -8,16 +8,22 @@ import {
   type NewCreditTransaction,
 } from '@server/db/schema';
 
-// Credit pricing constants
-export const CREDIT_PRICE_CENTS = 10; // $0.10 per credit
-export const MIN_PURCHASE_CREDITS = 10; // Minimum 10 credits ($1.00)
-export const DEFAULT_AUTO_TOPUP_THRESHOLD = 5;
-export const DEFAULT_AUTO_TOPUP_AMOUNT = 10;
+// Re-export client-safe constants
+export {
+  CREDIT_PRICE_CENTS,
+  MIN_PURCHASE_CREDITS,
+  DEFAULT_AUTO_TOPUP_THRESHOLD,
+  DEFAULT_AUTO_TOPUP_AMOUNT,
+  DEFAULT_FREE_CREDITS,
+  CREDIT_COSTS,
+  CREDIT_PACKAGES,
+  calculatePrice,
+  formatPrice,
+  formatCreditPrice,
+} from './constants';
 
-// Credit costs per action
-export const CREDIT_COSTS = {
-  shortGeneration: 1, // 1 credit per short
-} as const;
+// Import for local use in this file
+import { CREDIT_COSTS } from './constants';
 
 export type CreditTransactionType = 'purchase' | 'auto_topup' | 'usage' | 'refund' | 'adjustment';
 

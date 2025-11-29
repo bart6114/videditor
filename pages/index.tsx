@@ -28,7 +28,10 @@ export default function Home() {
           <Link href="/" className="text-xl font-bold text-foreground hover:text-foreground/80 transition-colors">
             VidEditor.ai
           </Link>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            <Button asChild variant="ghost">
+              <Link href="/pricing">Pricing</Link>
+            </Button>
             {isSignedIn ? (
               <Button asChild>
                 <Link href="/projects">Dashboard</Link>

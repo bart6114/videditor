@@ -23,6 +23,7 @@ import {
   Check,
   Building2,
 } from 'lucide-react';
+import { CREDIT_PACKAGES, formatPrice } from '@/lib/credits/constants';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
@@ -51,13 +52,6 @@ interface Transaction {
   description: string;
   createdAt: string;
 }
-
-const CREDIT_PACKAGES = [
-  { credits: 10, price: 1.0 },
-  { credits: 25, price: 2.5 },
-  { credits: 50, price: 5.0 },
-  { credits: 100, price: 10.0 },
-];
 
 function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
   const stripe = useStripe();
@@ -291,7 +285,7 @@ function BillingContent() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {CREDIT_PACKAGES.map(({ credits, price }) => (
+          {CREDIT_PACKAGES.map(({ credits }) => (
             <button
               key={credits}
               onClick={() => handlePurchase(credits)}
@@ -304,7 +298,7 @@ function BillingContent() {
                 <>
                   <div className="text-xl font-bold text-foreground">{credits}</div>
                   <div className="text-sm text-muted-foreground">credits</div>
-                  <div className="text-sm font-medium text-primary mt-1">${price.toFixed(2)}</div>
+                  <div className="text-sm font-medium text-primary mt-1">{formatPrice(credits)}</div>
                 </>
               )}
             </button>
@@ -445,10 +439,11 @@ function BillingContent() {
                 }
                 className="w-full p-2 min-h-[44px] bg-input border border-border rounded-lg text-foreground"
               >
-                <option value={10}>10 credits ($1.00)</option>
-                <option value={25}>25 credits ($2.50)</option>
-                <option value={50}>50 credits ($5.00)</option>
-                <option value={100}>100 credits ($10.00)</option>
+                {CREDIT_PACKAGES.map(({ credits }) => (
+                  <option key={credits} value={credits}>
+                    {credits} credits ({formatPrice(credits)})
+                  </option>
+                ))}
               </select>
             </div>
           </div>

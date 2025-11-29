@@ -1,4 +1,5 @@
 import Stripe from 'stripe'
+import { CREDIT_PRICE_CENTS } from '@/lib/credits'
 
 // Initialize Stripe client
 export function createStripeClient(secretKey: string): Stripe {
@@ -27,10 +28,6 @@ export async function createCustomer(
   })
   return customer.id
 }
-
-// Credit pricing
-// $0.10 per credit, minimum 10 credits ($1.00)
-export const CREDIT_PRICE_CENTS = 10
 
 /**
  * Create or get existing Stripe customer for an organization
