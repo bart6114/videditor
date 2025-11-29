@@ -59,7 +59,7 @@ export const organizations = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 255 }).unique(),
     // Billing fields (moved from users)
-    credits: integer('credits').default(50).notNull(),
+    credits: integer('credits').default(100).notNull(),
     stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
     autoTopUpEnabled: boolean('auto_top_up_enabled').default(false).notNull(),
     autoTopUpThreshold: integer('auto_top_up_threshold').default(5),

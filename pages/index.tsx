@@ -61,11 +61,6 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 text-primary rounded-full text-sm font-semibold mb-8 shadow-glow">
-              <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-              Early Access
-            </div>
-
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8 leading-[1.1] bg-gradient-to-br from-foreground via-foreground/90 to-foreground/70 bg-clip-text text-transparent max-w-5xl mx-auto">
               Edit Your Long Videos Into Shorts.{' '}
               <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
@@ -92,13 +87,13 @@ export default function Home() {
             </div>
 
             <p className="text-sm text-muted-foreground/70 mt-8">
-              50 free shorts to start • No credit card needed to get started
+              100 free credits to start • No credit card needed
             </p>
           </div>
         </div>
 
         {/* Why We Built This */}
-        <div className="relative container mx-auto px-4 py-32 border-y border-border/50">
+        <div className="relative container mx-auto px-4 py-32">
           <div className="grid lg:grid-cols-2 gap-16 items-center max-w-7xl mx-auto">
             {/* Content */}
             <div className="space-y-6">
@@ -239,7 +234,7 @@ export default function Home() {
                   <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground/60 flex-wrap">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                      <span>50 free shorts</span>
+                      <span>100 free credits</span>
                     </div>
                     <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
                     <div className="flex items-center gap-2">
@@ -259,7 +254,7 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="relative container mx-auto px-4 py-12 text-center border-t border-border/50">
+        <footer className="relative container mx-auto px-4 py-12 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <MonkeyLogo size="sm" showText={false} />
             <span className="text-sm font-semibold text-foreground/80">VidEditor.ai</span>

@@ -5,6 +5,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 import { useEffect } from 'react'
 import posthog from 'posthog-js'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
+import { BetaBanner } from '@/components/BetaBanner'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -38,6 +39,7 @@ function AppContent({ Component, pageProps }: AppProps) {
   return (
     <OrganizationProvider>
       <div className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
+        <BetaBanner />
         <Component {...pageProps} />
       </div>
     </OrganizationProvider>
