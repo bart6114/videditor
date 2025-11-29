@@ -98,7 +98,7 @@ export default function Home() {
         </div>
 
         {/* Why We Built This */}
-        <div className="relative container mx-auto px-4 py-32 border-y border-border/50">
+        <div className="relative container mx-auto px-4 py-32">
           <div className="grid lg:grid-cols-2 gap-16 items-center max-w-7xl mx-auto">
             {/* Content */}
             <div className="space-y-6">
@@ -259,7 +259,7 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="relative container mx-auto px-4 py-12 text-center border-t border-border/50">
+        <footer className="relative container mx-auto px-4 py-12 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <MonkeyLogo size="sm" showText={false} />
             <span className="text-sm font-semibold text-foreground/80">VidEditor.ai</span>

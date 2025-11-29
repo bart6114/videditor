@@ -34,6 +34,7 @@ class JobType(str, Enum):
     TRANSCRIPTION = "transcription"
     ANALYSIS = "analysis"
     SHORT_PROCESSING = "short_processing"
+    YOUTUBE_PUBLISH = "youtube_publish"
 
 
 class JobStatus(str, Enum):
@@ -78,6 +79,24 @@ class ShortTaskStatus(str, Enum):
     SKIPPED = "skipped"
 
 
+class SocialPlatform(str, Enum):
+    """Social platform enumeration."""
+
+    YOUTUBE = "youtube"
+    TIKTOK = "tiktok"
+    INSTAGRAM = "instagram"
+
+
+class ScheduledPostStatus(str, Enum):
+    """Scheduled post status enumeration."""
+
+    SCHEDULED = "scheduled"
+    PUBLISHING = "publishing"
+    PUBLISHED = "published"
+    FAILED = "failed"
+    CANCELED = "canceled"
+
+
 # SQLAlchemy ORM Models
 class Organization(Base):
     """Organization database model."""
@@ -104,7 +123,7 @@ class ProcessingJob(Base):
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=True, index=True)
     short_id = Column(String(255), nullable=True)
-    type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'short_processing', name='job_type', create_type=False), nullable=False, index=True)
+    type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'short_processing', 'youtube_publish', name='job_type', create_type=False), nullable=False, index=True)
     status = Column(ENUM('queued', 'running', 'succeeded', 'failed', 'canceled', name='job_status', create_type=False), nullable=False, default="queued", index=True)
     payload = Column(JSONB, nullable=True)
     result = Column(JSONB, nullable=True)
@@ -184,6 +203,53 @@ class Short(Base):
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 
+class SocialAccount(Base):
+    """Social account database model for connected platforms."""
+
+    __tablename__ = "social_accounts"
+
+    id = Column(String(255), primary_key=True)
+    organization_id = Column(String(255), nullable=False, index=True)
+    platform = Column(ENUM('youtube', 'tiktok', 'instagram', name='social_platform', create_type=False), nullable=False)
+    channel_id = Column(String(255), nullable=True)
+    channel_title = Column(String(255), nullable=True)
+    channel_thumbnail = Column(Text, nullable=True)
+    access_token = Column(Text, nullable=False)
+    refresh_token = Column(Text, nullable=False)
+    token_expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    scopes = Column(JSONB, nullable=True, default=[])
+    connected_by_id = Column(String(255), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class ScheduledPost(Base):
+    """Scheduled post database model for social media publishing."""
+
+    __tablename__ = "scheduled_posts"
+
+    id = Column(String(255), primary_key=True)
+    organization_id = Column(String(255), nullable=False, index=True)
+    short_id = Column(String(255), nullable=False, index=True)
+    social_account_id = Column(String(255), nullable=False)
+    scheduled_for = Column(TIMESTAMP(timezone=True), nullable=False, index=True)
+    status = Column(ENUM('scheduled', 'publishing', 'published', 'failed', 'canceled', name='scheduled_post_status', create_type=False), nullable=False, default="scheduled")
+    title = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    platform_post_id = Column(String(255), nullable=True)  # YouTube video ID
+    platform_url = Column(Text, nullable=True)  # YouTube URL after publish
+    error_message = Column(Text, nullable=True)
+    retry_count = Column(BigInteger, nullable=False, default=0)
+    scheduled_by_id = Column(String(255), nullable=True)
+    published_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_scheduled_posts_status_scheduled", "status", "scheduled_for"),
+    )
+
+
 # Pydantic Models for validation and serialization
 class WhisperSegment(BaseModel):
     """Whisper transcription segment with optional speaker diarization."""
@@ -226,3 +292,21 @@ class TranscriptionJobResult(BaseModel):
     segmentCount: int
     language: str
     transcriptionId: str
+
+
+class YouTubePublishPayload(BaseModel):
+    """Payload for YouTube publish job."""
+
+    scheduledPostId: str
+    shortId: str
+    socialAccountId: str
+    title: str
+    description: Optional[str] = None
+
+
+class YouTubePublishResult(BaseModel):
+    """Result from YouTube publish job."""
+
+    videoId: str
+    url: str
+    scheduledPostId: str

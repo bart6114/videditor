@@ -12,6 +12,7 @@ import {
   Check,
   Users,
   Sliders,
+  Calendar,
 } from 'lucide-react';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { MonkeyLogo } from '@/components/MonkeyLogo';
@@ -19,6 +20,7 @@ import { useOrganizationSafe } from '@/contexts/OrganizationContext';
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: Video },
+  { name: 'Calendar', href: '/calendar', icon: Calendar },
   { name: 'Preferences', href: '/settings', icon: Sliders },
   { name: 'Billing', href: '/settings/billing', icon: CreditCard },
   { name: 'Organization', href: '/settings/organization', icon: Users },

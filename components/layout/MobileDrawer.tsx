@@ -14,6 +14,7 @@ import {
   Check,
   Users,
   Sliders,
+  Calendar,
   X,
 } from 'lucide-react';
 import { useClerk, useUser } from '@clerk/nextjs';
@@ -23,6 +24,7 @@ import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: Video },
+  { name: 'Calendar', href: '/calendar', icon: Calendar },
   { name: 'Preferences', href: '/settings', icon: Sliders },
   { name: 'Billing', href: '/settings/billing', icon: CreditCard },
   { name: 'Organization', href: '/settings/organization', icon: Users },

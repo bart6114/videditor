@@ -18,10 +18,14 @@ from models import (
     ProcessingJob,
     Project,
     ProjectStatus,
+    ScheduledPost,
+    ScheduledPostStatus,
     Short,
     ShortStatus,
     ShortTaskStatus,
+    SocialAccount,
     Transcription,
+    YouTubePublishPayload,
 )
 from utils.storage import download_from_tigris, upload_to_tigris
 from utils.transcription import transcribe_video
@@ -84,6 +88,7 @@ class JobProcessor:
                     JobType.TRANSCRIPTION.value: "📝",
                     JobType.ANALYSIS.value: "🤖",
                     JobType.SHORT_PROCESSING.value: "✂️",
+                    JobType.YOUTUBE_PUBLISH.value: "📺",
                 }.get(job.type, "⚙️")
 
                 self.logger.info(f"{job_emoji} Processing {job.type} job", job_id=job_id, type=job.type)
@@ -97,6 +102,8 @@ class JobProcessor:
                     result_data = await self._handle_analysis(job, session)
                 elif job.type == JobType.SHORT_PROCESSING.value:
                     result_data = await self._handle_short_processing(job, session)
+                elif job.type == JobType.YOUTUBE_PUBLISH.value:
+                    result_data = await self._handle_youtube_publish(job, session)
                 else:
                     raise ValueError(f"Unknown job type: {job.type}")
 
@@ -988,3 +995,200 @@ class JobProcessor:
         )
         session.add(new_job)
         return new_job
+
+    async def _handle_youtube_publish(
+        self, job: ProcessingJob, session: AsyncSession
+    ) -> dict[str, Any]:
+        """
+        Handle YouTube publish job.
+
+        Downloads the short video and uploads it to YouTube.
+
+        Args:
+            job: Processing job
+            session: Database session
+
+        Returns:
+            Job result dictionary
+        """
+        # Import here to avoid circular import and lazy load
+        from utils.youtube import refresh_access_token, upload_to_youtube
+
+        payload_data = job.payload or {}
+        try:
+            payload = YouTubePublishPayload(**payload_data)
+        except Exception as e:
+            raise ValueError(f"Invalid YouTube publish payload: {e}")
+
+        scheduled_post_id = payload.scheduledPostId
+        short_id = payload.shortId
+        social_account_id = payload.socialAccountId
+        title = payload.title
+        description = payload.description or ""
+
+        self.logger.info(
+            "Starting YouTube publish",
+            job_id=job.id,
+            scheduled_post_id=scheduled_post_id,
+            short_id=short_id,
+        )
+
+        # Max retry count
+        MAX_RETRIES = 3
+
+        # Get scheduled post
+        stmt = select(ScheduledPost).where(ScheduledPost.id == scheduled_post_id).limit(1)
+        result = await session.execute(stmt)
+        scheduled_post = result.scalar_one_or_none()
+
+        if not scheduled_post:
+            raise ValueError(f"Scheduled post not found: {scheduled_post_id}")
+
+        current_retry = scheduled_post.retry_count or 0
+
+        try:
+            # Get social account
+            stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
+            result = await session.execute(stmt)
+            social_account = result.scalar_one_or_none()
+
+            if not social_account:
+                raise ValueError(f"Social account not found: {social_account_id}")
+
+            # Get short
+            stmt = select(Short).where(Short.id == short_id).limit(1)
+            result = await session.execute(stmt)
+            short = result.scalar_one_or_none()
+
+            if not short or not short.output_object_key:
+                raise ValueError(f"Short not found or not ready: {short_id}")
+
+            # Check/refresh access token if expired
+            access_token = social_account.access_token
+            now = datetime.now(timezone.utc)
+            buffer_seconds = 300  # 5 minute buffer
+
+            if social_account.token_expires_at <= now + __import__('datetime').timedelta(seconds=buffer_seconds):
+                self.logger.info("Refreshing expired access token", job_id=job.id)
+                new_tokens = await refresh_access_token(social_account.refresh_token)
+                access_token = new_tokens["access_token"]
+
+                await session.execute(
+                    update(SocialAccount)
+                    .where(SocialAccount.id == social_account_id)
+                    .values(
+                        access_token=new_tokens["access_token"],
+                        token_expires_at=new_tokens["expires_at"],
+                        updated_at=now,
+                    )
+                )
+                await session.commit()
+
+            # Download short video from Tigris
+            temp_fd, temp_video_path = tempfile.mkstemp(suffix=".mp4", prefix=f"publish-{short_id}-")
+            os.close(temp_fd)
+
+            try:
+                await download_from_tigris(
+                    self.config,
+                    self.config.TIGRIS_BUCKET,
+                    short.output_object_key,
+                    temp_video_path,
+                )
+
+                # Upload to YouTube
+                result = await upload_to_youtube(
+                    access_token=access_token,
+                    video_path=temp_video_path,
+                    title=title,
+                    description=description,
+                )
+
+                video_id = result["videoId"]
+                video_url = result["url"]
+
+                # Update scheduled_post to published
+                await session.execute(
+                    update(ScheduledPost)
+                    .where(ScheduledPost.id == scheduled_post_id)
+                    .values(
+                        status=ScheduledPostStatus.PUBLISHED.value,
+                        platform_post_id=video_id,
+                        platform_url=video_url,
+                        published_at=datetime.now(timezone.utc),
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                await session.commit()
+
+                self.logger.info(
+                    "✅ YouTube publish completed",
+                    job_id=job.id,
+                    video_id=video_id,
+                    url=video_url,
+                )
+
+                return {
+                    "message": "Video published successfully",
+                    "videoId": video_id,
+                    "url": video_url,
+                    "scheduledPostId": scheduled_post_id,
+                }
+
+            finally:
+                # Clean up temp file
+                if os.path.exists(temp_video_path):
+                    os.unlink(temp_video_path)
+
+        except Exception as e:
+            error_message = str(e)
+            self.logger.error(
+                "YouTube publish failed",
+                job_id=job.id,
+                scheduled_post_id=scheduled_post_id,
+                error=error_message,
+                retry_count=current_retry,
+            )
+
+            # Check if we should retry
+            if current_retry < MAX_RETRIES - 1:
+                # Increment retry count and keep as publishing for scheduler to retry
+                await session.execute(
+                    update(ScheduledPost)
+                    .where(ScheduledPost.id == scheduled_post_id)
+                    .values(
+                        retry_count=current_retry + 1,
+                        error_message=error_message,
+                        status=ScheduledPostStatus.SCHEDULED.value,  # Back to scheduled for retry
+                        # Set next retry time with exponential backoff
+                        scheduled_for=datetime.now(timezone.utc) + __import__('datetime').timedelta(
+                            seconds=[30, 120, 600][current_retry]  # 30s, 2min, 10min
+                        ),
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                await session.commit()
+                self.logger.info(
+                    f"Scheduled retry {current_retry + 1}/{MAX_RETRIES}",
+                    job_id=job.id,
+                    scheduled_post_id=scheduled_post_id,
+                )
+                # Don't re-raise - let the job succeed so scheduler can retry
+                return {
+                    "message": f"Publish failed, retry {current_retry + 1}/{MAX_RETRIES} scheduled",
+                    "scheduledPostId": scheduled_post_id,
+                    "error": error_message,
+                }
+            else:
+                # Max retries exceeded, mark as failed
+                await session.execute(
+                    update(ScheduledPost)
+                    .where(ScheduledPost.id == scheduled_post_id)
+                    .values(
+                        status=ScheduledPostStatus.FAILED.value,
+                        error_message=error_message,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                await session.commit()
+                raise

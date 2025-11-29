@@ -1563,6 +1563,7 @@ export default function ProjectDetail() {
           shorts={shorts}
           projectId={id as string}
           projectTitle={project.title}
+          organizationId={project.organizationId || ''}
           onClose={() => setSelectedShort(null)}
           onNavigate={(short) => setSelectedShort(short)}
         />

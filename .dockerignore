@@ -1,0 +1,38 @@
+# Dependencies (rebuilt in Docker)
+node_modules/
+.venv/
+__pycache__/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Development
+.env*
+.secrets*
+*.log
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+coverage/
+.pytest_cache/
+
+# Docs and config not needed in image
+*.md
+drizzle/
+.github/
+
+# Local caches
+.cache/
+.npm/
+.uv/

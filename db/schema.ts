@@ -34,6 +34,17 @@ export const jobTypeEnum = pgEnum('job_type', [
   'transcription',
   'analysis',
   'short_processing',
+  'youtube_publish',
+]);
+
+export const socialPlatformEnum = pgEnum('social_platform', ['youtube', 'tiktok', 'instagram']);
+
+export const scheduledPostStatusEnum = pgEnum('scheduled_post_status', [
+  'scheduled',    // Waiting for scheduled time
+  'publishing',   // Currently being published
+  'published',    // Successfully published
+  'failed',       // Publishing failed
+  'canceled',     // Canceled by user
 ]);
 
 export const jobStatusEnum = pgEnum('job_status', ['queued', 'running', 'succeeded', 'failed', 'canceled']);
@@ -294,6 +305,88 @@ export const creditTransactions = pgTable(
 
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type NewCreditTransaction = typeof creditTransactions.$inferInsert;
+
+// ============================================================================
+// SOCIAL ACCOUNTS (Organization-level connected social media accounts)
+// ============================================================================
+
+export const socialAccounts = pgTable(
+  'social_accounts',
+  {
+    id: varchar('id', { length: 255 }).primaryKey(),
+    organizationId: varchar('organization_id', { length: 255 })
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    platform: socialPlatformEnum('platform').notNull(),
+    // YouTube-specific fields
+    channelId: varchar('channel_id', { length: 255 }),
+    channelTitle: varchar('channel_title', { length: 255 }),
+    channelThumbnail: text('channel_thumbnail'),
+    // OAuth tokens
+    accessToken: text('access_token').notNull(),
+    refreshToken: text('refresh_token').notNull(),
+    tokenExpiresAt: timestamp('token_expires_at', { withTimezone: true }).notNull(),
+    scopes: jsonb('scopes').$type<string[]>().default(sql`'[]'::jsonb`),
+    // Audit fields
+    connectedById: varchar('connected_by_id', { length: 255 })
+      .references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    orgPlatformIdx: index('idx_social_accounts_org_platform').on(table.organizationId, table.platform),
+    uniqueOrgPlatform: unique('unique_org_platform').on(table.organizationId, table.platform),
+  })
+);
+
+export type SocialAccount = typeof socialAccounts.$inferSelect;
+export type NewSocialAccount = typeof socialAccounts.$inferInsert;
+
+// ============================================================================
+// SCHEDULED POSTS (Scheduled social media publishing)
+// ============================================================================
+
+export const scheduledPosts = pgTable(
+  'scheduled_posts',
+  {
+    id: varchar('id', { length: 255 }).primaryKey(),
+    organizationId: varchar('organization_id', { length: 255 })
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    shortId: varchar('short_id', { length: 255 })
+      .notNull()
+      .references(() => shorts.id, { onDelete: 'cascade' }),
+    socialAccountId: varchar('social_account_id', { length: 255 })
+      .notNull()
+      .references(() => socialAccounts.id, { onDelete: 'cascade' }),
+    // Scheduling
+    scheduledFor: timestamp('scheduled_for', { withTimezone: true }).notNull(),
+    status: scheduledPostStatusEnum('status').notNull().default('scheduled'),
+    // Content to publish (snapshot at schedule time)
+    title: text('title').notNull(),
+    description: text('description'),
+    // Publishing result
+    platformPostId: varchar('platform_post_id', { length: 255 }), // YouTube video ID
+    platformUrl: text('platform_url'), // YouTube URL after publish
+    errorMessage: text('error_message'),
+    retryCount: integer('retry_count').default(0).notNull(),
+    // Audit fields
+    scheduledById: varchar('scheduled_by_id', { length: 255 })
+      .references(() => users.id, { onDelete: 'set null' }),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    orgIdIdx: index('idx_scheduled_posts_org_id').on(table.organizationId),
+    shortIdIdx: index('idx_scheduled_posts_short_id').on(table.shortId),
+    statusScheduledIdx: index('idx_scheduled_posts_status_scheduled').on(table.status, table.scheduledFor),
+    scheduledForIdx: index('idx_scheduled_posts_scheduled_for').on(table.scheduledFor),
+  })
+);
+
+export type ScheduledPost = typeof scheduledPosts.$inferSelect;
+export type NewScheduledPost = typeof scheduledPosts.$inferInsert;
 
 export type Organization = typeof organizations.$inferSelect;
 export type NewOrganization = typeof organizations.$inferInsert;

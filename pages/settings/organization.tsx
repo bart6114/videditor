@@ -15,7 +15,9 @@ import {
   Users,
   Link as LinkIcon,
   AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
+import { SiYoutube } from '@icons-pack/react-simple-icons';
 import { useRouter } from 'next/router';
 
 interface Member {
@@ -33,6 +35,15 @@ interface Invite {
   createdAt: string;
   usedAt: string | null;
   usedById: string | null;
+}
+
+interface SocialAccount {
+  id: string;
+  platform: 'youtube' | 'tiktok' | 'instagram';
+  channelId: string | null;
+  channelTitle: string | null;
+  channelThumbnail: string | null;
+  createdAt: string;
 }
 
 export default function OrganizationSettings() {
@@ -57,6 +68,11 @@ export default function OrganizationSettings() {
   const [loadingInvites, setLoadingInvites] = useState(false);
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState<string | null>(null);
+
+  // Social Accounts
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
+  const [loadingSocialAccounts, setLoadingSocialAccounts] = useState(false);
+  const [disconnectingYouTube, setDisconnectingYouTube] = useState(false);
 
   const isOwner = currentOrganization?.role === 'owner';
 
@@ -90,6 +106,21 @@ export default function OrganizationSettings() {
     }
   }, [call, currentOrganization, isOwner]);
 
+  const loadSocialAccounts = useCallback(async () => {
+    if (!currentOrganization) return;
+    setLoadingSocialAccounts(true);
+    try {
+      const data = await call<{ accounts: SocialAccount[] }>(
+        `/v1/organizations/${currentOrganization.id}/social-accounts`
+      );
+      setSocialAccounts(data.accounts);
+    } catch (err) {
+      console.error('Error loading social accounts:', err);
+    } finally {
+      setLoadingSocialAccounts(false);
+    }
+  }, [call, currentOrganization]);
+
   useEffect(() => {
     // Set loading to false once context is loaded, regardless of whether org exists
     if (!contextLoading) {
@@ -99,11 +130,26 @@ export default function OrganizationSettings() {
     if (currentOrganization) {
       setOrgName(currentOrganization.name);
       loadMembers();
+      loadSocialAccounts();
       if (isOwner) {
         loadInvites();
       }
     }
-  }, [currentOrganization, contextLoading, loadMembers, loadInvites, isOwner]);
+  }, [currentOrganization, contextLoading, loadMembers, loadInvites, loadSocialAccounts, isOwner]);
+
+  // Handle YouTube OAuth callback messages
+  useEffect(() => {
+    const { youtube, message } = router.query;
+    if (youtube === 'connected') {
+      setSuccess('YouTube account connected successfully');
+      loadSocialAccounts();
+      // Clean up URL
+      router.replace('/settings/organization', undefined, { shallow: true });
+    } else if (youtube === 'error') {
+      setError(typeof message === 'string' ? message : 'Failed to connect YouTube account');
+      router.replace('/settings/organization', undefined, { shallow: true });
+    }
+  }, [router.query, router, loadSocialAccounts]);
 
   async function handleSave() {
     if (!currentOrganization || !isOwner) return;
@@ -199,6 +245,32 @@ export default function OrganizationSettings() {
     setCopiedInvite(code);
     setTimeout(() => setCopiedInvite(null), 2000);
   }
+
+  async function handleConnectYouTube() {
+    // Redirect to OAuth flow - auth is handled by the API route
+    window.location.href = '/api/v1/social/youtube/connect';
+  }
+
+  async function handleDisconnectYouTube() {
+    if (!confirm('Disconnect YouTube account? All pending scheduled posts will be canceled.')) return;
+    setDisconnectingYouTube(true);
+    setError(null);
+
+    try {
+      await call('/v1/social/youtube/disconnect', {
+        method: 'DELETE',
+      });
+      await loadSocialAccounts();
+      setSuccess('YouTube account disconnected');
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to disconnect YouTube');
+    } finally {
+      setDisconnectingYouTube(false);
+    }
+  }
+
+  const youtubeAccount = socialAccounts.find((a) => a.platform === 'youtube');
 
   if (loading || contextLoading) {
     return (
@@ -296,6 +368,81 @@ export default function OrganizationSettings() {
                 </div>
               )}
             </div>
+          </Card>
+
+          {/* Connected Accounts */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Connected Accounts</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Connect social media accounts to publish shorts directly
+            </p>
+
+            {loadingSocialAccounts ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* YouTube Connection */}
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                      <SiYoutube className="w-6 h-6 text-red-500" />
+                    </div>
+                    <div>
+                      {youtubeAccount ? (
+                        <>
+                          <p className="font-medium text-foreground">{youtubeAccount.channelTitle}</p>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            Connected
+                            <Check className="w-3 h-3 text-green-500" />
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-foreground">YouTube</p>
+                          <p className="text-sm text-muted-foreground">Not connected</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {isOwner && (
+                    youtubeAccount ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDisconnectYouTube}
+                        disabled={disconnectingYouTube}
+                      >
+                        {disconnectingYouTube ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Disconnect'
+                        )}
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={handleConnectYouTube}>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Connect
+                      </Button>
+                    )
+                  )}
+                </div>
+
+                {/* Placeholder for future platforms */}
+                <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50 opacity-60">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      <span className="text-lg">📸</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Instagram & TikTok</p>
+                      <p className="text-sm text-muted-foreground">Coming soon</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* Members */}
