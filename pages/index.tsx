@@ -1,4 +1,5 @@
 import Head from 'next/head'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
 import { Sparkles, Upload, Download } from 'lucide-react'
@@ -22,6 +23,18 @@ export default function Home() {
         {/* Background effects */}
         <div className="fixed inset-0 dot-grid opacity-40 pointer-events-none" />
         <div className="fixed inset-0 mesh-gradient pointer-events-none" />
+
+        {/* Monkey image - large screens only, fixed to bottom */}
+        <div className="hidden lg:block fixed bottom-0 right-0 pointer-events-none z-10">
+          <Image
+            src="/monkey-rec.jpeg"
+            alt="Monkey mascot"
+            width={400}
+            height={400}
+            className="object-contain"
+            priority
+          />
+        </div>
 
         {/* Header */}
         <nav className="relative container mx-auto px-4 py-6 flex justify-between items-center">
