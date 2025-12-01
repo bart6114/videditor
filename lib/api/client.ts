@@ -61,8 +61,8 @@ export function useApi() {
     if (!response.ok) {
       // Handle specific HTTP error codes
       if (response.status === 401) {
-        // Sign out to clear stale tokens, then redirect to login
-        await signOut({ redirectUrl: '/sign-in' });
+        // Sign out to clear stale tokens, then redirect to landing page
+        await signOut({ redirectUrl: '/' });
         return new Promise(() => {});
       }
 
