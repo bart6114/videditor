@@ -1,0 +1,13 @@
+# VidEditor.ai Robots.txt
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /projects/
+Disallow: /settings/
+Disallow: /calendar/
+Disallow: /sign-in
+Disallow: /sign-up
+
+# Sitemap
+Sitemap: https://videditor.ai/sitemap.xml

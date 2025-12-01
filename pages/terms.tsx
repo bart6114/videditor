@@ -7,9 +7,25 @@ export default function Terms() {
     <>
       <Head>
         <title>Terms of Service - VidEditor.ai</title>
-        <meta name="description" content="Terms of Service for VidEditor.ai - operated by Smeets BV" />
+        <meta name="description" content="Terms and conditions for using VidEditor.ai. Operated by Smeets BV." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/terms`} />
+        <meta property="og:title" content="Terms of Service - VidEditor.ai" />
+        <meta property="og:description" content="Terms and conditions for using VidEditor.ai." />
+        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:site_name" content="VidEditor.ai" />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Terms of Service - VidEditor.ai" />
+        <meta name="twitter:description" content="Terms and conditions for using VidEditor.ai." />
+        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og`} />
       </Head>
 
       <main className="min-h-screen bg-background dark relative">

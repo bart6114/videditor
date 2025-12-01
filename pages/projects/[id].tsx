@@ -89,6 +89,7 @@ export default function ProjectDetail() {
   const [analyzing, setAnalyzing] = useState(false)
   const [isGeneratingShorts, setIsGeneratingShorts] = useState(false)
   const [activeJob, setActiveJob] = useState<{ id: string; status: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } } | null>(null)
+  const [lastAnalysisJobId, setLastAnalysisJobId] = useState<string | null>(null)
   const [shortsCount, setShortsCount] = useState(3)
   const [preferredLength, setPreferredLength] = useState(45)
   const [maxLength, setMaxLength] = useState(60)
@@ -246,12 +247,16 @@ export default function ProjectDetail() {
         )
         setActiveJob(analysisJob || null)
 
-        // Stop polling when job completes AND no pending shorts
-        const stillHasPendingShorts = (projectData.shorts || []).some(
+        // Stop polling when job completes AND no pending shorts in current batch
+        const currentBatchShorts = lastAnalysisJobId
+          ? (projectData.shorts || []).filter(s => s.analysisJobId === lastAnalysisJobId)
+          : (projectData.shorts || [])
+        const stillHasPendingShorts = currentBatchShorts.some(
           s => s.status === 'pending' || s.status === 'processing'
         )
         if (!analysisJob && !stillHasPendingShorts) {
           setIsGeneratingShorts(false)
+          setLastAnalysisJobId(null)
         }
       } catch (error) {
         console.error('Error polling for updates:', error)
@@ -260,7 +265,7 @@ export default function ProjectDetail() {
 
     return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGeneratingShorts, id, call, shorts, transcriptionJob])
+  }, [isGeneratingShorts, id, call, shorts, transcriptionJob, lastAnalysisJobId])
 
   // Keyboard shortcut for select all (Ctrl/Cmd+A)
   useEffect(() => {
@@ -438,8 +443,9 @@ export default function ProjectDetail() {
         }),
       })
 
-      // Set the active job immediately
+      // Set the active job immediately and track its ID for progress display
       setActiveJob({ id: jobData.job.id, status: jobData.job.status })
+      setLastAnalysisJobId(jobData.job.id)
 
       // Refresh credits after successful job creation
       try {
@@ -764,6 +770,22 @@ export default function ProjectDetail() {
     <>
       <Head>
         <title>{project.title} - VidEditor.ai</title>
+        <meta name="description" content={`Edit and create shorts from "${project.title}" using AI`} />
+
+        {/* Open Graph - Dynamic project image */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={`${project.title} - VidEditor.ai`} />
+        <meta property="og:description" content={`Edit and create shorts from "${project.title}" using AI`} />
+        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og/project?title=${encodeURIComponent(project.title)}&shorts=${shorts.length}&duration=${project.durationSeconds ? formatDuration(project.durationSeconds) : '0:00'}`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:site_name" content="VidEditor.ai" />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`${project.title} - VidEditor.ai`} />
+        <meta name="twitter:description" content={`Edit and create shorts from "${project.title}" using AI`} />
+        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og/project?title=${encodeURIComponent(project.title)}&shorts=${shorts.length}&duration=${project.durationSeconds ? formatDuration(project.durationSeconds) : '0:00'}`} />
       </Head>
 
       <WorkspaceLayout title={project.title}>
@@ -1293,31 +1315,44 @@ export default function ProjectDetail() {
             )}
 
             {/* Shorts Processing Progress (after analysis completes) */}
-            {!activeJob && shorts.length > 0 && shorts.some(s => s.status === 'pending' || s.status === 'processing') && (
-              <Card className="bg-primary/5 border-primary/30">
-                <CardContent className="py-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground mb-1">
-                        Processing shorts...
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {shorts.filter(s => s.status === 'completed').length} of {shorts.length} completed
-                      </p>
-                      <div className="mt-2 h-2 bg-primary/20 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary transition-all duration-300"
-                          style={{ width: `${(shorts.filter(s => s.status === 'completed').length / shorts.length) * 100}%` }}
-                        />
+            {(() => {
+              // Filter to only show progress for the current batch
+              const batchShorts = lastAnalysisJobId
+                ? shorts.filter(s => s.analysisJobId === lastAnalysisJobId)
+                : shorts.filter(s => s.status === 'pending' || s.status === 'processing')
+              const completed = batchShorts.filter(s => s.status === 'completed').length
+              const total = batchShorts.length
+              const hasPending = batchShorts.some(s => s.status === 'pending' || s.status === 'processing')
+
+              if (!activeJob && total > 0 && hasPending) {
+                return (
+                  <Card className="bg-primary/5 border-primary/30">
+                    <CardContent className="py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
+                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground mb-1">
+                            Processing shorts...
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {completed} of {total} completed
+                          </p>
+                          <div className="mt-2 h-2 bg-primary/20 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-all duration-300"
+                              style={{ width: `${(completed / total) * 100}%` }}
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                    </CardContent>
+                  </Card>
+                )
+              }
+              return null
+            })()}
 
             {/* No Transcription Placeholder - Only when no job exists */}
             {!transcription && !transcriptionJob && !retryingTranscription && (

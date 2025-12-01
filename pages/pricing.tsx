@@ -18,10 +18,26 @@ export default function PricingPage() {
   return (
     <>
       <Head>
-        <title>Pricing - VidEditor.ai</title>
-        <meta name="description" content="Simple, transparent pricing. Pay only for what you use." />
+        <title>Simple Pricing - VidEditor.ai</title>
+        <meta name="description" content="Pay only for what you use. No subscriptions, no hidden fees. Start with 100 free credits." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/pricing`} />
+        <meta property="og:title" content="Simple Pricing - VidEditor.ai" />
+        <meta property="og:description" content="Pay only for what you use. No subscriptions, no hidden fees. Start with 100 free credits." />
+        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og/pricing`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:site_name" content="VidEditor.ai" />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Simple Pricing - VidEditor.ai" />
+        <meta name="twitter:description" content="Pay only for what you use. No subscriptions, no hidden fees. Start with 100 free credits." />
+        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og/pricing`} />
       </Head>
 
       <main className="min-h-screen bg-background dark relative overflow-hidden">

@@ -14,9 +14,83 @@ export default function Home() {
     <>
       <Head>
         <title>VidEditor.ai - Turn Long Videos Into Shorts</title>
-        <meta name="description" content="We needed to edit our long-form videos into shorter pieces. So we built this. AI handles the tedious parts - you handle the craft." />
+        <meta name="description" content="AI handles the tedious parts - you handle the craft. Transform long-form videos into engaging shorts efficiently." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'} />
+        <meta property="og:title" content="VidEditor.ai - Turn Long Videos Into Shorts" />
+        <meta property="og:description" content="AI handles the tedious parts - you handle the craft. Transform long-form videos into engaging shorts efficiently." />
+        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:site_name" content="VidEditor.ai" />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="VidEditor.ai - Turn Long Videos Into Shorts" />
+        <meta name="twitter:description" content="AI handles the tedious parts - you handle the craft. Transform long-form videos into engaging shorts efficiently." />
+        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og`} />
+
+        {/* JSON-LD Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': 'WebSite',
+                  '@id': 'https://videditor.ai/#website',
+                  url: 'https://videditor.ai',
+                  name: 'VidEditor.ai',
+                  description: 'AI-powered video editing tool that turns long-form videos into engaging shorts',
+                  publisher: {
+                    '@id': 'https://videditor.ai/#organization',
+                  },
+                },
+                {
+                  '@type': 'Organization',
+                  '@id': 'https://videditor.ai/#organization',
+                  name: 'VidEditor.ai',
+                  legalName: 'Smeets BV',
+                  url: 'https://videditor.ai',
+                  logo: {
+                    '@type': 'ImageObject',
+                    url: 'https://videditor.ai/logo.png',
+                  },
+                  sameAs: [],
+                },
+                {
+                  '@type': 'SoftwareApplication',
+                  name: 'VidEditor.ai',
+                  applicationCategory: 'MultimediaApplication',
+                  operatingSystem: 'Web',
+                  offers: {
+                    '@type': 'Offer',
+                    price: '0',
+                    priceCurrency: 'USD',
+                    description: '100 free credits to start',
+                  },
+                  aggregateRating: {
+                    '@type': 'AggregateRating',
+                    ratingValue: '5',
+                    ratingCount: '1',
+                  },
+                  description: 'AI-powered tool that transforms long-form videos into engaging short-form content. Features include automatic transcription, AI moment detection, and one-click video export.',
+                  featureList: [
+                    'AI-powered transcription',
+                    'Automatic moment detection',
+                    'One-click video export',
+                    'Multi-platform support (YouTube, TikTok, Instagram)',
+                  ],
+                },
+              ],
+            }),
+          }}
+        />
       </Head>
 
       <main className="min-h-screen bg-background dark relative overflow-hidden">

@@ -36,6 +36,7 @@
     "@stripe/react-stripe-js": "^5.4.1",
     "@stripe/stripe-js": "^8.5.3",
     "@types/archiver": "^7.0.0",
+    "@vercel/og": "^0.8.5",
     "archiver": "^7.0.1",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
