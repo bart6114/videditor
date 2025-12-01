@@ -20,7 +20,7 @@ export default function Home() {
 
       <main className="min-h-screen bg-background dark relative overflow-hidden">
         {/* Background effects */}
-        <div className="fixed inset-0 dot-grid opacity-40" />
+        <div className="fixed inset-0 dot-grid opacity-40 pointer-events-none" />
         <div className="fixed inset-0 mesh-gradient pointer-events-none" />
 
         {/* Header */}
