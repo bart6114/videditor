@@ -40,7 +40,7 @@ export async function apiCall<T = any>(endpoint: string, options?: RequestInit &
  * Uses Clerk to get the authentication token
  */
 export function useApi() {
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
 
   const call = useCallback(async <T = any>(endpoint: string, options?: RequestInit): Promise<T> => {
     const token = await getToken();
@@ -61,7 +61,9 @@ export function useApi() {
     if (!response.ok) {
       // Handle specific HTTP error codes
       if (response.status === 401) {
-        throw new Error('Invalid or expired authentication token');
+        // Sign out to clear stale tokens, then redirect to login
+        await signOut({ redirectUrl: '/sign-in' });
+        return new Promise(() => {});
       }
 
       if (response.status === 403) {
@@ -89,7 +91,7 @@ export function useApi() {
     }
 
     return json;
-  }, [getToken]);
+  }, [getToken, signOut]);
 
   return { call };
 }
