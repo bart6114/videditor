@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { SiYoutube } from '@icons-pack/react-simple-icons';
 import { useRouter } from 'next/router';
+import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag';
 
 interface Member {
   userId: string;
@@ -51,6 +52,7 @@ export default function OrganizationSettings() {
   const router = useRouter();
   const { call } = useApi();
   const { currentOrganization, refreshCurrentOrganization, isLoading: contextLoading } = useOrganization();
+  const { enabled: schedulingEnabled } = useYouTubeSchedulingEnabled();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -247,9 +249,18 @@ export default function OrganizationSettings() {
     setTimeout(() => setCopiedInvite(null), 2000);
   }
 
+  const [connectingYouTube, setConnectingYouTube] = useState(false);
+
   async function handleConnectYouTube() {
-    // Redirect to OAuth flow - auth is handled by the API route
-    window.location.href = '/api/v1/social/youtube/connect';
+    setConnectingYouTube(true);
+    setError(null);
+    try {
+      const response = await call<{ redirectUrl: string }>('/v1/social/youtube/connect');
+      window.location.href = response.redirectUrl;
+    } catch (err) {
+      setConnectingYouTube(false);
+      setError(err instanceof Error ? err.message : 'Failed to connect YouTube');
+    }
   }
 
   async function handleDisconnectYouTube() {
@@ -372,7 +383,19 @@ export default function OrganizationSettings() {
           </Card>
 
           {/* Connected Accounts */}
-          <Card className="p-6">
+          <Card className="p-6 relative">
+            {!schedulingEnabled && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center">
+                <div className="text-center p-4">
+                  <span className="inline-block px-3 py-1 bg-muted rounded-full text-sm font-medium text-muted-foreground mb-2">
+                    Coming Soon
+                  </span>
+                  <p className="text-sm text-muted-foreground max-w-[280px]">
+                    Connect your YouTube channel to schedule and publish shorts directly
+                  </p>
+                </div>
+              </div>
+            )}
             <h3 className="text-lg font-semibold text-foreground mb-2">Connected Accounts</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Connect social media accounts to publish shorts directly
@@ -432,9 +455,15 @@ export default function OrganizationSettings() {
                         )}
                       </Button>
                     ) : (
-                      <Button size="sm" onClick={handleConnectYouTube}>
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Connect
+                      <Button size="sm" onClick={handleConnectYouTube} disabled={connectingYouTube}>
+                        {connectingYouTube ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Connect
+                          </>
+                        )}
                       </Button>
                     )
                   )}

@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { authenticate, requireOwner } from '@/lib/api/auth';
-import { failure } from '@/lib/api/responses';
+import { failure, success } from '@/lib/api/responses';
 import { getAuthUrl, generateOAuthState } from '@/lib/youtube';
 
 /**
@@ -37,9 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `youtube_oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`
     );
 
-    // Redirect to Google OAuth
+    // Return OAuth URL for frontend to redirect
     const authUrl = getAuthUrl(state);
-    res.redirect(302, authUrl);
+    return success(res, { redirectUrl: authUrl });
   } catch (error) {
     console.error('YouTube connect error:', error);
     return failure(res, 500, 'Failed to initiate YouTube connection');

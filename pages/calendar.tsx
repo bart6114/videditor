@@ -21,6 +21,7 @@ import {
   CalendarDays,
 } from 'lucide-react'
 import { SiYoutube } from '@icons-pack/react-simple-icons'
+import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag'
 
 interface CalendarPost {
   id: string
@@ -99,6 +100,7 @@ export default function CalendarPage() {
   const router = useRouter()
   const { isSignedIn, isLoaded } = useUser()
   const { call } = useApi()
+  const { enabled: schedulingEnabled, loading: flagLoading } = useYouTubeSchedulingEnabled()
   const [posts, setPosts] = useState<CalendarPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -180,6 +182,49 @@ export default function CalendarPage() {
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
+    )
+  }
+
+  // Show "Coming Soon" state when feature flag is disabled
+  if (!flagLoading && !schedulingEnabled) {
+    return (
+      <WorkspaceLayout>
+        <Head>
+          <title>Calendar | VidEditor.ai</title>
+        </Head>
+        <div className="container max-w-4xl mx-auto py-16 px-4">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted mb-6">
+              <CalendarDays className="w-10 h-10 text-muted-foreground" />
+            </div>
+            <span className="inline-block px-3 py-1 bg-muted rounded-full text-sm font-medium text-muted-foreground mb-4">
+              Coming Soon
+            </span>
+            <h1 className="text-2xl font-bold mb-4">Publishing Calendar</h1>
+            <p className="text-muted-foreground max-w-md mx-auto mb-8">
+              Schedule and manage your YouTube Shorts from a beautiful calendar view.
+              Connect your YouTube channel and publish on autopilot.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto text-left">
+              <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                <SiYoutube className="w-5 h-5 text-red-500 mb-2" />
+                <h3 className="font-medium text-sm mb-1">YouTube Integration</h3>
+                <p className="text-xs text-muted-foreground">Direct publishing to YouTube Shorts</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                <Clock className="w-5 h-5 text-blue-500 mb-2" />
+                <h3 className="font-medium text-sm mb-1">Schedule Ahead</h3>
+                <p className="text-xs text-muted-foreground">Plan your content calendar</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                <CheckCircle2 className="w-5 h-5 text-green-500 mb-2" />
+                <h3 className="font-medium text-sm mb-1">Auto Publish</h3>
+                <p className="text-xs text-muted-foreground">Posts go live automatically</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </WorkspaceLayout>
     )
   }
 

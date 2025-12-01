@@ -264,7 +264,16 @@ export default function Home() {
             <MonkeyLogo size="sm" showText={false} />
             <span className="text-sm font-semibold text-foreground/80">VidEditor.ai</span>
           </div>
-          <p className="text-sm text-muted-foreground/60">&copy; 2025 VidEditor.ai. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground/60 mb-2">&copy; 2025 VidEditor.ai. All rights reserved.</p>
+          <div className="flex items-center justify-center gap-3">
+            <Link href="/privacy" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+              Privacy Policy
+            </Link>
+            <span className="text-muted-foreground/30">·</span>
+            <Link href="/terms" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+              Terms of Service
+            </Link>
+          </div>
         </footer>
       </main>
     </>

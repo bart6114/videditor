@@ -16,6 +16,7 @@ import { useApi } from '@/lib/api/client'
 import type { Short } from '@server/db/schema'
 import type { SocialContent, SocialPlatform } from '@shared/index'
 import { getShortFilename } from '@/lib/api/shorts'
+import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag'
 
 interface SocialAccount {
   id: string
@@ -81,6 +82,7 @@ export function ShortsSidePanel({
   onNavigate,
 }: ShortsSidePanelProps) {
   const { call } = useApi()
+  const { enabled: schedulingEnabled } = useYouTubeSchedulingEnabled()
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -442,13 +444,14 @@ export function ShortsSidePanel({
                   </Button>
                   <Button
                     size="sm"
-                    variant="default"
-                    onClick={handleOpenScheduleModal}
-                    title="Schedule or publish to YouTube"
+                    variant={schedulingEnabled ? 'default' : 'outline'}
+                    onClick={schedulingEnabled ? handleOpenScheduleModal : undefined}
+                    disabled={!schedulingEnabled}
+                    title={schedulingEnabled ? 'Schedule or publish to YouTube' : 'Coming Soon'}
                     className="min-h-[44px] md:min-h-0 p-2 md:px-3"
                   >
                     <Calendar className="w-4 h-4 md:mr-2" />
-                    <span className="hidden md:inline">Schedule</span>
+                    <span className="hidden md:inline">{schedulingEnabled ? 'Schedule' : 'Soon'}</span>
                   </Button>
                 </>
               )}

@@ -55,9 +55,9 @@ class JobRunnerConfig(BaseSettings):
     VIDEO_CACHE_TTL_SECONDS: int = Field(default=3600, ge=60)  # 1 hour default
     VIDEO_CACHE_ENABLED: bool = True
 
-    # Google OAuth (for YouTube publishing)
-    GOOGLE_CLIENT_ID: Optional[str] = None
-    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    # YouTube OAuth (for YouTube publishing)
+    YOUTUBE_CLIENT_ID: Optional[str] = None
+    YOUTUBE_CLIENT_SECRET: Optional[str] = None
 
     # Tigris storage
     TIGRIS_ENDPOINT: HttpUrl

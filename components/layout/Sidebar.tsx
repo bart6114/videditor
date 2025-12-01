@@ -17,6 +17,7 @@ import {
 import { useClerk, useUser } from '@clerk/nextjs';
 import { MonkeyLogo } from '@/components/MonkeyLogo';
 import { useOrganizationSafe } from '@/contexts/OrganizationContext';
+import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag';
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: Video },
@@ -33,6 +34,7 @@ export default function Sidebar() {
   const { user } = useUser();
   const orgContext = useOrganizationSafe();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
+  const { enabled: schedulingEnabled } = useYouTubeSchedulingEnabled();
 
   const handleLogout = async () => {
     await signOut();
@@ -65,6 +67,26 @@ export default function Sidebar() {
             ? router.pathname === '/settings'
             : router.pathname === item.href || router.pathname.startsWith(item.href + '/');
           const Icon = item.icon;
+          const isCalendar = item.name === 'Calendar';
+          const isDisabled = isCalendar && !schedulingEnabled;
+
+          if (isDisabled) {
+            return (
+              <div
+                key={item.name}
+                className="group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg text-muted-foreground/50 cursor-not-allowed"
+                title="Coming Soon"
+              >
+                <div className="flex items-center">
+                  <Icon className="mr-3 h-5 w-5" />
+                  {item.name}
+                </div>
+                <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                  Soon
+                </span>
+              </div>
+            );
+          }
 
           return (
             <Link

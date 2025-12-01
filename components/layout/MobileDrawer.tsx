@@ -21,6 +21,7 @@ import { useClerk, useUser } from '@clerk/nextjs';
 import { MonkeyLogo } from '@/components/MonkeyLogo';
 import { useOrganizationSafe } from '@/contexts/OrganizationContext';
 import { cn } from '@/lib/utils';
+import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag';
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: Video },
@@ -42,6 +43,7 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
   const { user } = useUser();
   const orgContext = useOrganizationSafe();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
+  const { enabled: schedulingEnabled } = useYouTubeSchedulingEnabled();
 
   const handleLogout = async () => {
     await signOut();
@@ -101,6 +103,28 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
                 ? router.pathname === '/settings'
                 : router.pathname === item.href || router.pathname.startsWith(item.href + '/');
               const Icon = item.icon;
+              const isCalendar = item.name === 'Calendar';
+              const isDisabled = isCalendar && !schedulingEnabled;
+
+              if (isDisabled) {
+                return (
+                  <div
+                    key={item.name}
+                    className={cn(
+                      'group flex items-center justify-between px-3 py-3 text-base font-medium rounded-lg',
+                      'min-h-[44px] text-muted-foreground/50 cursor-not-allowed'
+                    )}
+                  >
+                    <div className="flex items-center">
+                      <Icon className="mr-3 h-5 w-5" />
+                      {item.name}
+                    </div>
+                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                      Soon
+                    </span>
+                  </div>
+                );
+              }
 
               return (
                 <Link

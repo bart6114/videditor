@@ -183,17 +183,18 @@ To deploy the YouTube scheduling feature:
    DATABASE_URL="<prod-url>" npm run db:migrate
    ```
 
-2. **Set Google OAuth secrets** on both frontend and jobs worker:
+2. **Set YouTube OAuth secrets** on both frontend and jobs worker:
    ```bash
    # Frontend
    fly secrets set -a videditor-app \
-     GOOGLE_CLIENT_ID="<your-google-client-id>" \
-     GOOGLE_CLIENT_SECRET="<your-google-client-secret>"
+     YOUTUBE_CLIENT_ID="<your-google-client-id>" \
+     YOUTUBE_CLIENT_SECRET="<your-google-client-secret>" \
+     YOUTUBE_REDIRECT_URI="https://videditor-app.fly.dev/api/v1/social/youtube/callback"
 
    # Jobs worker
    fly secrets set -a videditor-jobs \
-     GOOGLE_CLIENT_ID="<your-google-client-id>" \
-     GOOGLE_CLIENT_SECRET="<your-google-client-secret>"
+     YOUTUBE_CLIENT_ID="<your-google-client-id>" \
+     YOUTUBE_CLIENT_SECRET="<your-google-client-secret>"
    ```
 
 3. **Install new Python dependencies** (happens automatically during deploy):
