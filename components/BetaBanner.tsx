@@ -21,7 +21,7 @@ export function BetaBanner() {
   if (dismissed) return null
 
   return (
-    <div className="bg-primary text-primary-foreground px-4 py-2 text-sm">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground px-4 py-2 text-sm">
       <div className="container mx-auto flex items-center justify-between gap-4">
         <div className="flex-1 text-center">
           <span className="font-semibold">We&apos;re in Beta!</span>
