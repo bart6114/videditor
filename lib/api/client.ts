@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/nextjs';
+import { useAuth, useClerk } from '@clerk/nextjs';
 import { useCallback } from 'react';
 
 // API routes are now served by Next.js at /api
@@ -40,7 +40,8 @@ export async function apiCall<T = any>(endpoint: string, options?: RequestInit &
  * Uses Clerk to get the authentication token
  */
 export function useApi() {
-  const { getToken, signOut } = useAuth();
+  const { getToken } = useAuth();
+  const { signOut } = useClerk();
 
   const call = useCallback(async <T = any>(endpoint: string, options?: RequestInit): Promise<T> => {
     const token = await getToken();
@@ -61,7 +62,12 @@ export function useApi() {
     if (!response.ok) {
       // Handle specific HTTP error codes
       if (response.status === 401) {
-        // Sign out to clear stale tokens, then redirect to landing page
+        // Get the error message and log it before redirecting
+        const errorBody = await response.json().catch(() => ({ error: 'Unauthorized' }));
+        const errorMessage = errorBody.error || 'Unauthorized';
+        console.error('[Auth Error]', errorMessage);
+
+        // Sign out and redirect to landing page
         await signOut({ redirectUrl: '/' });
         return new Promise(() => {});
       }

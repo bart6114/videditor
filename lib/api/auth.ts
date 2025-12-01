@@ -138,8 +138,23 @@ export async function authenticate(req: NextApiRequest): Promise<AuthResult> {
           userData.imageUrl
         );
       } catch (error) {
+        // Check for email unique constraint violation (different Clerk instance same email)
+        // PostgreSQL error is wrapped by Drizzle - check both error and error.cause
+        const pgError = (error instanceof Error && error.cause) || error;
+        if (
+          pgError &&
+          typeof pgError === 'object' &&
+          (pgError as { code?: string }).code === '23505' &&
+          (pgError as { constraint?: string }).constraint === 'users_email_unique'
+        ) {
+          return {
+            authenticated: false,
+            error: `Email "${userData.email}" is already registered with a different account. This typically happens when using dev/prod Clerk instances against the same database.`,
+          };
+        }
+
         console.error('Failed to provision user:', error);
-        // Continue anyway - don't block authentication if DB provisioning fails
+        // Continue for other errors - don't block authentication if DB provisioning fails
         // The user is still authenticated via Clerk
       }
 
