@@ -10,8 +10,11 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:8787'
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['localhost', 'img.clerk.com', 'cloudflarestream.com'],
     remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
       {
         protocol: 'https',
         hostname: 'img.clerk.com',
