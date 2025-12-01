@@ -117,8 +117,19 @@ export default function Projects() {
     setDeleteDialogOpen(true)
   }
 
-  function isProcessing(status: ProjectSummary['status']): boolean {
-    return ['uploading', 'queued', 'processing', 'transcribing'].includes(status)
+  function isProcessing(project: ProjectSummary): boolean {
+    // Primary check: explicit processing statuses
+    if (['uploading', 'queued', 'processing', 'transcribing'].includes(project.status)) {
+      return true
+    }
+
+    // Fallback: uploaded but no transcription yet (and not failed)
+    // This catches edge cases where status might be stale
+    if (project.status !== 'error' && project.hasTranscription === false) {
+      return true
+    }
+
+    return false
   }
 
   function getProcessingLabel(status: ProjectSummary['status'], durationSeconds?: number | null): string {
@@ -228,7 +239,7 @@ export default function Projects() {
                         src={project.thumbnailUrl}
                         alt={project.title}
                         fill
-                        className={`object-cover transition-all duration-300 group-hover:scale-105 ${isProcessing(project.status) ? 'opacity-40' : ''}`}
+                        className={`object-cover transition-all duration-300 group-hover:scale-105 ${isProcessing(project) ? 'opacity-40' : ''}`}
                         unoptimized
                       />
                     ) : (
@@ -237,7 +248,7 @@ export default function Projects() {
                       </div>
                     )}
                     {/* Processing Overlay */}
-                    {isProcessing(project.status) && (
+                    {isProcessing(project) && (
                       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3 animate-in fade-in duration-300">
                         <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
                           <Loader2 className="w-8 h-8 text-primary animate-spin" />
