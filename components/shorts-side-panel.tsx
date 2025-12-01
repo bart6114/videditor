@@ -1,11 +1,31 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { X, Loader2, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { X, Loader2, ChevronLeft, ChevronRight, Download, FileText, Calendar, Send } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useApi } from '@/lib/api/client'
 import type { Short } from '@server/db/schema'
 import type { SocialContent, SocialPlatform } from '@shared/index'
 import { getShortFilename } from '@/lib/api/shorts'
+import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag'
+
+interface SocialAccount {
+  id: string
+  platform: string
+  channelId: string | null
+  channelTitle: string | null
+  channelThumbnail: string | null
+  createdAt: string
+}
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
   youtube: 'YouTube',
@@ -21,6 +41,7 @@ interface ShortsSidePanelProps {
   shorts: Short[]
   projectId: string
   projectTitle: string
+  organizationId: string
   onClose: () => void
   onNavigate: (short: Short) => void
 }
@@ -56,14 +77,30 @@ export function ShortsSidePanel({
   shorts,
   projectId,
   projectTitle,
+  organizationId,
   onClose,
   onNavigate,
 }: ShortsSidePanelProps) {
   const { call } = useApi()
+  const { enabled: schedulingEnabled } = useYouTubeSchedulingEnabled()
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+
+  // Schedule modal state
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
+  const [loadingAccounts, setLoadingAccounts] = useState(false)
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('')
+  const [scheduleTitle, setScheduleTitle] = useState('')
+  const [scheduleDescription, setScheduleDescription] = useState('')
+  const [scheduleDate, setScheduleDate] = useState('')
+  const [scheduleTime, setScheduleTime] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null)
+  const [confirmingPublishNow, setConfirmingPublishNow] = useState(false)
 
   // Get current index and check if navigation is available
   const currentIndex = selectedShort
@@ -187,6 +224,134 @@ export function ShortsSidePanel({
     }
   }
 
+  // Open schedule modal and fetch social accounts
+  const handleOpenScheduleModal = async () => {
+    setScheduleModalOpen(true)
+    setScheduleError(null)
+    setScheduleSuccess(null)
+
+    // Prefill title/description from YouTube social content if available
+    const socialContent = selectedShort?.socialContent as SocialContent | null
+    if (socialContent?.youtube && 'title' in socialContent.youtube) {
+      setScheduleTitle(socialContent.youtube.title || '')
+      setScheduleDescription(socialContent.youtube.description || '')
+    } else {
+      // Fall back to transcription slice as title
+      setScheduleTitle(selectedShort?.transcriptionSlice?.slice(0, 100) || '')
+      setScheduleDescription('')
+    }
+
+    // Set default date/time to 1 hour from now
+    const defaultDate = new Date()
+    defaultDate.setHours(defaultDate.getHours() + 1)
+    defaultDate.setMinutes(0, 0, 0)
+    setScheduleDate(defaultDate.toISOString().split('T')[0])
+    setScheduleTime(defaultDate.toTimeString().slice(0, 5))
+
+    // Fetch social accounts
+    if (organizationId) {
+      setLoadingAccounts(true)
+      try {
+        const data = await call<{ accounts: SocialAccount[] }>(
+          `/v1/organizations/${organizationId}/social-accounts`
+        )
+        setSocialAccounts(data.accounts)
+        // Auto-select first YouTube account
+        const youtubeAccount = data.accounts.find((a) => a.platform === 'youtube')
+        if (youtubeAccount) {
+          setSelectedAccountId(youtubeAccount.id)
+        }
+      } catch (err) {
+        console.error('Error fetching social accounts:', err)
+        setScheduleError('Failed to load connected accounts')
+      } finally {
+        setLoadingAccounts(false)
+      }
+    }
+  }
+
+  const handleCloseScheduleModal = () => {
+    setScheduleModalOpen(false)
+    setScheduleError(null)
+    setScheduleSuccess(null)
+    setSelectedAccountId('')
+    setScheduleTitle('')
+    setScheduleDescription('')
+    setScheduleDate('')
+    setScheduleTime('')
+    setConfirmingPublishNow(false)
+  }
+
+  const handleSchedule = async () => {
+    if (!selectedShort || !selectedAccountId || !scheduleTitle.trim() || !scheduleDate || !scheduleTime) {
+      setScheduleError('Please fill in all required fields')
+      return
+    }
+
+    // Combine date and time
+    const scheduledFor = new Date(`${scheduleDate}T${scheduleTime}`)
+    if (scheduledFor <= new Date()) {
+      setScheduleError('Scheduled time must be in the future')
+      return
+    }
+
+    setSubmitting(true)
+    setScheduleError(null)
+
+    try {
+      await call(
+        `/v1/projects/${projectId}/shorts/${selectedShort.id}/schedule`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            socialAccountId: selectedAccountId,
+            scheduledFor: scheduledFor.toISOString(),
+            title: scheduleTitle.trim(),
+            description: scheduleDescription.trim() || undefined,
+          }),
+        }
+      )
+      setScheduleSuccess('Short scheduled successfully!')
+      setTimeout(() => handleCloseScheduleModal(), 1500)
+    } catch (err) {
+      console.error('Error scheduling short:', err)
+      setScheduleError(err instanceof Error ? err.message : 'Failed to schedule short')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handlePublishNow = async () => {
+    if (!selectedShort || !selectedAccountId || !scheduleTitle.trim()) {
+      setScheduleError('Please select an account and enter a title')
+      return
+    }
+
+    setSubmitting(true)
+    setScheduleError(null)
+
+    try {
+      await call(
+        `/v1/projects/${projectId}/shorts/${selectedShort.id}/publish-now`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            socialAccountId: selectedAccountId,
+            title: scheduleTitle.trim(),
+            description: scheduleDescription.trim() || undefined,
+          }),
+        }
+      )
+      setScheduleSuccess('Publishing started! Check the calendar for status.')
+      setTimeout(() => handleCloseScheduleModal(), 1500)
+    } catch (err) {
+      console.error('Error publishing short:', err)
+      setScheduleError(err instanceof Error ? err.message : 'Failed to publish short')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   // Handle keyboard navigation (up/down arrows)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -276,6 +441,17 @@ export function ShortsSidePanel({
                         <span className="hidden md:inline">Download</span>
                       </>
                     )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={schedulingEnabled ? 'default' : 'outline'}
+                    onClick={schedulingEnabled ? handleOpenScheduleModal : undefined}
+                    disabled={!schedulingEnabled}
+                    title={schedulingEnabled ? 'Schedule or publish to YouTube' : 'Coming Soon'}
+                    className="min-h-[44px] md:min-h-0 p-2 md:px-3"
+                  >
+                    <Calendar className="w-4 h-4 md:mr-2" />
+                    <span className="hidden md:inline">{schedulingEnabled ? 'Schedule' : 'Soon'}</span>
                   </Button>
                 </>
               )}
@@ -408,6 +584,174 @@ export function ShortsSidePanel({
           </div>
         </div>
       </div>
+
+      {/* Schedule Modal */}
+      <Dialog open={scheduleModalOpen} onOpenChange={(open) => !open && handleCloseScheduleModal()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule or Publish</DialogTitle>
+            <DialogDescription>
+              Publish this short to YouTube now or schedule it for later.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Success message */}
+            {scheduleSuccess && (
+              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <p className="text-sm text-green-600 dark:text-green-400">{scheduleSuccess}</p>
+              </div>
+            )}
+
+            {/* Error message */}
+            {scheduleError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-sm text-red-600 dark:text-red-400">{scheduleError}</p>
+              </div>
+            )}
+
+            {/* YouTube Account Selection */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">YouTube Account</label>
+              {loadingAccounts ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading accounts...
+                </div>
+              ) : socialAccounts.filter((a) => a.platform === 'youtube').length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No YouTube accounts connected.{' '}
+                  <Link href="/settings/organization" className="text-primary underline">
+                    Connect one in settings
+                  </Link>
+                </div>
+              ) : (
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                >
+                  <option value="">Select an account</option>
+                  {socialAccounts
+                    .filter((a) => a.platform === 'youtube')
+                    .map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.channelTitle || account.channelId || 'YouTube Channel'}
+                      </option>
+                    ))}
+                </select>
+              )}
+            </div>
+
+            {/* Title */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Title *</label>
+              <Input
+                value={scheduleTitle}
+                onChange={(e) => setScheduleTitle(e.target.value)}
+                placeholder="Enter video title"
+                maxLength={100}
+              />
+              <p className="text-xs text-muted-foreground mt-1">{scheduleTitle.length}/100</p>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Description</label>
+              <textarea
+                value={scheduleDescription}
+                onChange={(e) => setScheduleDescription(e.target.value)}
+                placeholder="Enter video description"
+                className="w-full min-h-[100px] px-3 py-2 rounded-md border border-input bg-background text-sm resize-y"
+                maxLength={5000}
+              />
+            </div>
+
+            {/* Schedule Date/Time */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Date</label>
+                <Input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Time</label>
+                <Input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Times are in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')})
+            </p>
+          </div>
+
+          {confirmingPublishNow ? (
+            <div className="space-y-3">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  This will publish immediately to{' '}
+                  <span className="font-medium">
+                    {socialAccounts.find((a) => a.id === selectedAccountId)?.channelTitle || 'YouTube'}
+                  </span>
+                </p>
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmingPublishNow(false)}
+                  disabled={submitting}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handlePublishNow}
+                  disabled={submitting}
+                  className="w-full sm:w-auto"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Send className="w-4 h-4 mr-2" />
+                  )}
+                  Confirm Publish
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmingPublishNow(true)}
+                disabled={submitting || !selectedAccountId || !scheduleTitle.trim()}
+                className="w-full sm:w-auto"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Publish Now
+              </Button>
+              <Button
+                onClick={handleSchedule}
+                disabled={submitting || !selectedAccountId || !scheduleTitle.trim() || !scheduleDate || !scheduleTime}
+                className="w-full sm:w-auto"
+              >
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Calendar className="w-4 h-4 mr-2" />
+                )}
+                Schedule
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

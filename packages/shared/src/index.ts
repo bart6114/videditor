@@ -11,7 +11,7 @@ export const PROJECT_STATUSES = [
 
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
-export const JOB_TYPES = ['thumbnail', 'transcription', 'analysis', 'short_processing'] as const;
+export const JOB_TYPES = ['thumbnail', 'transcription', 'analysis', 'short_processing', 'youtube_publish'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 export const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'canceled'] as const;
@@ -109,4 +109,47 @@ export type UploadCompletePayload = {
   durationSeconds?: number;
   fileSizeBytes?: number;
   metadata?: Record<string, unknown>;
+};
+
+// ============================================================================
+// Social Account Types (for connected accounts)
+// ============================================================================
+
+export const SOCIAL_ACCOUNT_PLATFORMS = ['youtube', 'tiktok', 'instagram'] as const;
+export type SocialAccountPlatform = (typeof SOCIAL_ACCOUNT_PLATFORMS)[number];
+
+// ============================================================================
+// Scheduled Post Types
+// ============================================================================
+
+export const SCHEDULED_POST_STATUSES = [
+  'scheduled',
+  'publishing',
+  'published',
+  'failed',
+  'canceled',
+] as const;
+export type ScheduledPostStatus = (typeof SCHEDULED_POST_STATUSES)[number];
+
+// Payload for youtube_publish job
+export type YouTubePublishPayload = {
+  scheduledPostId: string;
+  shortId: string;
+  socialAccountId: string;
+  title: string;
+  description?: string;
+};
+
+// API payloads for scheduling
+export type ScheduleShortPayload = {
+  socialAccountId: string;
+  scheduledFor: string; // ISO date string
+  title: string;
+  description?: string;
+};
+
+export type PublishNowPayload = {
+  socialAccountId: string;
+  title: string;
+  description?: string;
 };

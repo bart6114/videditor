@@ -130,6 +130,19 @@ export default function ProjectDetail() {
   // Multi-select state for shorts
   const [selectedShortIds, setSelectedShortIds] = useState<Set<string>>(new Set())
 
+  // Scheduled posts state for displaying publishing status on shorts
+  const [scheduledPostsByShort, setScheduledPostsByShort] = useState<Record<string, {
+    id: string
+    status: string
+    scheduledFor: Date
+    title: string
+    platformPostId: string | null
+    platformUrl: string | null
+    errorMessage: string | null
+    platform: string
+    channelTitle: string | null
+  }[]>>({})
+
   // Helper functions for selection
   const toggleShortSelection = (shortId: string) => {
     setSelectedShortIds((prev) => {
@@ -370,6 +383,32 @@ export default function ProjectDetail() {
         setIsGeneratingShorts(true) // Resume showing progress
       } else {
         setActiveJob(null)
+      }
+      // Fetch scheduled posts for all shorts in the project
+      try {
+        const scheduledData = await call<{ posts: Record<string, {
+          id: string
+          status: string
+          scheduledFor: string
+          title: string
+          platformPostId: string | null
+          platformUrl: string | null
+          errorMessage: string | null
+          platform: string
+          channelTitle: string | null
+        }[]> }>(`/v1/projects/${id}/scheduled-posts`)
+        // Convert scheduledFor strings to Dates
+        const postsWithDates: Record<string, typeof scheduledPostsByShort[string]> = {}
+        for (const [shortId, posts] of Object.entries(scheduledData.posts)) {
+          postsWithDates[shortId] = posts.map(p => ({
+            ...p,
+            scheduledFor: new Date(p.scheduledFor)
+          }))
+        }
+        setScheduledPostsByShort(postsWithDates)
+      } catch (err) {
+        // Non-critical - don't block project loading
+        console.error('Error loading scheduled posts:', err)
       }
     } catch (error) {
       console.error('Error loading project:', error)
@@ -1501,15 +1540,70 @@ export default function ProjectDetail() {
                                 )}
                               </div>
                             ) : (
-                              <Badge
-                                variant={
-                                  short.status === 'completed' ? 'default' :
-                                  short.status === 'error' ? 'destructive' : 'secondary'
-                                }
-                                className="text-xs"
-                              >
-                                {short.status}
-                              </Badge>
+                              <div className="flex flex-col gap-1">
+                                <Badge
+                                  variant={
+                                    short.status === 'completed' ? 'default' :
+                                    short.status === 'error' ? 'destructive' : 'secondary'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {short.status}
+                                </Badge>
+                                {/* Scheduled post status */}
+                                {short.status === 'completed' && scheduledPostsByShort[short.id]?.length > 0 && (() => {
+                                  const posts = scheduledPostsByShort[short.id]
+                                  // Show most relevant post: publishing > scheduled > published > failed
+                                  const publishing = posts.find(p => p.status === 'publishing')
+                                  const scheduled = posts.find(p => p.status === 'scheduled')
+                                  const published = posts.find(p => p.status === 'published')
+                                  const failed = posts.find(p => p.status === 'failed')
+                                  const post = publishing || scheduled || published || failed
+                                  if (!post) return null
+
+                                  if (post.status === 'publishing') {
+                                    return (
+                                      <Badge variant="secondary" className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20">
+                                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                        Publishing...
+                                      </Badge>
+                                    )
+                                  }
+                                  if (post.status === 'scheduled') {
+                                    return (
+                                      <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        {post.scheduledFor.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                      </Badge>
+                                    )
+                                  }
+                                  if (post.status === 'published' && post.platformUrl) {
+                                    return (
+                                      <a
+                                        href={post.platformUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex"
+                                      >
+                                        <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/20">
+                                          <SiYoutube size={12} className="mr-1" />
+                                          Published
+                                        </Badge>
+                                      </a>
+                                    )
+                                  }
+                                  if (post.status === 'failed') {
+                                    return (
+                                      <Badge variant="secondary" className="text-xs bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" title={post.errorMessage || 'Publishing failed'}>
+                                        <AlertCircle className="w-3 h-3 mr-1" />
+                                        Failed
+                                      </Badge>
+                                    )
+                                  }
+                                  return null
+                                })()}
+                              </div>
                             )}
                           </td>
                           {/* Actions */}
@@ -1563,6 +1657,7 @@ export default function ProjectDetail() {
           shorts={shorts}
           projectId={id as string}
           projectTitle={project.title}
+          organizationId={project.organizationId || ''}
           onClose={() => setSelectedShort(null)}
           onNavigate={(short) => setSelectedShort(short)}
         />

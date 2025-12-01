@@ -170,9 +170,41 @@ The `fly.app.toml` file contains `[build.args]` that pass these values to the Do
 
 ## TODOs / Follow-ups
 
-- Scheduling system for YT/TikTok/Instagram
+- ~~Scheduling system for YT/TikTok/Instagram~~ (YouTube implemented in `feature/youtube-scheduling` branch)
 - Onboarding flow for new users
 - Upload video should cost 1 credit
+
+### YouTube Scheduling Deployment
+
+To deploy the YouTube scheduling feature:
+
+1. **Apply database migration** with proper credentials:
+   ```bash
+   DATABASE_URL="<prod-url>" npm run db:migrate
+   ```
+
+2. **Set YouTube OAuth secrets** on both frontend and jobs worker:
+   ```bash
+   # Frontend
+   fly secrets set -a videditor-app \
+     YOUTUBE_CLIENT_ID="<your-google-client-id>" \
+     YOUTUBE_CLIENT_SECRET="<your-google-client-secret>" \
+     YOUTUBE_REDIRECT_URI="https://videditor-app.fly.dev/api/v1/social/youtube/callback"
+
+   # Jobs worker
+   fly secrets set -a videditor-jobs \
+     YOUTUBE_CLIENT_ID="<your-google-client-id>" \
+     YOUTUBE_CLIENT_SECRET="<your-google-client-secret>"
+   ```
+
+3. **Install new Python dependencies** (happens automatically during deploy):
+   ```bash
+   cd apps/jobs && uv sync
+   ```
+
+4. **Configure Google OAuth consent screen** in Google Cloud Console:
+   - Add `https://videditor-app.fly.dev/api/v1/social/youtube/callback` as authorized redirect URI
+   - Request YouTube Data API v3 scopes: `youtube.upload`, `youtube.readonly`
 
 ## First-Time Fly.io Deployment
 

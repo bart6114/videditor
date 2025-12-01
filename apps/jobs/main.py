@@ -11,6 +11,7 @@ from config import load_job_config
 from database import close_db, init_db
 from logger import create_logger
 from processor import JobProcessor
+from scheduler import Scheduler
 from server import build_job_server
 from worker import JobWorker
 
@@ -37,6 +38,9 @@ async def main() -> None:
 
     # Create worker
     worker = JobWorker(config, logger, processor)
+
+    # Create scheduler for scheduled posts
+    scheduler = Scheduler(config, logger)
 
     # Build FastAPI app
     app = build_job_server(
@@ -73,6 +77,10 @@ async def main() -> None:
         await worker.start()
         logger.info("Job worker started")
 
+        # Start scheduler for scheduled posts
+        await scheduler.start()
+        logger.info("Scheduler started")
+
         # Start HTTP server in background
         server_task = asyncio.create_task(server.serve())
         logger.info(f"Job runner HTTP server listening on port {config.PORT}")
@@ -89,7 +97,10 @@ async def main() -> None:
         logger.info("Starting graceful shutdown")
 
         try:
-            # Stop worker first (waits for active jobs)
+            # Stop scheduler first
+            await scheduler.stop()
+
+            # Stop worker (waits for active jobs)
             await worker.stop()
 
             # Stop HTTP server
