@@ -94,6 +94,42 @@ export async function getScheduledPostsByShort(
 }
 
 /**
+ * Get scheduled posts for all shorts in a project
+ * Returns posts grouped by shortId for easy frontend consumption
+ */
+export async function getScheduledPostsByProject(
+  db: DB,
+  projectId: string,
+  organizationId: string
+): Promise<
+  {
+    post: ScheduledPost;
+    socialAccount: { platform: 'youtube' | 'tiktok' | 'instagram'; channelTitle: string | null };
+  }[]
+> {
+  const results = await db
+    .select({
+      post: scheduledPosts,
+      socialAccount: {
+        platform: socialAccounts.platform,
+        channelTitle: socialAccounts.channelTitle,
+      },
+    })
+    .from(scheduledPosts)
+    .innerJoin(shorts, eq(scheduledPosts.shortId, shorts.id))
+    .innerJoin(socialAccounts, eq(scheduledPosts.socialAccountId, socialAccounts.id))
+    .where(
+      and(
+        eq(shorts.projectId, projectId),
+        eq(scheduledPosts.organizationId, organizationId)
+      )
+    )
+    .orderBy(scheduledPosts.scheduledFor);
+
+  return results;
+}
+
+/**
  * Get scheduled posts for calendar view (with short and project info)
  */
 export async function getScheduledPostsForCalendar(

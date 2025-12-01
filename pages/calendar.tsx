@@ -18,6 +18,7 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  CalendarDays,
 } from 'lucide-react'
 import { SiYoutube } from '@icons-pack/react-simple-icons'
 
@@ -387,14 +388,19 @@ export default function CalendarPage() {
         {/* Empty State */}
         {!loading && posts.length === 0 && (
           <div className="text-center py-12">
-            <SiYoutube className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No scheduled posts</h3>
-            <p className="text-muted-foreground mb-4">
-              Schedule shorts from your project pages to see them here.
+            <CalendarDays className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No scheduled posts this month</h3>
+            <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+              Schedule your first short from any project, or connect YouTube to get started.
             </p>
-            <Button asChild>
-              <Link href="/projects">Go to Projects</Link>
-            </Button>
+            <div className="flex items-center justify-center gap-3">
+              <Button asChild variant="outline">
+                <Link href="/settings/organization">Connect YouTube</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/projects">Browse Projects</Link>
+              </Button>
+            </div>
           </div>
         )}
       </div>

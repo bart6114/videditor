@@ -1,13 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { authenticate, requireOwner } from '@server/lib/api/auth';
-import { success, failure } from '@server/lib/api/responses';
+import { authenticate, requireOwner } from '@/lib/api/auth';
+import { success, failure } from '@/lib/api/responses';
 import { getDb } from '@server/db';
 import {
   getSocialAccountByOrgAndPlatform,
   deleteSocialAccount,
 } from '@server/db/queries/social-accounts';
 import { cancelAllPendingPostsForAccount } from '@server/db/queries/scheduled-posts';
-import { revokeAccess } from '@server/lib/youtube';
+import { revokeAccess } from '@/lib/youtube';
 
 /**
  * DELETE /api/v1/social/youtube/disconnect

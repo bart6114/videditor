@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { X, Loader2, ChevronLeft, ChevronRight, Download, FileText, Calendar, Send } from 'lucide-react'
@@ -97,6 +98,7 @@ export function ShortsSidePanel({
   const [submitting, setSubmitting] = useState(false)
   const [scheduleError, setScheduleError] = useState<string | null>(null)
   const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null)
+  const [confirmingPublishNow, setConfirmingPublishNow] = useState(false)
 
   // Get current index and check if navigation is available
   const currentIndex = selectedShort
@@ -275,6 +277,7 @@ export function ShortsSidePanel({
     setScheduleDescription('')
     setScheduleDate('')
     setScheduleTime('')
+    setConfirmingPublishNow(false)
   }
 
   const handleSchedule = async () => {
@@ -615,9 +618,9 @@ export function ShortsSidePanel({
               ) : socialAccounts.filter((a) => a.platform === 'youtube').length === 0 ? (
                 <div className="text-sm text-muted-foreground">
                   No YouTube accounts connected.{' '}
-                  <a href="/settings/organization" className="text-primary underline">
+                  <Link href="/settings/organization" className="text-primary underline">
                     Connect one in settings
-                  </a>
+                  </Link>
                 </div>
               ) : (
                 <select
@@ -681,35 +684,69 @@ export function ShortsSidePanel({
                 />
               </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Times are in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')})
+            </p>
           </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button
-              variant="outline"
-              onClick={handlePublishNow}
-              disabled={submitting || !selectedAccountId || !scheduleTitle.trim()}
-              className="w-full sm:w-auto"
-            >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
+          {confirmingPublishNow ? (
+            <div className="space-y-3">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  This will publish immediately to{' '}
+                  <span className="font-medium">
+                    {socialAccounts.find((a) => a.id === selectedAccountId)?.channelTitle || 'YouTube'}
+                  </span>
+                </p>
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmingPublishNow(false)}
+                  disabled={submitting}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handlePublishNow}
+                  disabled={submitting}
+                  className="w-full sm:w-auto"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Send className="w-4 h-4 mr-2" />
+                  )}
+                  Confirm Publish
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmingPublishNow(true)}
+                disabled={submitting || !selectedAccountId || !scheduleTitle.trim()}
+                className="w-full sm:w-auto"
+              >
                 <Send className="w-4 h-4 mr-2" />
-              )}
-              Publish Now
-            </Button>
-            <Button
-              onClick={handleSchedule}
-              disabled={submitting || !selectedAccountId || !scheduleTitle.trim() || !scheduleDate || !scheduleTime}
-              className="w-full sm:w-auto"
-            >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Calendar className="w-4 h-4 mr-2" />
-              )}
-              Schedule
-            </Button>
-          </DialogFooter>
+                Publish Now
+              </Button>
+              <Button
+                onClick={handleSchedule}
+                disabled={submitting || !selectedAccountId || !scheduleTitle.trim() || !scheduleDate || !scheduleTime}
+                className="w-full sm:w-auto"
+              >
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Calendar className="w-4 h-4 mr-2" />
+                )}
+                Schedule
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </>

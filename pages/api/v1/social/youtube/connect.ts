@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { authenticate, requireOwner } from '@server/lib/api/auth';
-import { failure } from '@server/lib/api/responses';
-import { getAuthUrl, generateOAuthState } from '@server/lib/youtube';
+import { authenticate, requireOwner } from '@/lib/api/auth';
+import { failure } from '@/lib/api/responses';
+import { getAuthUrl, generateOAuthState } from '@/lib/youtube';
 
 /**
  * GET /api/v1/social/youtube/connect

@@ -6,7 +6,7 @@ import {
   exchangeCode,
   getChannelInfo,
   parseOAuthState,
-} from '@server/lib/youtube';
+} from '@/lib/youtube';
 
 /**
  * GET /api/v1/social/youtube/callback

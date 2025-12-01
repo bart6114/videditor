@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import WorkspaceLayout from '@/components/layout/WorkspaceLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -386,9 +387,19 @@ export default function OrganizationSettings() {
                 {/* YouTube Connection */}
                 <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
-                      <SiYoutube className="w-6 h-6 text-red-500" />
-                    </div>
+                    {youtubeAccount?.channelThumbnail ? (
+                      <Image
+                        src={youtubeAccount.channelThumbnail}
+                        alt={youtubeAccount.channelTitle || 'YouTube Channel'}
+                        width={40}
+                        height={40}
+                        className="rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                        <SiYoutube className="w-6 h-6 text-red-500" />
+                      </div>
+                    )}
                     <div>
                       {youtubeAccount ? (
                         <>
