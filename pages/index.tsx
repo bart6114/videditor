@@ -2,7 +2,7 @@ import Head from 'next/head'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
-import { Sparkles, Upload, Download } from 'lucide-react'
+import { Sparkles, Upload, Download, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MonkeyLogo } from '@/components/MonkeyLogo'
 import { AppPreviewMockup } from '@/components/AppPreviewMockup'
@@ -288,6 +288,32 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Coming Soon / Roadmap Teaser */}
+        <div className="relative container mx-auto px-4 py-20">
+          <div className="max-w-3xl mx-auto">
+            <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-8 md:p-10">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+
+              <div className="relative flex flex-col md:flex-row md:items-center gap-6 md:gap-10">
+                <div className="flex-1 space-y-3">
+                  <h3 className="text-2xl font-bold text-foreground">What&apos;s Coming</h3>
+                  <p className="text-muted-foreground">
+                    We&apos;re actively building new features. Check out what&apos;s on our roadmap and what we&apos;re working on next.
+                  </p>
+                </div>
+
+                <Link
+                  href="/roadmap"
+                  className="group inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
+                >
+                  View roadmap
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Final CTA */}
         <div className="relative container mx-auto px-4 py-32">
           <div className="relative max-w-5xl mx-auto">
@@ -352,6 +378,10 @@ export default function Home() {
           </div>
           <p className="text-sm text-muted-foreground/60 mb-2">&copy; 2025 VidEditor.ai. All rights reserved.</p>
           <div className="flex items-center justify-center gap-3">
+            <Link href="/roadmap" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+              Roadmap
+            </Link>
+            <span className="text-muted-foreground/30">·</span>
             <Link href="/privacy" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
               Privacy Policy
             </Link>

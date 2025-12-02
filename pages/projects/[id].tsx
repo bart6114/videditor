@@ -119,6 +119,7 @@ export default function ProjectDetail() {
   const [newTitle, setNewTitle] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
   const [userCredits, setUserCredits] = useState<number | null>(null)
+  const [showInsufficientCredits, setShowInsufficientCredits] = useState(false)
 
   // Transcription job tracking for error/retry handling
   const [transcriptionJob, setTranscriptionJob] = useState<{
@@ -423,6 +424,13 @@ export default function ProjectDetail() {
   }
 
   async function handleAnalyze() {
+    // Check credits before proceeding
+    if (userCredits !== null && userCredits < shortsCount) {
+      setShowInsufficientCredits(true)
+      return
+    }
+    setShowInsufficientCredits(false)
+
     setAnalyzing(true)
     setIsGeneratingShorts(true)
 
@@ -997,6 +1005,7 @@ export default function ProjectDetail() {
                       value={shortsCount || ''}
                       onChange={(e) => {
                         const val = e.target.value;
+                        setShowInsufficientCredits(false);
                         if (val === '') {
                           setShortsCount(0);
                         } else {
@@ -1222,7 +1231,7 @@ export default function ProjectDetail() {
                   <div className="space-y-2">
                     <Button
                       onClick={handleAnalyze}
-                      disabled={analyzing || !!activeJob || !transcription || userCredits === null || userCredits < shortsCount}
+                      disabled={analyzing || !!activeJob || !transcription || userCredits === null}
                       className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {analyzing ? (
@@ -1255,8 +1264,8 @@ export default function ProjectDetail() {
                       )}
                     </div>
 
-                    {/* Insufficient credits warning */}
-                    {userCredits !== null && userCredits < shortsCount && (
+                    {/* Insufficient credits warning - shown after failed generation attempt */}
+                    {showInsufficientCredits && userCredits !== null && (
                       <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                         <p className="text-sm text-destructive">
                           Insufficient credits. You need {shortsCount - userCredits} more credit{shortsCount - userCredits !== 1 ? 's' : ''}.{' '}

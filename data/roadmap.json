@@ -1,0 +1,47 @@
+[
+  {
+    "topic": "YouTube Integration",
+    "description": "Integration being reviewed by Google. Code logic already exists but hidden behind a feature flag.",
+    "priority": "high"
+  },
+  {
+    "topic": "Publish to Socials & Scheduling",
+    "description": "Framework for publishing directly to social platforms with scheduling support. Pick a date and time, and your shorts go live automatically.",
+    "priority": "high"
+  },
+  {
+    "topic": "Onboarding Flow",
+    "description": "Guided experience for new users to help them get started quickly and understand the workflow.",
+    "priority": "high"
+  },
+  {
+    "topic": "Credits Policy Review",
+    "description": "Define credits policy for coming quarter. Currently charging per short, but transcription has significant LLM costs. Need to work this in - either charge at transcription or bump short generation price. TBD.",
+    "priority": "high"
+  },
+  {
+    "topic": "Queues",
+    "description": "Define your posting slots and bulk schedule your shorts. Set up recurring time slots and drag-and-drop shorts into your queue.",
+    "priority": "medium"
+  },
+  {
+    "topic": "Instagram Integration",
+    "description": "Coming after YouTube integration is approved and live.",
+    "priority": "medium"
+  },
+  {
+    "topic": "TikTok Integration",
+    "description": "Coming after YouTube integration is approved and live.",
+    "priority": "medium"
+  },
+  {
+    "topic": "Fine-Grained Short Slicing",
+    "description": "Manually define the relevant parts of your transcription to get more precise control over how shorts are generated.",
+    "priority": "medium"
+  },
+  {
+    "topic": "Analytics",
+    "description": "Not a current focus, but might be interesting down the road. Track how your shorts perform across platforms.",
+    "priority": "low"
+  }
+]
