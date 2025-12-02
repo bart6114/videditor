@@ -43,7 +43,7 @@ class JobRunnerConfig(BaseSettings):
     # AI/LLM services
     OPENROUTER_API_KEY: str = Field(min_length=1)
     OPENROUTER_ANALYSIS_MODEL: str = "openai/gpt-4o"
-    OPENROUTER_SOCIAL_MODEL: str = "openai/gpt-4o"
+    OPENROUTER_SOCIAL_MODEL: str = "openai/gpt-5-mini"
 
     # Transcription (OpenAI Whisper API)
     OPENAI_API_KEY: str = Field(min_length=1)

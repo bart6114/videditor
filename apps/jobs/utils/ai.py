@@ -9,6 +9,82 @@ import structlog
 
 logger = structlog.get_logger()
 
+# Valid platforms for social content generation
+VALID_PLATFORMS = {"youtube", "instagram", "tiktok", "linkedin"}
+
+
+def build_response_format(platforms: list[str]) -> dict[str, Any]:
+    """
+    Build OpenRouter response_format with dynamic JSON schema.
+
+    OpenRouter strict mode requires:
+    - No $defs/$ref references (must be inlined)
+    - additionalProperties: false on ALL objects
+    - required array listing all properties
+    """
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    for platform in platforms:
+        if platform == "youtube":
+            properties["youtube"] = {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "description": {"type": "string"},
+                },
+                "required": ["title", "description"],
+                "additionalProperties": False,
+            }
+            required.append("youtube")
+        elif platform == "instagram":
+            properties["instagram"] = {
+                "type": "object",
+                "properties": {
+                    "caption": {"type": "string"},
+                },
+                "required": ["caption"],
+                "additionalProperties": False,
+            }
+            required.append("instagram")
+        elif platform == "tiktok":
+            properties["tiktok"] = {
+                "type": "object",
+                "properties": {
+                    "caption": {"type": "string"},
+                },
+                "required": ["caption"],
+                "additionalProperties": False,
+            }
+            required.append("tiktok")
+        elif platform == "linkedin":
+            properties["linkedin"] = {
+                "type": "object",
+                "properties": {
+                    "caption": {"type": "string"},
+                },
+                "required": ["caption"],
+                "additionalProperties": False,
+            }
+            required.append("linkedin")
+
+    if not properties:
+        raise ValueError("No valid platforms provided")
+
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "social_content",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+                "additionalProperties": False,
+            },
+        },
+    }
+
 
 class ShortSuggestion:
     """Represents a suggested short clip from AI analysis."""
@@ -403,19 +479,19 @@ async def generate_social_content(
     api_key: str,
     transcription: str,
     platforms: list[str],
-    model: str = "openai/gpt-4o",
+    model: str = "openai/gpt-5-mini",
     context_before: str | None = None,
     context_after: str | None = None,
     custom_prompt: str | None = None,
 ) -> dict[str, Any]:
     """
-    Generate social media content for a short video clip.
+    Generate social media content for a short video clip using structured outputs.
 
     Args:
         api_key: OpenRouter API key
         transcription: The transcription text of the short video clip
         platforms: List of platforms to generate content for (youtube, instagram, tiktok, linkedin)
-        model: The model to use for generation
+        model: The model to use for generation (default: gpt-5-mini)
         context_before: Optional context from before the segment (~2000 chars)
         context_after: Optional context from after the segment (~2000 chars)
         custom_prompt: Optional custom instructions for content generation style/tone
@@ -430,37 +506,33 @@ async def generate_social_content(
         }
 
     Raises:
-        httpx.HTTPError: If API request fails
-        ValueError: If response format is invalid
+        httpx.HTTPError: If API request fails after retries
+        ValueError: If no valid platforms provided
     """
     logger.info(
         "generating_social_content",
         platforms=platforms,
         transcription_length=len(transcription),
+        model=model,
     )
 
     if not platforms:
         return {}
 
+    # Validate platforms and build response format
+    valid_platforms = [p for p in platforms if p in VALID_PLATFORMS]
+    if not valid_platforms:
+        logger.warning("no_valid_platforms", requested=platforms)
+        return {}
+
+    response_format = build_response_format(valid_platforms)
+
     # Build platform instructions section
     platform_sections = []
-    for platform in platforms:
+    for platform in valid_platforms:
         if platform in PLATFORM_INSTRUCTIONS:
             platform_sections.append(PLATFORM_INSTRUCTIONS[platform])
-
     platform_instructions = "\n\n".join(platform_sections)
-
-    # Build expected output format
-    output_format = {}
-    for platform in platforms:
-        if platform == "youtube":
-            output_format["youtube"] = {"title": "Generated title here", "description": "Generated description here"}
-        elif platform == "instagram":
-            output_format["instagram"] = {"caption": "Generated caption here"}
-        elif platform == "tiktok":
-            output_format["tiktok"] = {"caption": "Generated caption here"}
-        elif platform == "linkedin":
-            output_format["linkedin"] = {"caption": "Generated caption here"}
 
     # Build transcript section with optional context
     if context_before or context_after:
@@ -498,26 +570,21 @@ Generate content for these platforms with the following guidelines:
 
 {platform_instructions}
 
-Return your response as a JSON object with this exact format:
-{json.dumps(output_format, indent=2)}
-
 IMPORTANT:
 - Generate compelling, engaging content that would make viewers want to watch the video
 - Tailor the tone and style to each platform's audience
 - Keep content authentic and avoid clickbait
 - Use relevant hashtags where appropriate
-- Fix any typos or transcription errors from the source transcript in your generated content
-- Return ONLY the JSON object, no other text."""
+- Fix any typos or transcription errors from the source transcript"""
 
-    # Retry configuration
+    # Retry configuration - only retry HTTP errors, not parsing errors
     max_retries = 3
-    retry_base_delay = 1.0  # seconds
+    retry_base_delay = 1.0
 
     last_error: Exception | None = None
 
     for attempt in range(max_retries):
         try:
-            # Call OpenRouter API
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
                     "https://openrouter.ai/api/v1/chat/completions",
@@ -534,29 +601,18 @@ IMPORTANT:
                                 "content": prompt,
                             }
                         ],
-                        "temperature": 0.7,
-                        "max_tokens": 2000,
+                        "temperature": 1,
+                        "max_tokens": 4800,
+                        "response_format": response_format,
                     },
                 )
                 response.raise_for_status()
 
-            # Parse response
             result = response.json()
             logger.debug("openrouter_response_social_content", result=result)
 
-            # Extract content from response
+            # With structured outputs, content is guaranteed valid JSON
             content = result["choices"][0]["message"]["content"]
-
-            # Parse JSON from content
-            content = content.strip()
-            if content.startswith("```json"):
-                content = content[7:]
-            elif content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
-            content = content.strip()
-
             social_content = json.loads(content)
 
             logger.info(
@@ -566,12 +622,12 @@ IMPORTANT:
 
             return social_content
 
-        except (httpx.HTTPError, json.JSONDecodeError, KeyError, IndexError, ValueError) as e:
+        except httpx.HTTPError as e:
             last_error = e
             if attempt < max_retries - 1:
-                delay = retry_base_delay * (2 ** attempt)  # 1s, 2s
+                delay = retry_base_delay * (2**attempt)
                 logger.warning(
-                    "social_content_retry",
+                    "social_content_http_retry",
                     attempt=attempt + 1,
                     max_retries=max_retries,
                     delay_seconds=delay,
@@ -580,8 +636,13 @@ IMPORTANT:
                 await asyncio.sleep(delay)
             else:
                 logger.error(
-                    "social_content_failed_all_retries",
+                    "social_content_http_failed_all_retries",
                     attempts=max_retries,
                     error=str(e),
                 )
                 raise
+
+    # Should not reach here, but satisfy type checker
+    if last_error:
+        raise last_error
+    return {}

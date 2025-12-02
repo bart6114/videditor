@@ -310,3 +310,29 @@ class YouTubePublishResult(BaseModel):
     videoId: str
     url: str
     scheduledPostId: str
+
+
+# Social Content Models for Structured Outputs
+class YouTubeSocialContent(BaseModel):
+    """YouTube social content with title and description."""
+
+    title: str
+    description: str
+
+
+class InstagramSocialContent(BaseModel):
+    """Instagram social content with caption."""
+
+    caption: str
+
+
+class TikTokSocialContent(BaseModel):
+    """TikTok social content with caption."""
+
+    caption: str
+
+
+class LinkedInSocialContent(BaseModel):
+    """LinkedIn social content with caption."""
+
+    caption: str
