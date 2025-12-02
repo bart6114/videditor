@@ -557,31 +557,6 @@ class JobProcessor:
 
         # Create short containers and queue processing jobs
         for idx, suggestion in enumerate(suggestions):
-            # Check if a short with the same time range already exists (idempotency for retries)
-            existing_short_result = await session.execute(
-                text("""
-                    SELECT id FROM shorts
-                    WHERE project_id = :project_id
-                    AND ABS(start_time - :start_time) < 0.5
-                    AND ABS(end_time - :end_time) < 0.5
-                """),
-                {
-                    "project_id": job.project_id,
-                    "start_time": suggestion.start_time,
-                    "end_time": suggestion.end_time,
-                }
-            )
-            existing_short = existing_short_result.fetchone()
-            if existing_short:
-                self.logger.info(
-                    f"⏭️ Skipping duplicate short {idx + 1}/{len(suggestions)} (already exists)",
-                    job_id=job.id,
-                    existing_short_id=existing_short[0],
-                    start=suggestion.start_time,
-                    end=suggestion.end_time,
-                )
-                continue
-
             short_id = str(uuid.uuid4())
 
             # Determine initial task statuses
