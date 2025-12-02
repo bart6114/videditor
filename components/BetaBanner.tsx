@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { X } from 'lucide-react'
 
 const STORAGE_KEY = 'beta-banner-dismissed'
@@ -25,8 +26,8 @@ export function BetaBanner() {
       <div className="container mx-auto flex items-center justify-between gap-4">
         <div className="flex-1 text-center">
           <span className="font-semibold">We&apos;re in Beta!</span>
-          <span className="hidden sm:inline"> — We&apos;re actively developing, bugs may pop up, new features are coming.</span>
-          <span className="sm:hidden"> — Bugs may pop up, features are coming.</span>
+          <span className="hidden sm:inline"> — We&apos;re actively developing, bugs may pop up, new features are coming. Check out our <Link href="/roadmap" className="underline hover:no-underline">roadmap</Link>.</span>
+          <span className="sm:hidden"> — See our <Link href="/roadmap" className="underline hover:no-underline">roadmap</Link>.</span>
           <span className="font-semibold ml-1">You get 100 free credits!</span>
         </div>
         <button
