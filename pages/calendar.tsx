@@ -110,6 +110,11 @@ export default function CalendarPage() {
   const currentYear = currentDate.getFullYear()
   const currentMonth = currentDate.getMonth()
 
+  // View state
+  type CalendarView = 'month' | 'day'
+  const [currentView, setCurrentView] = useState<CalendarView>('month')
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null)
+
   // Redirect to sign-in if not authenticated
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -171,6 +176,35 @@ export default function CalendarPage() {
 
   const navigateToToday = () => {
     setCurrentDate(new Date())
+  }
+
+  // Day view navigation
+  const navigateToDay = (day: Date) => {
+    setSelectedDay(day)
+    setCurrentView('day')
+    // Ensure we're viewing the correct month for post loading
+    if (day.getMonth() !== currentMonth || day.getFullYear() !== currentYear) {
+      setCurrentDate(new Date(day.getFullYear(), day.getMonth(), 1))
+    }
+  }
+
+  const navigateToMonth = () => {
+    setCurrentView('month')
+    setSelectedDay(null)
+  }
+
+  const navigatePreviousDay = () => {
+    if (!selectedDay) return
+    const prevDay = new Date(selectedDay)
+    prevDay.setDate(prevDay.getDate() - 1)
+    navigateToDay(prevDay)
+  }
+
+  const navigateNextDay = () => {
+    if (!selectedDay) return
+    const nextDay = new Date(selectedDay)
+    nextDay.setDate(nextDay.getDate() + 1)
+    navigateToDay(nextDay)
   }
 
   const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })
@@ -268,7 +302,138 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* Calendar */}
+        {/* Day View */}
+        {currentView === 'day' && selectedDay && (
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={navigateToMonth}>
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Back
+                  </Button>
+                  <CardTitle className="text-lg">
+                    {selectedDay.toLocaleDateString('default', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </CardTitle>
+                </div>
+                <div className="flex items-center gap-2">
+                  {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                  <Button variant="outline" size="sm" onClick={navigatePreviousDay}>
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => navigateToDay(new Date())}>
+                    Today
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={navigateNextDay}>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const dayPosts = postsByDate[selectedDay.toDateString()] || []
+                if (dayPosts.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <CalendarDays className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No posts scheduled</h3>
+                      <p className="text-muted-foreground max-w-sm mx-auto">
+                        No posts are scheduled for this day.
+                      </p>
+                    </div>
+                  )
+                }
+                return (
+                  <div className="divide-y divide-border">
+                    {dayPosts.map((post) => (
+                      <div key={post.id} className="py-4 first:pt-0 last:pb-0">
+                        <div className="flex items-start gap-4">
+                          {/* Thumbnail */}
+                          <div className="w-20 h-12 rounded overflow-hidden bg-muted shrink-0">
+                            {post.short.thumbnailUrl ? (
+                              <Image
+                                src={post.short.thumbnailUrl}
+                                alt={post.title}
+                                width={80}
+                                height={48}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <SiYoutube className="w-6 h-6 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h3 className="font-medium text-sm line-clamp-1">{post.title}</h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {new Date(post.scheduledFor).toLocaleString()}
+                                </p>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`shrink-0 ${STATUS_COLORS[post.status] || ''}`}
+                              >
+                                <span className="flex items-center gap-1">
+                                  {STATUS_ICONS[post.status]}
+                                  {post.status}
+                                </span>
+                              </Badge>
+                            </div>
+
+                            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                              <span>
+                                Project:{' '}
+                                <Link
+                                  href={`/projects/${post.project.id}`}
+                                  className="text-primary hover:underline"
+                                >
+                                  {post.project.title}
+                                </Link>
+                              </span>
+                              {post.socialAccount.channelTitle && (
+                                <span>Channel: {post.socialAccount.channelTitle}</span>
+                              )}
+                            </div>
+
+                            {post.status === 'published' && post.platformUrl && (
+                              <a
+                                href={post.platformUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
+                              >
+                                View on YouTube
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+
+                            {post.status === 'failed' && post.errorMessage && (
+                              <p className="mt-2 text-xs text-red-500">{post.errorMessage}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Month View Calendar */}
+        {currentView === 'month' && (
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
@@ -299,7 +464,8 @@ export default function CalendarPage() {
                 return (
                   <div
                     key={index}
-                    className={`min-h-[100px] p-2 border rounded-lg transition-colors ${
+                    onClick={() => navigateToDay(day)}
+                    className={`min-h-[100px] p-2 border rounded-lg transition-colors cursor-pointer hover:bg-muted/50 ${
                       isCurrentMonth ? 'bg-card' : 'bg-muted/30'
                     } ${isToday ? 'ring-2 ring-primary' : 'border-border'}`}
                   >
@@ -316,6 +482,7 @@ export default function CalendarPage() {
                         <Link
                           key={post.id}
                           href={`/projects/${post.project.id}`}
+                          onClick={(e) => e.stopPropagation()}
                           className={`block p-1.5 rounded text-xs border transition-colors hover:opacity-80 ${
                             STATUS_COLORS[post.status] || STATUS_COLORS.scheduled
                           }`}
@@ -331,9 +498,15 @@ export default function CalendarPage() {
                         </Link>
                       ))}
                       {dayPosts.length > 3 && (
-                        <div className="text-xs text-muted-foreground text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigateToDay(day)
+                          }}
+                          className="text-xs text-muted-foreground text-center hover:text-primary hover:underline cursor-pointer w-full"
+                        >
                           +{dayPosts.length - 3} more
-                        </div>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -342,9 +515,10 @@ export default function CalendarPage() {
             </div>
           </CardContent>
         </Card>
+        )}
 
-        {/* Upcoming Posts List */}
-        {posts.length > 0 && (
+        {/* Upcoming Posts List - only in month view */}
+        {currentView === 'month' && posts.length > 0 && (
           <Card className="mt-6">
             <CardHeader>
               <CardTitle className="text-lg">All Posts This Month</CardTitle>
@@ -430,8 +604,8 @@ export default function CalendarPage() {
           </Card>
         )}
 
-        {/* Empty State */}
-        {!loading && posts.length === 0 && (
+        {/* Empty State - only in month view */}
+        {currentView === 'month' && !loading && posts.length === 0 && (
           <div className="text-center py-12">
             <CalendarDays className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No scheduled posts this month</h3>

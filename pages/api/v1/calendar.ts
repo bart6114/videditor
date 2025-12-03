@@ -3,6 +3,7 @@ import { getDb } from '@server/db';
 import { getScheduledPostsForCalendar } from '@server/db/queries/scheduled-posts';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
+import { createTigrisClient, createPresignedDownload } from '@/lib/tigris';
 
 /**
  * GET /api/v1/calendar
@@ -56,30 +57,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     end
   );
 
-  // Transform for frontend
-  const calendarItems = posts.map((item) => ({
-    id: item.post.id,
-    scheduledFor: item.post.scheduledFor,
-    status: item.post.status,
-    title: item.post.title,
-    description: item.post.description,
-    platformPostId: item.post.platformPostId,
-    platformUrl: item.post.platformUrl,
-    errorMessage: item.post.errorMessage,
-    short: {
-      id: item.short.id,
-      thumbnailUrl: item.short.thumbnailUrl,
-      transcriptionSlice: item.short.transcriptionSlice,
-    },
-    project: {
-      id: item.project.id,
-      title: item.project.title,
-    },
-    socialAccount: {
-      platform: item.socialAccount.platform,
-      channelTitle: item.socialAccount.channelTitle,
-    },
-  }));
+  // Transform for frontend with presigned thumbnail URLs
+  const calendarItems = await Promise.all(
+    posts.map(async (item) => {
+      let thumbnailUrl = item.short.thumbnailUrl;
+
+      if (thumbnailUrl) {
+        try {
+          const tigrisClient = createTigrisClient();
+          thumbnailUrl = await createPresignedDownload(
+            tigrisClient,
+            thumbnailUrl,
+            3600,
+            undefined,
+            'image/jpeg'
+          );
+        } catch (error) {
+          console.error('Failed to generate presigned URL for thumbnail:', thumbnailUrl, error);
+          thumbnailUrl = null;
+        }
+      }
+
+      return {
+        id: item.post.id,
+        scheduledFor: item.post.scheduledFor,
+        status: item.post.status,
+        title: item.post.title,
+        description: item.post.description,
+        platformPostId: item.post.platformPostId,
+        platformUrl: item.post.platformUrl,
+        errorMessage: item.post.errorMessage,
+        short: {
+          id: item.short.id,
+          thumbnailUrl,
+          transcriptionSlice: item.short.transcriptionSlice,
+        },
+        project: {
+          id: item.project.id,
+          title: item.project.title,
+        },
+        socialAccount: {
+          platform: item.socialAccount.platform,
+          channelTitle: item.socialAccount.channelTitle,
+        },
+      };
+    })
+  );
 
   return success(res, { posts: calendarItems });
 }

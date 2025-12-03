@@ -221,7 +221,6 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
                       width={36}
                       height={36}
                       className="rounded-full ring-2 ring-primary/20"
-                      unoptimized
                     />
                   )}
                   <div className="flex-1 min-w-0">

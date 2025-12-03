@@ -289,3 +289,4 @@ After initial setup, every push to `main` triggers automatic migrations and depl
 - Previous Cloudflare-specific code has been removed
 - System has been migrated from CloudFlare to Fly, if you encounter any remnants ask if OK to delete 'em
 - todo: allow to set specific models via env vars
+- todo: fix double publishing due to bad UX

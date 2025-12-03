@@ -873,7 +873,6 @@ export default function ProjectDetail() {
                               alt={project.title}
                               fill
                               className="object-contain"
-                              unoptimized
                             />
                           ) : (
                             <div className="w-full h-full bg-muted" />
@@ -1520,7 +1519,6 @@ export default function ProjectDetail() {
                                   alt="Short thumbnail"
                                   fill
                                   className="object-cover"
-                                  unoptimized
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-muted">

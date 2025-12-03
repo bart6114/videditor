@@ -35,6 +35,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: '**.ggpht.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'fly.storage.tigris.dev',
+      },
     ],
   },
   env: {

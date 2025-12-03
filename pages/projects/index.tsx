@@ -240,7 +240,6 @@ export default function Projects() {
                         alt={project.title}
                         fill
                         className={`object-cover transition-all duration-300 group-hover:scale-105 ${isProcessing(project) ? 'opacity-40' : ''}`}
-                        unoptimized
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">

@@ -42,7 +42,6 @@ export default function MobileHeader({ title, onMenuClick }: MobileHeaderProps) 
             width={32}
             height={32}
             className="rounded-full ring-2 ring-primary/20"
-            unoptimized
           />
         ) : (
           <div className="w-8 h-8 rounded-full bg-secondary" />
