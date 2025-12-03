@@ -37,6 +37,7 @@ import {
   Pencil,
   RefreshCw,
   AlertCircle,
+  CheckCircle2,
 } from 'lucide-react'
 import type { Project, Short, Transcription } from '@server/db/schema'
 import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortTasks } from '@shared/index'
@@ -74,6 +75,122 @@ function formatDuration(seconds: number): string {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
   return `${minutes}:${secs.toString().padStart(2, '0')}`
+}
+
+type ScheduledPost = {
+  id: string
+  status: string
+  scheduledFor: Date
+  title: string
+  platformPostId: string | null
+  platformUrl: string | null
+  errorMessage: string | null
+  platform: string
+  channelTitle: string | null
+}
+
+function renderShortStatusBadge(
+  short: Short & { tasks?: ShortTasks },
+  scheduledPosts?: ScheduledPost[]
+): React.ReactNode {
+  // PENDING
+  if (short.status === 'pending') {
+    return (
+      <Badge variant="secondary" className="text-xs">
+        <Clock className="w-3 h-3 mr-1" />
+        Queued
+      </Badge>
+    )
+  }
+
+  // PROCESSING
+  if (short.status === 'processing') {
+    return (
+      <Badge variant="secondary" className="text-xs">
+        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+        Processing
+      </Badge>
+    )
+  }
+
+  // ERROR
+  if (short.status === 'error') {
+    return (
+      <Badge variant="destructive" className="text-xs">
+        <AlertCircle className="w-3 h-3 mr-1" />
+        Error
+      </Badge>
+    )
+  }
+
+  // COMPLETED - check scheduled post status first
+  if (short.status === 'completed' && scheduledPosts && scheduledPosts.length > 0) {
+    const publishing = scheduledPosts.find(p => p.status === 'publishing')
+    const scheduled = scheduledPosts.find(p => p.status === 'scheduled')
+    const published = scheduledPosts.find(p => p.status === 'published')
+    const failed = scheduledPosts.find(p => p.status === 'failed')
+    const post = publishing || scheduled || published || failed
+
+    if (post) {
+      if (post.status === 'publishing') {
+        return (
+          <Badge variant="secondary" className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20">
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            Publishing...
+          </Badge>
+        )
+      }
+      if (post.status === 'scheduled') {
+        return (
+          <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
+            <Clock className="w-3 h-3 mr-1" />
+            {post.scheduledFor.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+          </Badge>
+        )
+      }
+      if (post.status === 'published' && post.platformUrl) {
+        return (
+          <a
+            href={post.platformUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex"
+          >
+            <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/20 cursor-pointer">
+              <SiYoutube size={12} className="mr-1" />
+              Published
+            </Badge>
+          </a>
+        )
+      }
+      if (post.status === 'failed') {
+        return (
+          <Badge variant="secondary" className="text-xs bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" title={post.errorMessage || 'Publishing failed'}>
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Failed
+          </Badge>
+        )
+      }
+    }
+  }
+
+  // DEFAULT COMPLETED (no scheduled posts)
+  if (short.status === 'completed') {
+    return (
+      <Badge variant="default" className="text-xs">
+        <CheckCircle2 className="w-3 h-3 mr-1" />
+        Ready
+      </Badge>
+    )
+  }
+
+  // Fallback
+  return (
+    <Badge variant="secondary" className="text-xs">
+      {short.status}
+    </Badge>
+  )
 }
 
 export default function ProjectDetail() {
@@ -1548,104 +1665,9 @@ export default function ProjectDetail() {
                           </td>
                           {/* Status */}
                           <td className="py-3 pr-4">
-                            {short.status === 'pending' ? (
-                              <Badge variant="secondary" className="text-xs">
-                                <Clock className="w-3 h-3 mr-1" />
-                                Queued
-                              </Badge>
-                            ) : short.status === 'processing' ? (
-                              <div className="flex flex-col gap-1">
-                                <Badge variant="secondary" className="text-xs">
-                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                  Processing
-                                </Badge>
-                                {(short as Short & { tasks?: ShortTasks }).tasks && (
-                                  <div className="flex gap-1.5 text-xs text-muted-foreground" title="Clip | Thumbnail | Social">
-                                    <span title="Clip extraction">
-                                      {(short as Short & { tasks?: ShortTasks }).tasks!.clip_extraction === 'done' ? '✓' :
-                                       (short as Short & { tasks?: ShortTasks }).tasks!.clip_extraction === 'processing' ? '⏳' :
-                                       (short as Short & { tasks?: ShortTasks }).tasks!.clip_extraction === 'error' ? '✗' : '○'}
-                                    </span>
-                                    <span title="Thumbnail extraction">
-                                      {(short as Short & { tasks?: ShortTasks }).tasks!.thumbnail_extraction === 'done' ? '✓' :
-                                       (short as Short & { tasks?: ShortTasks }).tasks!.thumbnail_extraction === 'processing' ? '⏳' :
-                                       (short as Short & { tasks?: ShortTasks }).tasks!.thumbnail_extraction === 'error' ? '✗' : '○'}
-                                    </span>
-                                    {(short as Short & { tasks?: ShortTasks }).tasks!.social_content !== 'skipped' && (
-                                      <span title="Social content">
-                                        {(short as Short & { tasks?: ShortTasks }).tasks!.social_content === 'done' ? '✓' :
-                                         (short as Short & { tasks?: ShortTasks }).tasks!.social_content === 'processing' ? '⏳' :
-                                         (short as Short & { tasks?: ShortTasks }).tasks!.social_content === 'error' ? '✗' : '○'}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-1">
-                                <Badge
-                                  variant={
-                                    short.status === 'completed' ? 'default' :
-                                    short.status === 'error' ? 'destructive' : 'secondary'
-                                  }
-                                  className="text-xs"
-                                >
-                                  {short.status}
-                                </Badge>
-                                {/* Scheduled post status */}
-                                {short.status === 'completed' && scheduledPostsByShort[short.id]?.length > 0 && (() => {
-                                  const posts = scheduledPostsByShort[short.id]
-                                  // Show most relevant post: publishing > scheduled > published > failed
-                                  const publishing = posts.find(p => p.status === 'publishing')
-                                  const scheduled = posts.find(p => p.status === 'scheduled')
-                                  const published = posts.find(p => p.status === 'published')
-                                  const failed = posts.find(p => p.status === 'failed')
-                                  const post = publishing || scheduled || published || failed
-                                  if (!post) return null
-
-                                  if (post.status === 'publishing') {
-                                    return (
-                                      <Badge variant="secondary" className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20">
-                                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                        Publishing...
-                                      </Badge>
-                                    )
-                                  }
-                                  if (post.status === 'scheduled') {
-                                    return (
-                                      <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
-                                        <Clock className="w-3 h-3 mr-1" />
-                                        {post.scheduledFor.toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                                      </Badge>
-                                    )
-                                  }
-                                  if (post.status === 'published' && post.platformUrl) {
-                                    return (
-                                      <a
-                                        href={post.platformUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="inline-flex"
-                                      >
-                                        <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/20">
-                                          <SiYoutube size={12} className="mr-1" />
-                                          Published
-                                        </Badge>
-                                      </a>
-                                    )
-                                  }
-                                  if (post.status === 'failed') {
-                                    return (
-                                      <Badge variant="secondary" className="text-xs bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" title={post.errorMessage || 'Publishing failed'}>
-                                        <AlertCircle className="w-3 h-3 mr-1" />
-                                        Failed
-                                      </Badge>
-                                    )
-                                  }
-                                  return null
-                                })()}
-                              </div>
+                            {renderShortStatusBadge(
+                              short as Short & { tasks?: ShortTasks },
+                              scheduledPostsByShort[short.id]
                             )}
                           </td>
                           {/* Actions */}

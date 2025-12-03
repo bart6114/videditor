@@ -291,3 +291,4 @@ After initial setup, every push to `main` triggers automatic migrations and depl
 - todo: allow to set specific models via env vars
 - todo: fix double publishing due to bad UX
 - todo: improve status UI in projects is for shorts (both completed and published indicators and stuff)
+- todo: up number of threads on prod before release
