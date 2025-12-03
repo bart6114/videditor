@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
 import { getShortById } from '@server/db/queries/shorts';
 import { getSocialAccountById } from '@server/db/queries/social-accounts';
-import { createScheduledPost } from '@server/db/queries/scheduled-posts';
+import { createScheduledPost, hasActiveScheduledPost } from '@server/db/queries/scheduled-posts';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import type { ScheduleShortPayload } from '@shared/index';
@@ -79,6 +79,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const socialAccount = await getSocialAccountById(db, socialAccountId);
   if (!socialAccount || socialAccount.organizationId !== authResult.organizationId) {
     return failure(res, 404, 'Social account not found');
+  }
+
+  // Check for existing active scheduled post (idempotency protection)
+  const hasExisting = await hasActiveScheduledPost(db, shortId, socialAccountId);
+  if (hasExisting) {
+    return failure(res, 409, 'This short already has an active scheduled post for this account');
   }
 
   // Create the scheduled post

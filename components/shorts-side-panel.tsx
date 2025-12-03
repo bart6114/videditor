@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import type { Short } from '@server/db/schema'
 import type { SocialContent, SocialPlatform } from '@shared/index'
 import { getShortFilename } from '@/lib/api/shorts'
 import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag'
+import { toast } from 'sonner'
 
 interface SocialAccount {
   id: string
@@ -99,8 +100,8 @@ export function ShortsSidePanel({
   const [scheduleTime, setScheduleTime] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [scheduleError, setScheduleError] = useState<string | null>(null)
-  const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null)
   const [confirmingPublishNow, setConfirmingPublishNow] = useState(false)
+  const submittingRef = useRef(false)
 
   // Get current index and check if navigation is available
   const currentIndex = selectedShort
@@ -228,7 +229,6 @@ export function ShortsSidePanel({
   const handleOpenScheduleModal = async () => {
     setScheduleModalOpen(true)
     setScheduleError(null)
-    setScheduleSuccess(null)
 
     // Prefill title/description from YouTube social content if available
     const socialContent = selectedShort?.socialContent as SocialContent | null
@@ -273,18 +273,23 @@ export function ShortsSidePanel({
   const handleCloseScheduleModal = () => {
     setScheduleModalOpen(false)
     setScheduleError(null)
-    setScheduleSuccess(null)
     setSelectedAccountId('')
     setScheduleTitle('')
     setScheduleDescription('')
     setScheduleDate('')
     setScheduleTime('')
     setConfirmingPublishNow(false)
+    submittingRef.current = false
   }
 
   const handleSchedule = async () => {
+    // Synchronous guard to prevent double-clicks
+    if (submittingRef.current) return
+    submittingRef.current = true
+
     if (!selectedShort || !selectedAccountId || !scheduleTitle.trim() || !scheduleDate || !scheduleTime) {
       setScheduleError('Please fill in all required fields')
+      submittingRef.current = false
       return
     }
 
@@ -292,6 +297,7 @@ export function ShortsSidePanel({
     const scheduledFor = new Date(`${scheduleDate}T${scheduleTime}`)
     if (scheduledFor <= new Date()) {
       setScheduleError('Scheduled time must be in the future')
+      submittingRef.current = false
       return
     }
 
@@ -311,19 +317,27 @@ export function ShortsSidePanel({
           }),
         }
       )
-      setScheduleSuccess('Short scheduled successfully!')
-      setTimeout(() => handleCloseScheduleModal(), 1500)
+      handleCloseScheduleModal()
+      toast.success('Short scheduled successfully!', {
+        description: `Scheduled for ${scheduledFor.toLocaleString()}`,
+      })
     } catch (err) {
       console.error('Error scheduling short:', err)
       setScheduleError(err instanceof Error ? err.message : 'Failed to schedule short')
     } finally {
       setSubmitting(false)
+      submittingRef.current = false
     }
   }
 
   const handlePublishNow = async () => {
+    // Synchronous guard to prevent double-clicks
+    if (submittingRef.current) return
+    submittingRef.current = true
+
     if (!selectedShort || !selectedAccountId || !scheduleTitle.trim()) {
       setScheduleError('Please select an account and enter a title')
+      submittingRef.current = false
       return
     }
 
@@ -342,13 +356,16 @@ export function ShortsSidePanel({
           }),
         }
       )
-      setScheduleSuccess('Publishing started! Check the calendar for status.')
-      setTimeout(() => handleCloseScheduleModal(), 1500)
+      handleCloseScheduleModal()
+      toast.success('Publishing started!', {
+        description: 'Check the calendar for status updates.',
+      })
     } catch (err) {
       console.error('Error publishing short:', err)
       setScheduleError(err instanceof Error ? err.message : 'Failed to publish short')
     } finally {
       setSubmitting(false)
+      submittingRef.current = false
     }
   }
 
@@ -595,21 +612,14 @@ export function ShortsSidePanel({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            {/* Success message */}
-            {scheduleSuccess && (
-              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                <p className="text-sm text-green-600 dark:text-green-400">{scheduleSuccess}</p>
-              </div>
-            )}
+          {/* Error message */}
+          {scheduleError && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">{scheduleError}</p>
+            </div>
+          )}
 
-            {/* Error message */}
-            {scheduleError && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <p className="text-sm text-red-600 dark:text-red-400">{scheduleError}</p>
-              </div>
-            )}
-
+          <fieldset disabled={submitting} className="space-y-4 py-4 disabled:opacity-60">
             {/* YouTube Account Selection */}
             <div>
               <label className="text-sm font-medium mb-2 block">YouTube Account</label>
@@ -690,7 +700,7 @@ export function ShortsSidePanel({
             <p className="text-xs text-muted-foreground">
               Times are in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')})
             </p>
-          </div>
+          </fieldset>
 
           {confirmingPublishNow ? (
             <div className="space-y-3">
@@ -717,11 +727,16 @@ export function ShortsSidePanel({
                   className="w-full sm:w-auto"
                 >
                   {submitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Publishing...
+                    </>
                   ) : (
-                    <Send className="w-4 h-4 mr-2" />
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Confirm Publish
+                    </>
                   )}
-                  Confirm Publish
                 </Button>
               </DialogFooter>
             </div>
@@ -742,11 +757,16 @@ export function ShortsSidePanel({
                 className="w-full sm:w-auto"
               >
                 {submitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Scheduling...
+                  </>
                 ) : (
-                  <Calendar className="w-4 h-4 mr-2" />
+                  <>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Schedule
+                  </>
                 )}
-                Schedule
               </Button>
             </DialogFooter>
           )}

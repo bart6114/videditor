@@ -5,6 +5,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import posthog from 'posthog-js'
+import { Toaster } from 'sonner'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
 import { OnboardingProvider } from '@/contexts/OnboardingContext'
 import { BetaBanner } from '@/components/BetaBanner'
@@ -55,6 +56,7 @@ function AppContent({ Component, pageProps }: AppProps) {
             userEmail={user?.primaryEmailAddress?.emailAddress}
             userName={user?.fullName}
           />
+          <Toaster position="bottom-right" />
         </div>
       </OnboardingProvider>
     </OrganizationProvider>

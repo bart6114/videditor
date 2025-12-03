@@ -290,3 +290,4 @@ After initial setup, every push to `main` triggers automatic migrations and depl
 - System has been migrated from CloudFlare to Fly, if you encounter any remnants ask if OK to delete 'em
 - todo: allow to set specific models via env vars
 - todo: fix double publishing due to bad UX
+- todo: improve status UI in projects is for shorts (both completed and published indicators and stuff)
