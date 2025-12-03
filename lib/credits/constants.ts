@@ -7,7 +7,7 @@ import {
 
 // Credit pricing constants - client-safe, can be imported anywhere
 // Base price in EUR cents (source of truth)
-export const CREDIT_PRICE_EUR_CENTS = 20 // €0.20 per credit
+export const CREDIT_PRICE_EUR_CENTS = 15 // €0.15 per credit
 
 // Legacy USD constant for backwards compatibility
 // Calculated from EUR base price using fixed exchange rate
