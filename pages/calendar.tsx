@@ -19,7 +19,9 @@ import {
   CheckCircle2,
   XCircle,
   CalendarDays,
+  Trash2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { SiYoutube } from '@icons-pack/react-simple-icons'
 import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag'
 
@@ -104,6 +106,7 @@ export default function CalendarPage() {
   const [posts, setPosts] = useState<CalendarPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   // Calendar state
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -144,6 +147,24 @@ export default function CalendarPage() {
       setError(err instanceof Error ? err.message : 'Failed to load scheduled posts')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleDeletePost(post: CalendarPost) {
+    if (!confirm(`Delete scheduled post "${post.title}"? This cannot be undone.`)) {
+      return
+    }
+
+    setDeleting(post.id)
+    try {
+      await call(`/v1/scheduled-posts/${post.id}`, { method: 'DELETE' })
+      setPosts(posts.filter((p) => p.id !== post.id))
+      toast.success('Scheduled post deleted')
+    } catch (err) {
+      console.error('Error deleting post:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to delete post')
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -381,15 +402,32 @@ export default function CalendarPage() {
                                   {new Date(post.scheduledFor).toLocaleString()}
                                 </p>
                               </div>
-                              <Badge
-                                variant="outline"
-                                className={`shrink-0 ${STATUS_COLORS[post.status] || ''}`}
-                              >
-                                <span className="flex items-center gap-1">
-                                  {STATUS_ICONS[post.status]}
-                                  {post.status}
-                                </span>
-                              </Badge>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Badge
+                                  variant="outline"
+                                  className={`${STATUS_COLORS[post.status] || ''}`}
+                                >
+                                  <span className="flex items-center gap-1">
+                                    {STATUS_ICONS[post.status]}
+                                    {post.status}
+                                  </span>
+                                </Badge>
+                                {post.status === 'scheduled' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                                    onClick={() => handleDeletePost(post)}
+                                    disabled={deleting === post.id}
+                                  >
+                                    {deleting === post.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
                             </div>
 
                             <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
@@ -555,15 +593,32 @@ export default function CalendarPage() {
                               {new Date(post.scheduledFor).toLocaleString()}
                             </p>
                           </div>
-                          <Badge
-                            variant="outline"
-                            className={`shrink-0 ${STATUS_COLORS[post.status] || ''}`}
-                          >
-                            <span className="flex items-center gap-1">
-                              {STATUS_ICONS[post.status]}
-                              {post.status}
-                            </span>
-                          </Badge>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge
+                              variant="outline"
+                              className={`${STATUS_COLORS[post.status] || ''}`}
+                            >
+                              <span className="flex items-center gap-1">
+                                {STATUS_ICONS[post.status]}
+                                {post.status}
+                              </span>
+                            </Badge>
+                            {post.status === 'scheduled' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                                onClick={() => handleDeletePost(post)}
+                                disabled={deleting === post.id}
+                              >
+                                {deleting === post.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
