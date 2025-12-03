@@ -119,6 +119,7 @@ export default function Privacy() {
                 <li><strong className="text-foreground/90">Clerk:</strong> Authentication (processes email and profile data)</li>
                 <li><strong className="text-foreground/90">Stripe:</strong> Payment processing (handles payment information)</li>
                 <li><strong className="text-foreground/90">Tigris:</strong> Cloud storage for video files</li>
+                <li><strong className="text-foreground/90">Crisp:</strong> Live chat support (processes email and chat messages)</li>
               </ul>
             </section>
 

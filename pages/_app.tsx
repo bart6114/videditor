@@ -3,11 +3,16 @@ import type { AppProps } from 'next/app'
 import { ClerkProvider, useUser } from '@clerk/nextjs'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import posthog from 'posthog-js'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
 import { OnboardingProvider } from '@/contexts/OnboardingContext'
 import { BetaBanner } from '@/components/BetaBanner'
 import { OnboardingTour, DevOnboardingTools } from '@/components/onboarding'
+
+const CrispWithNoSSR = dynamic(() => import('@/components/crisp'), {
+  ssr: false,
+})
 
 const inter = Inter({
   subsets: ['latin'],
@@ -46,6 +51,10 @@ function AppContent({ Component, pageProps }: AppProps) {
           <Component {...pageProps} />
           <OnboardingTour />
           <DevOnboardingTools />
+          <CrispWithNoSSR
+            userEmail={user?.primaryEmailAddress?.emailAddress}
+            userName={user?.fullName}
+          />
         </div>
       </OnboardingProvider>
     </OrganizationProvider>

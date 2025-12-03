@@ -38,6 +38,7 @@
     "@types/archiver": "^7.0.0",
     "@vercel/og": "^0.8.5",
     "archiver": "^7.0.1",
+    "crisp-sdk-web": "^1.0.26",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "driver.js": "^1.4.0",
