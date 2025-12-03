@@ -3,7 +3,8 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { X, Loader2, ChevronLeft, ChevronRight, Download, FileText, Calendar, Send } from 'lucide-react'
+import { X, Loader2, ChevronLeft, ChevronRight, Download, FileText, Calendar, Send, Check } from 'lucide-react'
+import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 import {
   Dialog,
   DialogContent,
@@ -94,6 +95,7 @@ export function ShortsSidePanel({
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(false)
   const [selectedAccountId, setSelectedAccountId] = useState<string>('')
+  const [selectedPlatform, setSelectedPlatform] = useState<'youtube' | 'tiktok' | 'instagram'>('youtube')
   const [scheduleTitle, setScheduleTitle] = useState('')
   const [scheduleDescription, setScheduleDescription] = useState('')
   const [scheduleDate, setScheduleDate] = useState('')
@@ -274,6 +276,7 @@ export function ShortsSidePanel({
     setScheduleModalOpen(false)
     setScheduleError(null)
     setSelectedAccountId('')
+    setSelectedPlatform('youtube')
     setScheduleTitle('')
     setScheduleDescription('')
     setScheduleDate('')
@@ -620,37 +623,68 @@ export function ShortsSidePanel({
           )}
 
           <fieldset disabled={submitting} className="space-y-4 py-4 disabled:opacity-60">
-            {/* YouTube Account Selection */}
+            {/* Platform Selection */}
             <div>
-              <label className="text-sm font-medium mb-2 block">YouTube Account</label>
-              {loadingAccounts ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading accounts...
-                </div>
-              ) : socialAccounts.filter((a) => a.platform === 'youtube').length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  No YouTube accounts connected.{' '}
-                  <Link href="/settings/organization" className="text-primary underline">
-                    Connect one in settings
-                  </Link>
-                </div>
-              ) : (
-                <select
-                  value={selectedAccountId}
-                  onChange={(e) => setSelectedAccountId(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              <label className="text-sm font-medium mb-2 block">Platform</label>
+              <div className="flex flex-wrap gap-2">
+                {/* YouTube */}
+                {(() => {
+                  const hasYouTubeAccount = !loadingAccounts && socialAccounts.some((a) => a.platform === 'youtube')
+                  const isDisabled = loadingAccounts || !hasYouTubeAccount
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => !isDisabled && setSelectedPlatform('youtube')}
+                      disabled={isDisabled}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all duration-200 ${
+                        isDisabled
+                          ? 'border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50'
+                          : selectedPlatform === 'youtube'
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                      }`}
+                    >
+                      <SiYoutube size={16} />
+                      <span className="text-sm">YouTube</span>
+                      {loadingAccounts ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : !hasYouTubeAccount ? (
+                        <Link
+                          href="/settings/organization"
+                          className="text-[10px] bg-muted text-foreground px-1 py-0.5 rounded hover:bg-muted/80"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Connect
+                        </Link>
+                      ) : selectedPlatform === 'youtube' ? (
+                        <Check className="w-3.5 h-3.5" />
+                      ) : null}
+                    </button>
+                  )
+                })()}
+
+                {/* TikTok - Coming Soon */}
+                <button
+                  type="button"
+                  disabled
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50"
                 >
-                  <option value="">Select an account</option>
-                  {socialAccounts
-                    .filter((a) => a.platform === 'youtube')
-                    .map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.channelTitle || account.channelId || 'YouTube Channel'}
-                      </option>
-                    ))}
-                </select>
-              )}
+                  <SiTiktok size={16} />
+                  <span className="text-sm">TikTok</span>
+                  <span className="text-[10px] bg-muted px-1 py-0.5 rounded">Soon</span>
+                </button>
+
+                {/* Instagram - Coming Soon */}
+                <button
+                  type="button"
+                  disabled
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50"
+                >
+                  <SiInstagram size={16} />
+                  <span className="text-sm">Instagram</span>
+                  <span className="text-[10px] bg-muted px-1 py-0.5 rounded">Soon</span>
+                </button>
+              </div>
             </div>
 
             {/* Title */}
