@@ -139,7 +139,7 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full" data-tour="video-upload">
       {!file ? (
         <div
           {...getRootProps()}

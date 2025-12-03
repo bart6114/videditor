@@ -29,6 +29,13 @@
       "when": 1764576934617,
       "tag": "0003_square_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1764748272660,
+      "tag": "0004_green_husk",
+      "breakpoints": true
     }
   ]
 }

@@ -186,7 +186,7 @@ export default function Projects() {
         </div>
 
         {/* Projects Grid */}
-        <div>
+        <div data-tour="projects-list">
           <h2 className="text-2xl font-bold mb-4 text-foreground">Your Projects</h2>
 
           {loading ? (

@@ -40,6 +40,7 @@
     "archiver": "^7.0.1",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
+    "driver.js": "^1.4.0",
     "drizzle-orm": "^0.44.7",
     "fastify": "^5.1.0",
     "googleapis": "^166.0.0",

@@ -173,6 +173,7 @@ The `fly.app.toml` file contains `[build.args]` that pass these values to the Do
 - ~~Scheduling system for YT/TikTok/Instagram~~ (YouTube implemented in `feature/youtube-scheduling` branch)
 - Onboarding flow for new users
 - Upload video should cost 1 credit
+- EUR/USD currency options for pricing
 
 ### YouTube Scheduling Deployment
 
