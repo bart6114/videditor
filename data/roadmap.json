@@ -1,23 +1,18 @@
 [
   {
-    "topic": "YouTube Integration",
+    "topic": "YouTube integration",
     "description": "Integration being reviewed by Google. Code logic already exists but hidden behind a feature flag.",
     "priority": "high"
   },
   {
-    "topic": "Publish to Socials & Scheduling",
+    "topic": "Publish to socials & scheduling",
     "description": "Framework for publishing directly to social platforms with scheduling support. Pick a date and time, and your shorts go live automatically.",
     "priority": "high"
   },
   {
-    "topic": "Onboarding Flow",
+    "topic": "Further optimize onboarding flow",
     "description": "Guided experience for new users to help them get started quickly and understand the workflow.",
-    "priority": "high"
-  },
-  {
-    "topic": "Credits Policy Review",
-    "description": "Define credits policy for coming quarter. Currently charging per short, but transcription has significant LLM costs. Need to work this in - either charge at transcription or bump short generation price. TBD.",
-    "priority": "high"
+    "priority": "medium"
   },
   {
     "topic": "Queues",
@@ -25,17 +20,17 @@
     "priority": "medium"
   },
   {
-    "topic": "Instagram Integration",
+    "topic": "Instagram integration",
     "description": "Coming after YouTube integration is approved and live.",
     "priority": "medium"
   },
   {
-    "topic": "TikTok Integration",
+    "topic": "TikTok integration",
     "description": "Coming after YouTube integration is approved and live.",
     "priority": "medium"
   },
   {
-    "topic": "Fine-Grained Short Slicing",
+    "topic": "Fine-grained short slicing",
     "description": "Manually define the relevant parts of your transcription to get more precise control over how shorts are generated.",
     "priority": "medium"
   },

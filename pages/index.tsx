@@ -118,6 +118,9 @@ export default function Home() {
           </Link>
           <div className="flex items-center gap-3">
             <Button asChild variant="ghost">
+              <Link href="/roadmap">Roadmap</Link>
+            </Button>
+            <Button asChild variant="ghost">
               <Link href="/pricing">Pricing</Link>
             </Button>
             {isSignedIn ? (
