@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { DB } from '../index';
 import { users, organizations, organizationMembers, type NewUser } from '../schema';
 import crypto from 'crypto';
+import { DEFAULT_FREE_CREDITS } from '@/lib/credits/constants';
 
 /**
  * Convert string to stable integer for advisory lock
@@ -94,7 +95,7 @@ export async function ensureUserExists(
       id: orgId,
       name: orgName,
       slug,
-      credits: 50, // New users start with 50 free credits
+      credits: DEFAULT_FREE_CREDITS,
     });
 
     // Create user with default organization
