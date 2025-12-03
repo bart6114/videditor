@@ -75,7 +75,7 @@ export const organizations = pgTable(
     autoTopUpEnabled: boolean('auto_top_up_enabled').default(false).notNull(),
     autoTopUpThreshold: integer('auto_top_up_threshold').default(5),
     autoTopUpAmount: integer('auto_top_up_amount').default(10),
-    preferredCurrency: varchar('preferred_currency', { length: 3 }).default('USD'), // 'EUR' or 'USD'
+    preferredCurrency: varchar('preferred_currency', { length: 3 }), // 'EUR' or 'USD' - null means auto-detect on first visit
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
