@@ -75,6 +75,7 @@ export const organizations = pgTable(
     autoTopUpEnabled: boolean('auto_top_up_enabled').default(false).notNull(),
     autoTopUpThreshold: integer('auto_top_up_threshold').default(5),
     autoTopUpAmount: integer('auto_top_up_amount').default(10),
+    preferredCurrency: varchar('preferred_currency', { length: 3 }).default('USD'), // 'EUR' or 'USD'
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -295,6 +296,10 @@ export const creditTransactions = pgTable(
     balanceAfter: integer('balance_after').notNull(),
     description: text('description'),
     stripePaymentIntentId: varchar('stripe_payment_intent_id', { length: 255 }),
+    // Currency tracking for purchases
+    currency: varchar('currency', { length: 3 }),  // 'EUR' or 'USD' (null for usage/refund/adjustment)
+    amountCents: integer('amount_cents'),          // Price paid in currency cents (null for non-purchase)
+    exchangeRate: doublePrecision('exchange_rate'), // EUR/USD rate at time of purchase
     metadata: jsonb('metadata'),                   // Job ID, project ID, etc.
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },

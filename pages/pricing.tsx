@@ -1,6 +1,7 @@
 import Head from 'next/head'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { MonkeyLogo } from '@/components/MonkeyLogo'
 import { Check, Zap } from 'lucide-react'
@@ -8,12 +9,30 @@ import {
   CREDIT_PACKAGES,
   CREDIT_COSTS,
   DEFAULT_FREE_CREDITS,
-  formatPrice,
-  formatCreditPrice,
+  formatPriceWithCurrency,
+  formatCreditPriceWithCurrency,
+  type SupportedCurrency,
 } from '@/lib/credits/constants'
 
 export default function PricingPage() {
   const { isSignedIn } = useUser()
+  const [currency, setCurrency] = useState<SupportedCurrency>('USD')
+
+  // Detect currency from API (which uses IP geolocation)
+  useEffect(() => {
+    async function detectCurrency() {
+      try {
+        const res = await fetch('/api/v1/billing/currency')
+        if (res.ok) {
+          const data = await res.json()
+          setCurrency(data.data?.effectiveCurrency || 'USD')
+        }
+      } catch {
+        // Default to USD on error
+      }
+    }
+    detectCurrency()
+  }, [])
 
   return (
     <>
@@ -96,10 +115,34 @@ export default function PricingPage() {
                   </p>
                 </div>
 
+                {/* Currency toggle */}
+                <div className="flex justify-center gap-2 mb-6">
+                  <button
+                    onClick={() => setCurrency('EUR')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      currency === 'EUR'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    EUR
+                  </button>
+                  <button
+                    onClick={() => setCurrency('USD')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      currency === 'USD'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    USD
+                  </button>
+                </div>
+
                 {/* Price per credit */}
                 <div className="text-center mb-8">
                   <div className="text-5xl font-bold text-foreground mb-2">
-                    {formatCreditPrice()}
+                    {formatCreditPriceWithCurrency(currency)}
                   </div>
                   <div className="text-muted-foreground">per credit</div>
                 </div>
@@ -134,7 +177,7 @@ export default function PricingPage() {
                         className="p-3 border border-border rounded-lg text-center"
                       >
                         <div className="font-bold text-foreground">{credits} credits</div>
-                        <div className="text-sm text-primary">{formatPrice(credits)}</div>
+                        <div className="text-sm text-primary">{formatPriceWithCurrency(credits, currency)}</div>
                       </div>
                     ))}
                   </div>

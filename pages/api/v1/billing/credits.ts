@@ -2,7 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { getDb } from '@server/db';
-import { getUserCreditInfo } from '@/lib/credits';
+import { getUserCreditInfo, getCreditPrice, type SupportedCurrency } from '@/lib/credits';
+import { EUR_TO_USD_RATE } from '@/lib/currency';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -21,11 +22,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 404, 'Organization not found');
   }
 
+  const preferredCurrency = (creditInfo.preferredCurrency as SupportedCurrency) || 'USD';
+
   return success(res, {
     credits: creditInfo.credits,
     autoTopUpEnabled: creditInfo.autoTopUpEnabled,
     autoTopUpThreshold: creditInfo.autoTopUpThreshold,
     autoTopUpAmount: creditInfo.autoTopUpAmount,
-    hasPaymentMethod: !!creditInfo.stripeCustomerId, // Simplified check
+    hasPaymentMethod: !!creditInfo.stripeCustomerId,
+    // Currency info
+    preferredCurrency,
+    pricing: {
+      EUR: {
+        pricePerCredit: getCreditPrice('EUR'),
+        symbol: '€',
+      },
+      USD: {
+        pricePerCredit: getCreditPrice('USD'),
+        symbol: '$',
+      },
+    },
+    exchangeRate: EUR_TO_USD_RATE,
   });
 }

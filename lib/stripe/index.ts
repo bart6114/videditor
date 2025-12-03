@@ -1,5 +1,10 @@
 import Stripe from 'stripe'
-import { CREDIT_PRICE_CENTS } from '@/lib/credits'
+import {
+  CREDIT_PRICE_EUR_CENTS,
+  type SupportedCurrency,
+  getCreditPrice,
+} from '@/lib/credits'
+import { EUR_TO_USD_RATE } from '@/lib/currency'
 
 // Initialize Stripe client
 export function createStripeClient(secretKey: string): Stripe {
@@ -67,24 +72,40 @@ export async function createSetupIntent(
 }
 
 /**
+ * Calculate amount in cents for a given number of credits and currency
+ */
+export function calculateAmountInCents(
+  creditAmount: number,
+  currency: SupportedCurrency
+): number {
+  // Get price per credit in the currency (returns dollars/euros)
+  const pricePerCredit = getCreditPrice(currency)
+  // Convert to cents and round
+  return Math.round(creditAmount * pricePerCredit * 100)
+}
+
+/**
  * Create a PaymentIntent for purchasing credits
  */
 export async function createCreditPurchasePaymentIntent(
   stripe: Stripe,
   customerId: string,
   creditAmount: number,
+  currency: SupportedCurrency = 'USD',
   paymentMethodId?: string
 ): Promise<Stripe.PaymentIntent> {
-  const amountInCents = creditAmount * CREDIT_PRICE_CENTS
+  const amountInCents = calculateAmountInCents(creditAmount, currency)
 
   const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
     amount: amountInCents,
-    currency: 'usd',
+    currency: currency.toLowerCase(),
     customer: customerId,
     description: `Purchase ${creditAmount} credits`,
     metadata: {
       type: 'credit_purchase',
       creditAmount: creditAmount.toString(),
+      currency,
+      exchangeRate: EUR_TO_USD_RATE.toString(),
     },
   }
 
@@ -105,13 +126,14 @@ export async function chargeAutoTopUp(
   stripe: Stripe,
   customerId: string,
   creditAmount: number,
-  paymentMethodId: string
+  paymentMethodId: string,
+  currency: SupportedCurrency = 'USD'
 ): Promise<Stripe.PaymentIntent> {
-  const amountInCents = creditAmount * CREDIT_PRICE_CENTS
+  const amountInCents = calculateAmountInCents(creditAmount, currency)
 
   return stripe.paymentIntents.create({
     amount: amountInCents,
-    currency: 'usd',
+    currency: currency.toLowerCase(),
     customer: customerId,
     payment_method: paymentMethodId,
     confirm: true,
@@ -120,6 +142,8 @@ export async function chargeAutoTopUp(
     metadata: {
       type: 'auto_topup',
       creditAmount: creditAmount.toString(),
+      currency,
+      exchangeRate: EUR_TO_USD_RATE.toString(),
     },
   })
 }

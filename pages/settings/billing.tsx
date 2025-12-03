@@ -23,7 +23,11 @@ import {
   Check,
   Building2,
 } from 'lucide-react';
-import { CREDIT_PACKAGES, formatPrice } from '@/lib/credits/constants';
+import {
+  CREDIT_PACKAGES,
+  formatPriceWithCurrency,
+  type SupportedCurrency,
+} from '@/lib/credits/constants';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
@@ -33,6 +37,7 @@ interface CreditInfo {
   autoTopUpThreshold: number;
   autoTopUpAmount: number;
   hasPaymentMethod: boolean;
+  preferredCurrency: SupportedCurrency;
 }
 
 interface PaymentMethod {
@@ -137,8 +142,29 @@ function BillingContent() {
   const [showAddCard, setShowAddCard] = useState(false);
   const [purchasing, setPurchasing] = useState<number | null>(null);
   const [savingAutoTopUp, setSavingAutoTopUp] = useState(false);
+  const [savingCurrency, setSavingCurrency] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Currency state - defaults to USD, will be updated from creditInfo
+  const currency: SupportedCurrency = creditInfo?.preferredCurrency || 'USD';
+
+  async function handleCurrencyChange(newCurrency: SupportedCurrency) {
+    setSavingCurrency(true);
+    setError(null);
+
+    try {
+      await call('/v1/billing/currency', {
+        method: 'PATCH',
+        body: JSON.stringify({ currency: newCurrency }),
+      });
+      setCreditInfo((prev) => (prev ? { ...prev, preferredCurrency: newCurrency } : null));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update currency');
+    } finally {
+      setSavingCurrency(false);
+    }
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -171,9 +197,10 @@ function BillingContent() {
         newBalance?: number;
         requiresAction?: boolean;
         clientSecret?: string;
+        currency?: SupportedCurrency;
       }>('/v1/billing/purchase', {
         method: 'POST',
-        body: JSON.stringify({ creditAmount: credits }),
+        body: JSON.stringify({ creditAmount: credits, currency }),
       });
 
       if (result.success) {
@@ -284,6 +311,36 @@ function BillingContent() {
           </div>
         </div>
 
+        {/* Currency selector */}
+        <div className="flex items-center gap-3 mb-4 p-3 bg-muted/20 rounded-lg">
+          <span className="text-sm text-muted-foreground">Currency:</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleCurrencyChange('EUR')}
+              disabled={savingCurrency}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                currency === 'EUR'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              } disabled:opacity-50`}
+            >
+              EUR
+            </button>
+            <button
+              onClick={() => handleCurrencyChange('USD')}
+              disabled={savingCurrency}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                currency === 'USD'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              } disabled:opacity-50`}
+            >
+              USD
+            </button>
+          </div>
+          {savingCurrency && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {CREDIT_PACKAGES.map(({ credits }) => (
             <button
@@ -298,7 +355,7 @@ function BillingContent() {
                 <>
                   <div className="text-xl font-bold text-foreground">{credits}</div>
                   <div className="text-sm text-muted-foreground">credits</div>
-                  <div className="text-sm font-medium text-primary mt-1">{formatPrice(credits)}</div>
+                  <div className="text-sm font-medium text-primary mt-1">{formatPriceWithCurrency(credits, currency)}</div>
                 </>
               )}
             </button>
@@ -441,7 +498,7 @@ function BillingContent() {
               >
                 {CREDIT_PACKAGES.map(({ credits }) => (
                   <option key={credits} value={credits}>
-                    {credits} credits ({formatPrice(credits)})
+                    {credits} credits ({formatPriceWithCurrency(credits, currency)})
                   </option>
                 ))}
               </select>

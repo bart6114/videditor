@@ -5,8 +5,10 @@ import {
   createStripeClient,
   getDefaultPaymentMethod,
   chargeAutoTopUp,
+  calculateAmountInCents,
 } from '@/lib/stripe';
-import { addCredits, disableAutoTopUp } from './index';
+import { addCredits, disableAutoTopUp, type SupportedCurrency } from './index';
+import { EUR_TO_USD_RATE } from '@/lib/currency';
 
 /**
  * Check if auto top-up should be triggered and execute it if needed.
@@ -23,6 +25,7 @@ export async function triggerAutoTopUpIfNeeded(db: DB, organizationId: string): 
       autoTopUpEnabled: organizations.autoTopUpEnabled,
       autoTopUpThreshold: organizations.autoTopUpThreshold,
       autoTopUpAmount: organizations.autoTopUpAmount,
+      preferredCurrency: organizations.preferredCurrency,
     })
     .from(organizations)
     .where(eq(organizations.id, organizationId))
@@ -66,28 +69,36 @@ export async function triggerAutoTopUpIfNeeded(db: DB, organizationId: string): 
   }
 
   const topUpAmount = org.autoTopUpAmount ?? 10;
+  const currency: SupportedCurrency = (org.preferredCurrency as SupportedCurrency) || 'USD';
+  const amountCents = calculateAmountInCents(topUpAmount, currency);
 
   try {
-    // Charge the card
+    // Charge the card in the org's preferred currency
     const paymentIntent = await chargeAutoTopUp(
       stripe,
       org.stripeCustomerId,
       topUpAmount,
-      defaultPm.id
+      defaultPm.id,
+      currency
     );
 
     if (paymentIntent.status === 'succeeded') {
-      // Add credits
+      // Add credits with currency tracking
       await addCredits(
         db,
         organizationId,
         topUpAmount,
         'auto_topup',
-        { description: `Auto top-up: ${topUpAmount} credits` },
+        {
+          description: `Auto top-up: ${topUpAmount} credits`,
+          currency,
+          amountCents,
+          exchangeRate: EUR_TO_USD_RATE,
+        },
         paymentIntent.id
       );
 
-      console.log(`Auto top-up successful for organization ${organizationId}: +${topUpAmount} credits`);
+      console.log(`Auto top-up successful for organization ${organizationId}: +${topUpAmount} credits (${currency})`);
     } else {
       // Payment requires additional action - this shouldn't happen for off_session
       console.error(`Auto top-up payment requires action for organization ${organizationId}`);

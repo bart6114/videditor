@@ -11,6 +11,7 @@ import {
 // Re-export client-safe constants
 export {
   CREDIT_PRICE_CENTS,
+  CREDIT_PRICE_EUR_CENTS,
   MIN_PURCHASE_CREDITS,
   DEFAULT_AUTO_TOPUP_THRESHOLD,
   DEFAULT_AUTO_TOPUP_AMOUNT,
@@ -20,10 +21,18 @@ export {
   calculatePrice,
   formatPrice,
   formatCreditPrice,
+  // New currency-aware exports
+  type SupportedCurrency,
+  getCreditPrice,
+  calculatePriceInCurrency,
+  formatPriceWithCurrency,
+  formatCreditPriceWithCurrency,
 } from './constants';
 
 // Import for local use in this file
 import { CREDIT_COSTS } from './constants';
+
+import type { SupportedCurrency } from './constants';
 
 export type CreditTransactionType = 'purchase' | 'auto_topup' | 'usage' | 'refund' | 'adjustment';
 
@@ -33,6 +42,10 @@ export interface CreditMetadata {
   shortsCount?: number;
   description?: string;
   performedById?: string;
+  // Currency tracking for purchases
+  currency?: SupportedCurrency;
+  amountCents?: number;
+  exchangeRate?: number;
   [key: string]: unknown;
 }
 
@@ -67,6 +80,7 @@ export async function getUserCreditInfo(db: DB, organizationId: string) {
       autoTopUpEnabled: organizations.autoTopUpEnabled,
       autoTopUpThreshold: organizations.autoTopUpThreshold,
       autoTopUpAmount: organizations.autoTopUpAmount,
+      preferredCurrency: organizations.preferredCurrency,
     })
     .from(organizations)
     .where(eq(organizations.id, organizationId))
@@ -125,6 +139,10 @@ export async function addCredits(
       balanceAfter: updatedOrg.credits,
       description: metadata?.description ?? getDefaultDescription(type, amount),
       stripePaymentIntentId: stripePaymentIntentId ?? null,
+      // Currency tracking for purchases
+      currency: metadata?.currency ?? null,
+      amountCents: metadata?.amountCents ?? null,
+      exchangeRate: metadata?.exchangeRate ?? null,
       metadata: metadata ?? null,
     };
 
@@ -300,6 +318,26 @@ export async function disableAutoTopUp(db: DB, organizationId: string): Promise<
     .update(organizations)
     .set({
       autoTopUpEnabled: false,
+      updatedAt: new Date(),
+    })
+    .where(eq(organizations.id, organizationId));
+}
+
+/**
+ * Update organization's preferred currency
+ * @param db - Database instance
+ * @param organizationId - Organization ID
+ * @param currency - Preferred currency ('EUR' or 'USD')
+ */
+export async function setPreferredCurrency(
+  db: DB,
+  organizationId: string,
+  currency: SupportedCurrency
+): Promise<void> {
+  await db
+    .update(organizations)
+    .set({
+      preferredCurrency: currency,
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, organizationId));

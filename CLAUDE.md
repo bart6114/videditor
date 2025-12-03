@@ -172,7 +172,7 @@ The `fly.app.toml` file contains `[build.args]` that pass these values to the Do
 
 - ~~Scheduling system for YT/TikTok/Instagram~~ (YouTube implemented in `feature/youtube-scheduling` branch)
 - Upload video should cost 1 credit
-- EUR/USD currency options for pricing
+- ~~EUR/USD currency options for pricing~~ (implemented with €0.20/credit base, auto-detect EU via IP)
 
 ### YouTube Scheduling Deployment
 

@@ -10,18 +10,22 @@ import {
   createCreditPurchasePaymentIntent,
   getOrCreateCustomer,
   getDefaultPaymentMethod,
+  calculateAmountInCents,
 } from '@/lib/stripe';
 import {
   addCredits,
   setStripeCustomerId,
   MIN_PURCHASE_CREDITS,
-  CREDIT_PRICE_CENTS,
   getOrganizationCredits,
+  type SupportedCurrency,
 } from '@/lib/credits';
+import { EUR_TO_USD_RATE } from '@/lib/currency';
+import { detectCurrencyFromIP, getClientIP } from '@/lib/currency/geo-detection';
 
 const purchaseSchema = z.object({
   creditAmount: z.number().int().min(MIN_PURCHASE_CREDITS),
   paymentMethodId: z.string().optional(), // If provided, charge immediately
+  currency: z.enum(['EUR', 'USD']).optional(), // If not provided, auto-detect or use org preference
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -39,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 400, 'Invalid request body', parsed.error.flatten());
   }
 
-  const { creditAmount, paymentMethodId } = parsed.data;
+  const { creditAmount, paymentMethodId, currency: requestedCurrency } = parsed.data;
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
   if (!stripeSecretKey) {
@@ -50,12 +54,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const db = getDb();
 
   try {
-    // Get organization with Stripe customer ID
+    // Get organization with Stripe customer ID and preferred currency
     const [org] = await db
       .select({
         id: organizations.id,
         name: organizations.name,
         stripeCustomerId: organizations.stripeCustomerId,
+        preferredCurrency: organizations.preferredCurrency,
       })
       .from(organizations)
       .where(eq(organizations.id, authResult.organizationId))
@@ -92,13 +97,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       pmToUse = defaultPm?.id;
     }
 
-    // Create payment intent
+    // Determine currency: requested > org preference > auto-detect from IP
+    let currency: SupportedCurrency = requestedCurrency ?? (org.preferredCurrency as SupportedCurrency | null) ?? 'USD';
+    if (!requestedCurrency && !org.preferredCurrency) {
+      // Auto-detect from IP
+      const clientIP = getClientIP(req.headers as Record<string, string | string[] | undefined>);
+      if (clientIP) {
+        currency = await detectCurrencyFromIP(clientIP);
+      }
+    }
+
+    // Create payment intent with currency
     const paymentIntent = await createCreditPurchasePaymentIntent(
       stripe,
       customerId,
       creditAmount,
+      currency,
       pmToUse
     );
+
+    const amountInCents = calculateAmountInCents(creditAmount, currency);
 
     // If payment was confirmed immediately (had payment method)
     if (paymentIntent.status === 'succeeded') {
@@ -111,6 +129,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         {
           description: `Purchased ${creditAmount} credits`,
           performedById: authResult.userId,
+          currency,
+          amountCents: amountInCents,
+          exchangeRate: EUR_TO_USD_RATE,
         },
         paymentIntent.id
       );
@@ -121,6 +142,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         success: true,
         newBalance,
         paymentIntentId: paymentIntent.id,
+        currency,
       });
     }
 
@@ -131,8 +153,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       requiresPaymentMethod: paymentIntent.status === 'requires_payment_method',
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
-      amount: creditAmount * CREDIT_PRICE_CENTS,
+      amount: amountInCents,
       creditAmount,
+      currency,
     });
   } catch (error) {
     console.error('Purchase error:', error);

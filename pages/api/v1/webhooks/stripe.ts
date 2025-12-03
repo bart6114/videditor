@@ -12,6 +12,7 @@ import {
   addCredits,
   disableAutoTopUp,
   setStripeCustomerId,
+  type SupportedCurrency,
 } from '@/lib/credits';
 
 // Disable body parsing, we need raw body for webhook verification
@@ -127,6 +128,11 @@ async function handlePaymentSucceeded(db: ReturnType<typeof getDb>, paymentInten
   // Determine transaction type
   const transactionType = type === 'auto_topup' ? 'auto_topup' : 'purchase';
 
+  // Extract currency info from metadata
+  const currency = (metadata?.currency as SupportedCurrency) || 'USD';
+  const exchangeRate = parseFloat(metadata?.exchangeRate ?? '1.16');
+  const amountCents = paymentIntent.amount; // Amount in cents from the payment
+
   // Add credits to organization (no performedById for webhook-initiated transactions)
   await addCredits(
     db,
@@ -137,11 +143,14 @@ async function handlePaymentSucceeded(db: ReturnType<typeof getDb>, paymentInten
       description: type === 'auto_topup'
         ? `Auto top-up: ${creditAmount} credits`
         : `Purchased ${creditAmount} credits`,
+      currency,
+      amountCents,
+      exchangeRate,
     },
     paymentIntent.id
   );
 
-  console.log(`Added ${creditAmount} credits to organization ${org.id} (${transactionType})`);
+  console.log(`Added ${creditAmount} credits to organization ${org.id} (${transactionType}, ${currency})`);
 }
 
 /**
