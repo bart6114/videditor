@@ -279,13 +279,25 @@ export default function CalendarPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={navigatePreviousMonth}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={currentView === 'day' ? navigatePreviousDay : navigatePreviousMonth}
+            >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={navigateToToday}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={currentView === 'day' ? () => navigateToDay(new Date()) : navigateToToday}
+            >
               Today
             </Button>
-            <Button variant="outline" size="sm" onClick={navigateNextMonth}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={currentView === 'day' ? navigateNextDay : navigateNextMonth}
+            >
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
@@ -310,7 +322,7 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={navigateToMonth}>
                     <ChevronLeft className="w-4 h-4 mr-1" />
-                    Back
+                    Month View
                   </Button>
                   <CardTitle className="text-lg">
                     {selectedDay.toLocaleDateString('default', {
@@ -321,18 +333,7 @@ export default function CalendarPage() {
                     })}
                   </CardTitle>
                 </div>
-                <div className="flex items-center gap-2">
-                  {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                  <Button variant="outline" size="sm" onClick={navigatePreviousDay}>
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => navigateToDay(new Date())}>
-                    Today
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={navigateNextDay}>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
+                {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
               </div>
             </CardHeader>
             <CardContent>
