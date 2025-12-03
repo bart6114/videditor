@@ -10,6 +10,11 @@
     "priority": "high"
   },
   {
+    "topic": "API platform for developers",
+    "description": "Public API for developers to integrate our services via scripting or automation tools like n8n, Make, Zapier, and more.",
+    "priority": "medium"
+  },
+  {
     "topic": "Further optimize onboarding flow",
     "description": "Guided experience for new users to help them get started quickly and understand the workflow.",
     "priority": "medium"

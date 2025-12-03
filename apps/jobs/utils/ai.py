@@ -575,7 +575,9 @@ IMPORTANT:
 - Tailor the tone and style to each platform's audience
 - Keep content authentic and avoid clickbait
 - Use relevant hashtags where appropriate
-- Fix any typos or transcription errors from the source transcript"""
+- Fix any typos or transcription errors from the source transcript
+- NEVER include placeholder text like "[link]", "[URL]", "Watch more: [link]", or similar bracketed placeholders unless the user explicitly requests them in their custom instructions
+- Write complete, ready-to-use content"""
 
     # Retry configuration - only retry HTTP errors, not parsing errors
     max_retries = 3
