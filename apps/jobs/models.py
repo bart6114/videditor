@@ -233,7 +233,7 @@ class ScheduledPost(Base):
     short_id = Column(String(255), nullable=False, index=True)
     social_account_id = Column(String(255), nullable=False)
     scheduled_for = Column(TIMESTAMP(timezone=True), nullable=False, index=True)
-    status = Column(ENUM('scheduled', 'publishing', 'published', 'failed', 'canceled', name='scheduled_post_status', create_type=False), nullable=False, default="scheduled")
+    status = Column(ENUM('scheduled', 'publishing', 'published', 'failed', name='scheduled_post_status', create_type=False), nullable=False, default="scheduled")
     title = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
     platform_post_id = Column(String(255), nullable=True)  # YouTube video ID

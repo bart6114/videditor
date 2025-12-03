@@ -264,7 +264,7 @@ export default function OrganizationSettings() {
   }
 
   async function handleDisconnectYouTube() {
-    if (!confirm('Disconnect YouTube account? All pending scheduled posts will be canceled.')) return;
+    if (!confirm('Disconnect YouTube account? All pending scheduled posts will be deleted.')) return;
     setDisconnectingYouTube(true);
     setError(null);
 

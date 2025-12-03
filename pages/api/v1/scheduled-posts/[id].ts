@@ -3,7 +3,7 @@ import { getDb } from '@server/db';
 import {
   getScheduledPostByIdWithOwnership,
   updateScheduledPost,
-  cancelScheduledPost,
+  deleteScheduledPost,
 } from '@server/db/queries/scheduled-posts';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
@@ -14,7 +14,7 @@ import { failure, success } from '@/lib/api/responses';
  * Only allowed for posts with status='scheduled'
  *
  * DELETE /api/v1/scheduled-posts/[id]
- * Cancel a scheduled post
+ * Delete a scheduled post
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const authResult = await authenticate(req);
@@ -94,13 +94,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'DELETE') {
-    const result = await cancelScheduledPost(db, id, authResult.organizationId);
+    const result = await deleteScheduledPost(db, id, authResult.organizationId);
 
     if (!result.success) {
       return failure(res, 400, result.error);
     }
 
-    return success(res, { canceled: true });
+    return success(res, { deleted: true });
   }
 
   return failure(res, 405, 'Method not allowed');

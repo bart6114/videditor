@@ -28,7 +28,7 @@ import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag'
 interface CalendarPost {
   id: string
   scheduledFor: string
-  status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'canceled'
+  status: 'scheduled' | 'publishing' | 'published' | 'failed'
   title: string
   description: string | null
   platformPostId: string | null
@@ -54,7 +54,6 @@ const STATUS_COLORS: Record<string, string> = {
   publishing: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
   published: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
   failed: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
-  canceled: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20',
 }
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
@@ -62,7 +61,6 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   publishing: <Loader2 className="w-3 h-3 animate-spin" />,
   published: <CheckCircle2 className="w-3 h-3" />,
   failed: <XCircle className="w-3 h-3" />,
-  canceled: <XCircle className="w-3 h-3" />,
 }
 
 function getMonthDays(year: number, month: number): Date[] {

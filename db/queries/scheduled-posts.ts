@@ -200,7 +200,7 @@ export async function updateScheduledPost(
 export async function updateScheduledPostStatus(
   db: DB,
   postId: string,
-  status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'canceled',
+  status: 'scheduled' | 'publishing' | 'published' | 'failed',
   extra?: {
     errorMessage?: string;
     platformPostId?: string;
@@ -224,9 +224,9 @@ export async function updateScheduledPostStatus(
 }
 
 /**
- * Cancel scheduled post
+ * Delete scheduled post with ownership verification
  */
-export async function cancelScheduledPost(
+export async function deleteScheduledPost(
   db: DB,
   postId: string,
   organizationId: string
@@ -237,24 +237,23 @@ export async function cancelScheduledPost(
   }
 
   if (post.status !== 'scheduled') {
-    return { success: false, error: 'Can only cancel posts that are still scheduled' };
+    return { success: false, error: 'Can only delete posts that are still scheduled' };
   }
 
-  await updateScheduledPostStatus(db, postId, 'canceled');
+  await db.delete(scheduledPosts).where(eq(scheduledPosts.id, postId));
   return { success: true };
 }
 
 /**
- * Cancel all pending scheduled posts for a social account
+ * Delete all pending scheduled posts for a social account
  * Used when disconnecting an account
  */
-export async function cancelAllPendingPostsForAccount(
+export async function deleteAllPendingPostsForAccount(
   db: DB,
   socialAccountId: string
 ): Promise<number> {
   const result = await db
-    .update(scheduledPosts)
-    .set({ status: 'canceled', updatedAt: new Date() })
+    .delete(scheduledPosts)
     .where(
       and(
         eq(scheduledPosts.socialAccountId, socialAccountId),
@@ -263,16 +262,6 @@ export async function cancelAllPendingPostsForAccount(
     );
 
   return result.rowCount ?? 0;
-}
-
-/**
- * Delete scheduled post
- */
-export async function deleteScheduledPost(
-  db: DB,
-  postId: string
-): Promise<void> {
-  await db.delete(scheduledPosts).where(eq(scheduledPosts.id, postId));
 }
 
 /**

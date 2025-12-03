@@ -127,7 +127,6 @@ export const SCHEDULED_POST_STATUSES = [
   'publishing',
   'published',
   'failed',
-  'canceled',
 ] as const;
 export type ScheduledPostStatus = (typeof SCHEDULED_POST_STATUSES)[number];
 

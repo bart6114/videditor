@@ -6,14 +6,14 @@ import {
   getSocialAccountByOrgAndPlatform,
   deleteSocialAccount,
 } from '@server/db/queries/social-accounts';
-import { cancelAllPendingPostsForAccount } from '@server/db/queries/scheduled-posts';
+import { deleteAllPendingPostsForAccount } from '@server/db/queries/scheduled-posts';
 import { revokeAccess } from '@/lib/youtube';
 
 /**
  * DELETE /api/v1/social/youtube/disconnect
  *
  * Disconnects YouTube account from the organization.
- * Cancels all pending scheduled posts for this account.
+ * Deletes all pending scheduled posts for this account.
  * Only organization owners can disconnect accounts.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -47,8 +47,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return failure(res, 404, 'YouTube account not connected');
     }
 
-    // Cancel all pending scheduled posts for this account
-    const canceledCount = await cancelAllPendingPostsForAccount(db, account.id);
+    // Delete all pending scheduled posts for this account
+    const deletedCount = await deleteAllPendingPostsForAccount(db, account.id);
 
     // Try to revoke OAuth access (best effort)
     await revokeAccess(account.accessToken);
@@ -58,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return success(res, {
       message: 'YouTube account disconnected',
-      canceledPosts: canceledCount,
+      deletedPosts: deletedCount,
     });
   } catch (error) {
     console.error('YouTube disconnect error:', error);

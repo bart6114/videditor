@@ -44,7 +44,6 @@ export const scheduledPostStatusEnum = pgEnum('scheduled_post_status', [
   'publishing',   // Currently being published
   'published',    // Successfully published
   'failed',       // Publishing failed
-  'canceled',     // Canceled by user
 ]);
 
 export const jobStatusEnum = pgEnum('job_status', ['queued', 'running', 'succeeded', 'failed', 'canceled']);
