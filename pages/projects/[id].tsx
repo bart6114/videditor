@@ -1742,6 +1742,10 @@ export default function ProjectDetail() {
           organizationId={project.organizationId || ''}
           onClose={() => setSelectedShort(null)}
           onNavigate={(short) => setSelectedShort(short)}
+          onShortUpdate={(updated) => {
+            setShorts(prev => prev.map(s => s.id === updated.id ? updated : s))
+            setSelectedShort(updated)
+          }}
         />
 
         {/* Side Panel for viewing transcription */}

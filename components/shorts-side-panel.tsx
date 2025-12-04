@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { X, Loader2, ChevronLeft, ChevronRight, Download, FileText, Calendar, Send, Check } from 'lucide-react'
+import { X, Loader2, ChevronLeft, ChevronRight, Download, FileText, Calendar, Send, Check, Pencil } from 'lucide-react'
 import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 import {
   Dialog,
@@ -46,6 +46,7 @@ interface ShortsSidePanelProps {
   organizationId: string
   onClose: () => void
   onNavigate: (short: Short) => void
+  onShortUpdate?: (updatedShort: Short) => void
 }
 
 function ClickToCopyField({ text, multiline = false }: { text: string; multiline?: boolean }) {
@@ -82,6 +83,7 @@ export function ShortsSidePanel({
   organizationId,
   onClose,
   onNavigate,
+  onShortUpdate,
 }: ShortsSidePanelProps) {
   const { call } = useApi()
   const { enabled: schedulingEnabled } = useYouTubeSchedulingEnabled()
@@ -89,6 +91,11 @@ export function ShortsSidePanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+
+  // Social content editing state
+  const [isEditingSocialContent, setIsEditingSocialContent] = useState(false)
+  const [editedSocialContent, setEditedSocialContent] = useState<SocialContent | null>(null)
+  const [savingSocialContent, setSavingSocialContent] = useState(false)
 
   // Schedule modal state
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
@@ -114,6 +121,10 @@ export function ShortsSidePanel({
 
   // Fetch presigned URL when selected short changes
   useEffect(() => {
+    // Reset edit state when short changes
+    setIsEditingSocialContent(false)
+    setEditedSocialContent(null)
+
     if (!selectedShort) {
       setVideoUrl(null)
       setError(null)
@@ -372,6 +383,47 @@ export function ShortsSidePanel({
     }
   }
 
+  // Social content editing handlers
+  const handleStartEditSocialContent = () => {
+    const currentContent = (selectedShort?.socialContent as SocialContent) || {}
+    setEditedSocialContent({
+      youtube: currentContent.youtube || { title: '', description: '' },
+      instagram: currentContent.instagram || { caption: '' },
+      tiktok: currentContent.tiktok || { caption: '' },
+      linkedin: currentContent.linkedin || { caption: '' },
+    })
+    setIsEditingSocialContent(true)
+  }
+
+  const handleCancelEditSocialContent = () => {
+    setIsEditingSocialContent(false)
+    setEditedSocialContent(null)
+  }
+
+  const handleSaveSocialContent = async () => {
+    if (!selectedShort) return
+
+    setSavingSocialContent(true)
+    try {
+      const data = await call<{ short: Short }>(
+        `/v1/projects/${projectId}/shorts/${selectedShort.id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ socialContent: editedSocialContent }),
+        }
+      )
+      onShortUpdate?.(data.short)
+      toast.success('Social content saved')
+      setIsEditingSocialContent(false)
+      setEditedSocialContent(null)
+    } catch (err) {
+      console.error('Error saving social content:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to save social content')
+    } finally {
+      setSavingSocialContent(false)
+    }
+  }
+
   // Handle keyboard navigation (up/down arrows)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -563,43 +615,172 @@ export function ShortsSidePanel({
                 </div>
               </div>
 
-              {/* Social Content Display */}
-              {(() => {
-                const socialContent = selectedShort.socialContent as SocialContent | null
-                if (!socialContent || Object.keys(socialContent).length === 0) return null
-                return (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-4 text-foreground">Social Media Content</h3>
-                    <div className="space-y-4">
-                      {Object.entries(socialContent).map(([platform, content]) => (
-                        <div key={platform} className="border border-border rounded-lg p-4">
-                          <h4 className="text-sm font-semibold mb-3 text-primary">
-                            {PLATFORM_LABELS[platform as SocialPlatform] || platform}
-                          </h4>
-                          {platform === 'youtube' && content && 'title' in content && (
-                            <div className="space-y-3">
-                              <div>
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Title</label>
-                                <ClickToCopyField text={(content as { title: string }).title} />
-                              </div>
-                              <div>
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Description</label>
-                                <ClickToCopyField text={(content as { description: string }).description} multiline />
-                              </div>
-                            </div>
-                          )}
-                          {(platform === 'instagram' || platform === 'tiktok' || platform === 'linkedin') && content && 'caption' in content && (
-                            <div>
-                              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Caption</label>
-                              <ClickToCopyField text={(content as { caption: string }).caption} multiline />
-                            </div>
-                          )}
-                        </div>
-                      ))}
+              {/* Social Content Display/Edit */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-foreground">Social Media Content</h3>
+                  {!isEditingSocialContent ? (
+                    <Button size="sm" variant="ghost" onClick={handleStartEditSocialContent}>
+                      <Pencil className="w-4 h-4 mr-1" /> Edit
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" onClick={handleCancelEditSocialContent} disabled={savingSocialContent}>
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={handleSaveSocialContent} disabled={savingSocialContent}>
+                        {savingSocialContent ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                        Save
+                      </Button>
                     </div>
-                  </div>
-                )
-              })()}
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  {/* YouTube */}
+                  {(isEditingSocialContent || (selectedShort.socialContent as SocialContent)?.youtube) && (
+                    <div className="border border-border rounded-lg p-4">
+                      <h4 className="text-sm font-semibold mb-3 text-primary">YouTube</h4>
+                      {isEditingSocialContent ? (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Title</label>
+                            <Input
+                              value={editedSocialContent?.youtube?.title || ''}
+                              onChange={(e) => setEditedSocialContent(prev => prev ? {
+                                ...prev,
+                                youtube: { ...prev.youtube!, title: e.target.value }
+                              } : null)}
+                              maxLength={100}
+                              placeholder="Enter YouTube title"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">{(editedSocialContent?.youtube?.title || '').length}/100</p>
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Description</label>
+                            <textarea
+                              value={editedSocialContent?.youtube?.description || ''}
+                              onChange={(e) => setEditedSocialContent(prev => prev ? {
+                                ...prev,
+                                youtube: { ...prev.youtube!, description: e.target.value }
+                              } : null)}
+                              className="w-full min-h-[100px] px-3 py-2 rounded-md border border-input bg-background text-sm resize-y"
+                              maxLength={5000}
+                              placeholder="Enter YouTube description"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">{(editedSocialContent?.youtube?.description || '').length}/5000</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Title</label>
+                            <ClickToCopyField text={((selectedShort.socialContent as SocialContent)?.youtube as { title: string })?.title || ''} />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Description</label>
+                            <ClickToCopyField text={((selectedShort.socialContent as SocialContent)?.youtube as { description: string })?.description || ''} multiline />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Instagram */}
+                  {(isEditingSocialContent || (selectedShort.socialContent as SocialContent)?.instagram) && (
+                    <div className="border border-border rounded-lg p-4">
+                      <h4 className="text-sm font-semibold mb-3 text-primary">Instagram</h4>
+                      {isEditingSocialContent ? (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Caption</label>
+                          <textarea
+                            value={editedSocialContent?.instagram?.caption || ''}
+                            onChange={(e) => setEditedSocialContent(prev => prev ? {
+                              ...prev,
+                              instagram: { caption: e.target.value }
+                            } : null)}
+                            className="w-full min-h-[100px] px-3 py-2 rounded-md border border-input bg-background text-sm resize-y"
+                            maxLength={2200}
+                            placeholder="Enter Instagram caption"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">{(editedSocialContent?.instagram?.caption || '').length}/2200</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Caption</label>
+                          <ClickToCopyField text={((selectedShort.socialContent as SocialContent)?.instagram as { caption: string })?.caption || ''} multiline />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TikTok */}
+                  {(isEditingSocialContent || (selectedShort.socialContent as SocialContent)?.tiktok) && (
+                    <div className="border border-border rounded-lg p-4">
+                      <h4 className="text-sm font-semibold mb-3 text-primary">TikTok</h4>
+                      {isEditingSocialContent ? (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Caption</label>
+                          <textarea
+                            value={editedSocialContent?.tiktok?.caption || ''}
+                            onChange={(e) => setEditedSocialContent(prev => prev ? {
+                              ...prev,
+                              tiktok: { caption: e.target.value }
+                            } : null)}
+                            className="w-full min-h-[100px] px-3 py-2 rounded-md border border-input bg-background text-sm resize-y"
+                            maxLength={4000}
+                            placeholder="Enter TikTok caption"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">{(editedSocialContent?.tiktok?.caption || '').length}/4000</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Caption</label>
+                          <ClickToCopyField text={((selectedShort.socialContent as SocialContent)?.tiktok as { caption: string })?.caption || ''} multiline />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* LinkedIn */}
+                  {(isEditingSocialContent || (selectedShort.socialContent as SocialContent)?.linkedin) && (
+                    <div className="border border-border rounded-lg p-4">
+                      <h4 className="text-sm font-semibold mb-3 text-primary">LinkedIn</h4>
+                      {isEditingSocialContent ? (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Caption</label>
+                          <textarea
+                            value={editedSocialContent?.linkedin?.caption || ''}
+                            onChange={(e) => setEditedSocialContent(prev => prev ? {
+                              ...prev,
+                              linkedin: { caption: e.target.value }
+                            } : null)}
+                            className="w-full min-h-[100px] px-3 py-2 rounded-md border border-input bg-background text-sm resize-y"
+                            maxLength={3000}
+                            placeholder="Enter LinkedIn caption"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">{(editedSocialContent?.linkedin?.caption || '').length}/3000</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Caption</label>
+                          <ClickToCopyField text={((selectedShort.socialContent as SocialContent)?.linkedin as { caption: string })?.caption || ''} multiline />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show message when no content and not editing */}
+                  {!isEditingSocialContent && !(selectedShort.socialContent as SocialContent)?.youtube &&
+                   !(selectedShort.socialContent as SocialContent)?.instagram &&
+                   !(selectedShort.socialContent as SocialContent)?.tiktok &&
+                   !(selectedShort.socialContent as SocialContent)?.linkedin && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No social content yet. Click Edit to add content for each platform.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
