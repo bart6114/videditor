@@ -1563,7 +1563,10 @@ export default function ProjectDetail() {
                         <>
                           <FileText className="w-4 h-4 sm:mr-2" />
                           <span className="hidden sm:inline">
-                            {hasSelections ? `Metadata (${selectedShortIds.size})` : 'Metadata'}
+                            {hasSelections
+                              ? `Metadata (${selectedShortIds.size})`
+                              : `All Metadata (${shorts.filter((s) => s.status === 'completed').length})`
+                            }
                           </span>
                         </>
                       )}
