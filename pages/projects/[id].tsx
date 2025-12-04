@@ -1516,39 +1516,43 @@ export default function ProjectDetail() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {hasSelections && (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={handleDeleteSelected}
-                          disabled={deletingShort}
-                          variant="destructive"
-                          title="Delete Selected Shorts"
-                          className="min-h-[44px] sm:min-h-0"
-                        >
-                          {deletingShort ? (
-                            <>
-                              <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
-                              <span className="hidden sm:inline">Deleting...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Trash2 className="w-4 h-4 sm:mr-2" />
-                              <span className="hidden sm:inline">Delete ({selectedShortIds.size})</span>
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => setBulkScheduleDialogOpen(true)}
-                          variant="outline"
-                          title="Schedule Selected Shorts"
-                          className="min-h-[44px] sm:min-h-0"
-                        >
-                          <Calendar className="w-4 h-4 sm:mr-2" />
-                          <span className="hidden sm:inline">Schedule ({selectedShortIds.size})</span>
-                        </Button>
-                      </>
+                      <Button
+                        size="sm"
+                        onClick={handleDeleteSelected}
+                        disabled={deletingShort}
+                        variant="destructive"
+                        title="Delete Selected Shorts"
+                        className="min-h-[44px] sm:min-h-0"
+                      >
+                        {deletingShort ? (
+                          <>
+                            <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
+                            <span className="hidden sm:inline">Deleting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Delete ({selectedShortIds.size})</span>
+                          </>
+                        )}
+                      </Button>
                     )}
+                    <Button
+                      size="sm"
+                      onClick={() => setBulkScheduleDialogOpen(true)}
+                      variant="outline"
+                      disabled={hasSelections ? selectedShortIds.size === 0 : shorts.filter((s) => s.status === 'completed' && s.outputObjectKey).length === 0}
+                      title={hasSelections ? "Schedule Selected Shorts" : "Schedule All Shorts"}
+                      className="min-h-[44px] sm:min-h-0"
+                    >
+                      <Calendar className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">
+                        {hasSelections
+                          ? `Schedule (${selectedShortIds.size})`
+                          : `Schedule All (${shorts.filter((s) => s.status === 'completed' && s.outputObjectKey).length})`
+                        }
+                      </span>
+                    </Button>
                     <Button
                       size="sm"
                       onClick={handleDownloadMetadata}
@@ -1851,7 +1855,7 @@ export default function ProjectDetail() {
         <BulkScheduleDialog
           open={bulkScheduleDialogOpen}
           onOpenChange={setBulkScheduleDialogOpen}
-          shorts={shorts.filter((s) => selectedShortIds.has(s.id) && s.status === 'completed' && s.outputObjectKey)}
+          shorts={shorts.filter((s) => (hasSelections ? selectedShortIds.has(s.id) : true) && s.status === 'completed' && s.outputObjectKey)}
           organizationId={project?.organizationId || ''}
           onSuccess={() => {
             clearSelection()
