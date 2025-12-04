@@ -11,15 +11,18 @@ import {
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api/client';
+import { TOUR_IDS, TourId } from '@/components/onboarding/tour-ids';
 
 interface OnboardingContextValue {
-  showTour: boolean;
+  completedTours: Record<string, boolean>;
+  activeTourId: string | null;
   isLoading: boolean;
-  tourCompleted: boolean;
-  startTour: () => void;
-  completeTour: () => Promise<void>;
-  skipTour: () => Promise<void>;
-  resetTourForDev: () => void;
+  isTourCompleted: (tourId: string) => boolean;
+  shouldShowTour: (tourId: string) => boolean;
+  startTour: (tourId: string) => void;
+  completeTour: (tourId: string) => Promise<void>;
+  skipTour: (tourId: string) => Promise<void>;
+  resetTourForDev: (tourId: string) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -41,122 +44,144 @@ interface OnboardingProviderProps {
 }
 
 const DEV_TOUR_OVERRIDE_KEY = 'videditor_dev_tour_override';
-const DEV_TOUR_FORCE_SHOW = 'force_show';
 
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const { isLoaded, isSignedIn } = useAuth();
   const { call } = useApi();
   const router = useRouter();
 
-  const [showTour, setShowTour] = useState(false);
+  const [completedTours, setCompletedTours] = useState<Record<string, boolean>>({});
+  const [activeTourId, setActiveTourId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [tourCompleted, setTourCompleted] = useState(false);
 
   // Check for dev override via query param or localStorage
-  const checkDevOverride = useCallback(() => {
-    if (process.env.NODE_ENV !== 'development') return false;
+  const getDevOverrideTourId = useCallback((): string | null => {
+    if (process.env.NODE_ENV !== 'development') return null;
 
-    // Check query param: ?tour=reset or ?tour=start
+    // Check query param: ?tour=reset or ?tour=start (defaults to projects_overview for backwards compat)
+    // Or ?tour=project_detail to force that tour
     const tourParam = router.query.tour;
     if (tourParam === 'reset' || tourParam === 'start') {
-      localStorage.setItem(DEV_TOUR_OVERRIDE_KEY, DEV_TOUR_FORCE_SHOW);
-      return true;
+      localStorage.setItem(DEV_TOUR_OVERRIDE_KEY, TOUR_IDS.PROJECTS_OVERVIEW);
+      return TOUR_IDS.PROJECTS_OVERVIEW;
+    }
+    if (typeof tourParam === 'string' && Object.values(TOUR_IDS).includes(tourParam as TourId)) {
+      localStorage.setItem(DEV_TOUR_OVERRIDE_KEY, tourParam);
+      return tourParam;
     }
 
     // Check localStorage for persistent override
-    return localStorage.getItem(DEV_TOUR_OVERRIDE_KEY) === DEV_TOUR_FORCE_SHOW;
+    const stored = localStorage.getItem(DEV_TOUR_OVERRIDE_KEY);
+    if (stored && Object.values(TOUR_IDS).includes(stored as TourId)) {
+      return stored;
+    }
+
+    return null;
   }, [router.query.tour]);
 
-  // Fetch onboarding status from API
-  const fetchOnboardingStatus = useCallback(async () => {
+  // Fetch completed tours from API
+  const fetchCompletedTours = useCallback(async () => {
     try {
-      const data = await call<{ onboardingCompleted: boolean }>('/v1/user/onboarding');
-      return data.onboardingCompleted;
+      const data = await call<{ completedTours: Record<string, boolean> }>('/v1/user/onboarding');
+      return data.completedTours;
     } catch (err) {
-      console.error('Error fetching onboarding status:', err);
-      return true; // Default to completed on error to avoid blocking
+      console.error('Error fetching completed tours:', err);
+      return {}; // Default to empty on error
     }
   }, [call]);
 
-  // Initialize onboarding state
+  // Initialize - fetch completed tours
   useEffect(() => {
     if (!isLoaded || !isSignedIn) {
       setIsLoading(false);
       return;
     }
 
-    // Only show tour on /projects page (dashboard)
-    if (router.pathname !== '/projects') {
-      setIsLoading(false);
-      return;
-    }
-
     const initialize = async () => {
       setIsLoading(true);
-
-      // Check dev override first
-      const devOverride = checkDevOverride();
-      if (devOverride) {
-        setShowTour(true);
-        setTourCompleted(false);
-        setIsLoading(false);
-        return;
-      }
-
-      // Fetch actual status from DB
-      const completed = await fetchOnboardingStatus();
-      setTourCompleted(completed);
-      setShowTour(!completed);
+      const tours = await fetchCompletedTours();
+      setCompletedTours(tours);
       setIsLoading(false);
     };
 
     initialize();
-  }, [isLoaded, isSignedIn, router.pathname, fetchOnboardingStatus, checkDevOverride]);
+  }, [isLoaded, isSignedIn, fetchCompletedTours]);
 
-  // Start tour manually
-  const startTour = useCallback(() => {
-    setShowTour(true);
+  // Check if a tour is completed
+  const isTourCompleted = useCallback(
+    (tourId: string): boolean => {
+      return !!completedTours[tourId];
+    },
+    [completedTours]
+  );
+
+  // Check if a tour should show (not completed and no active tour)
+  const shouldShowTour = useCallback(
+    (tourId: string): boolean => {
+      if (isLoading) return false;
+      if (activeTourId) return false; // Another tour is active
+
+      // Check dev override
+      const devOverride = getDevOverrideTourId();
+      if (devOverride === tourId) return true;
+
+      return !completedTours[tourId];
+    },
+    [isLoading, activeTourId, completedTours, getDevOverrideTourId]
+  );
+
+  // Start a tour
+  const startTour = useCallback((tourId: string) => {
+    setActiveTourId(tourId);
   }, []);
 
-  // Complete the tour
-  const completeTour = useCallback(async () => {
-    try {
-      await call('/v1/user/onboarding', {
-        method: 'PATCH',
-        body: JSON.stringify({ completed: true }),
-      });
-      setTourCompleted(true);
-      setShowTour(false);
+  // Complete a tour
+  const completeTour = useCallback(
+    async (tourId: string) => {
+      try {
+        await call('/v1/user/onboarding', {
+          method: 'PATCH',
+          body: JSON.stringify({ tourId, completed: true }),
+        });
+        setCompletedTours((prev) => ({ ...prev, [tourId]: true }));
+        setActiveTourId(null);
 
-      // Clear dev override
-      if (process.env.NODE_ENV === 'development') {
-        localStorage.removeItem(DEV_TOUR_OVERRIDE_KEY);
+        // Clear dev override
+        if (process.env.NODE_ENV === 'development') {
+          localStorage.removeItem(DEV_TOUR_OVERRIDE_KEY);
+        }
+      } catch (err) {
+        console.error('Error completing tour:', err);
+        // Still hide tour on error
+        setActiveTourId(null);
       }
-    } catch (err) {
-      console.error('Error completing onboarding:', err);
-      // Still hide tour on error
-      setShowTour(false);
-    }
-  }, [call]);
+    },
+    [call]
+  );
 
-  // Skip the tour (same as complete for DB tracking)
-  const skipTour = useCallback(async () => {
-    await completeTour();
-  }, [completeTour]);
+  // Skip a tour (same as complete for tracking)
+  const skipTour = useCallback(
+    async (tourId: string) => {
+      await completeTour(tourId);
+    },
+    [completeTour]
+  );
 
-  // Dev-only: Reset tour state
-  const resetTourForDev = useCallback(() => {
+  // Dev-only: Reset a tour
+  const resetTourForDev = useCallback((tourId: string) => {
     if (process.env.NODE_ENV !== 'development') return;
 
-    localStorage.setItem(DEV_TOUR_OVERRIDE_KEY, DEV_TOUR_FORCE_SHOW);
-    setShowTour(true);
-    setTourCompleted(false);
+    localStorage.setItem(DEV_TOUR_OVERRIDE_KEY, tourId);
+    setCompletedTours((prev) => ({ ...prev, [tourId]: false }));
+    setActiveTourId(tourId);
   }, []);
 
   const value: OnboardingContextValue = {
-    showTour,
+    completedTours,
+    activeTourId,
     isLoading,
-    tourCompleted,
+    isTourCompleted,
+    shouldShowTour,
     startTour,
     completeTour,
     skipTour,

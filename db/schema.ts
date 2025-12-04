@@ -140,8 +140,8 @@ export const users = pgTable(
     defaultAvoidOverlap: boolean('default_avoid_overlap').default(false), // Default setting for avoiding overlap with existing shorts
     defaultPreferredLength: integer('default_preferred_length').default(45), // Default preferred short length in seconds (15-120)
     defaultMaxLength: integer('default_max_length').default(60), // Default maximum short length in seconds (15-120)
-    // Onboarding
-    onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
+    // Onboarding - tracks which tours user has completed (e.g., { "projects_overview": true, "project_detail": true })
+    completedTours: jsonb('completed_tours').$type<Record<string, boolean>>().default(sql`'{}'::jsonb`),
     // Organization - user's currently active organization
     defaultOrganizationId: varchar('default_organization_id', { length: 255 })
       .references(() => organizations.id, { onDelete: 'set null' }),

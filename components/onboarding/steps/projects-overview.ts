@@ -1,6 +1,6 @@
 import type { DriveStep } from 'driver.js';
 
-export const TOUR_STEPS: DriveStep[] = [
+export const PROJECTS_OVERVIEW_STEPS: DriveStep[] = [
   {
     popover: {
       title: 'Welcome to VidEditor!',
@@ -51,7 +51,7 @@ export const TOUR_STEPS: DriveStep[] = [
   },
 ];
 
-export const TOUR_TARGETS = {
+export const PROJECTS_OVERVIEW_TARGETS = {
   VIDEO_UPLOAD: 'video-upload',
   SIDEBAR: 'sidebar',
   PROJECTS_LIST: 'projects-list',

@@ -4,15 +4,21 @@ import { useEffect, useRef } from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { useOnboardingSafe } from '@/contexts/OnboardingContext';
-import { TOUR_STEPS } from './tour-steps';
+import { TOUR_CONFIGS } from './tour-config';
 
 export function OnboardingTour() {
   const onboarding = useOnboardingSafe();
   const driverRef = useRef<ReturnType<typeof driver> | null>(null);
   const hasStartedRef = useRef(false);
+  const currentTourIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!onboarding?.showTour || hasStartedRef.current) return;
+    if (!onboarding?.activeTourId || hasStartedRef.current) return;
+
+    const tourConfig = TOUR_CONFIGS[onboarding.activeTourId];
+    if (!tourConfig) return;
+
+    currentTourIdRef.current = onboarding.activeTourId;
 
     // Small delay to ensure DOM is ready
     const timeoutId = setTimeout(() => {
@@ -20,25 +26,30 @@ export function OnboardingTour() {
 
       const driverInstance = driver({
         showProgress: true,
-        steps: TOUR_STEPS,
+        steps: tourConfig.steps,
         nextBtnText: 'Next',
         prevBtnText: 'Back',
-        doneBtnText: 'Get Started',
+        doneBtnText: tourConfig.doneBtnText || 'Done',
         popoverClass: 'videditor-tour-popover',
-        overlayColor: 'transparent',
+        overlayColor: 'rgba(0, 0, 0, 0.4)',
         onDestroyStarted: () => {
           // User closed/skipped the tour
-          onboarding.skipTour();
+          if (currentTourIdRef.current) {
+            onboarding.skipTour(currentTourIdRef.current);
+          }
           driverInstance.destroy();
         },
         onDestroyed: () => {
           hasStartedRef.current = false;
+          currentTourIdRef.current = null;
         },
         onNextClick: () => {
           const currentIndex = driverInstance.getActiveIndex();
-          if (currentIndex !== undefined && currentIndex === TOUR_STEPS.length - 1) {
+          if (currentIndex !== undefined && currentIndex === tourConfig.steps.length - 1) {
             // Last step - complete the tour
-            onboarding.completeTour();
+            if (currentTourIdRef.current) {
+              onboarding.completeTour(currentTourIdRef.current);
+            }
             driverInstance.destroy();
           } else {
             driverInstance.moveNext();
@@ -58,7 +69,7 @@ export function OnboardingTour() {
       }
       hasStartedRef.current = false;
     };
-  }, [onboarding?.showTour, onboarding]);
+  }, [onboarding?.activeTourId, onboarding]);
 
   // Inject custom styles for dark mode
   useEffect(() => {

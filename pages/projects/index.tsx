@@ -4,6 +4,8 @@ import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { useUser } from '@clerk/nextjs'
 import { useApi } from '@/lib/api/client'
+import { useOnboarding } from '@/contexts/OnboardingContext'
+import { TOUR_IDS } from '@/components/onboarding/tour-ids'
 import { VideoUpload } from '@/components/video-upload'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -36,12 +38,20 @@ export default function Projects() {
   const router = useRouter()
   const { isSignedIn, isLoaded } = useUser()
   const { call } = useApi()
+  const { shouldShowTour, startTour } = useOnboarding()
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Start onboarding tour if user hasn't completed it
+  useEffect(() => {
+    if (shouldShowTour(TOUR_IDS.PROJECTS_OVERVIEW)) {
+      startTour(TOUR_IDS.PROJECTS_OVERVIEW)
+    }
+  }, [shouldShowTour, startTour])
 
   // Redirect to sign-in if not authenticated
   useEffect(() => {

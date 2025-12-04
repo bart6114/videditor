@@ -13,10 +13,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const db = getDb();
 
-  // GET - Check onboarding status
+  // GET - Get all completed tours
   if (req.method === 'GET') {
     const [user] = await db
-      .select({ onboardingCompletedAt: users.onboardingCompletedAt })
+      .select({ completedTours: users.completedTours })
       .from(users)
       .where(eq(users.id, authResult.userId));
 
@@ -25,31 +25,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return success(res, {
-      onboardingCompleted: !!user.onboardingCompletedAt,
-      onboardingCompletedAt: user.onboardingCompletedAt,
+      completedTours: (user.completedTours || {}) as Record<string, boolean>,
     });
   }
 
-  // PATCH - Mark onboarding as complete (or reset)
+  // PATCH - Mark a specific tour as complete (or reset)
   if (req.method === 'PATCH') {
-    const { completed } = req.body;
+    const { tourId, completed } = req.body;
+
+    if (!tourId || typeof tourId !== 'string') {
+      return failure(res, 400, 'tourId is required');
+    }
+
+    // First get current completedTours
+    const [user] = await db
+      .select({ completedTours: users.completedTours })
+      .from(users)
+      .where(eq(users.id, authResult.userId));
+
+    if (!user) {
+      return failure(res, 404, 'User not found');
+    }
+
+    const currentTours = (user.completedTours || {}) as Record<string, boolean>;
+    const updatedTours = { ...currentTours, [tourId]: !!completed };
 
     const [updated] = await db
       .update(users)
       .set({
-        onboardingCompletedAt: completed ? new Date() : null,
+        completedTours: updatedTours,
         updatedAt: new Date(),
       })
       .where(eq(users.id, authResult.userId))
-      .returning({ onboardingCompletedAt: users.onboardingCompletedAt });
+      .returning({ completedTours: users.completedTours });
 
     if (!updated) {
       return failure(res, 404, 'User not found');
     }
 
     return success(res, {
-      onboardingCompleted: !!updated.onboardingCompletedAt,
-      onboardingCompletedAt: updated.onboardingCompletedAt,
+      completedTours: (updated.completedTours || {}) as Record<string, boolean>,
     });
   }
 
