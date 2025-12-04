@@ -300,9 +300,15 @@ Select completely different moments from the video that do not cover the same to
 """
 
     # Build prompt based on user's example
-    # Calculate a reasonable range around preferred length (e.g., preferred ± 15 seconds)
-    min_length = max(15, preferred_length - 15)
-    prompt = f"""You are analyzing a video transcript to find the best moments for creating {num_shorts} short-form videos (ideally around {preferred_length} seconds, with a range of {min_length}-{preferred_length} seconds, max {max_length} seconds if needed for message consistency).
+    # Calculate minimum as 80% of preferred length (scales proportionally)
+    min_length = max(15, int(preferred_length * 0.8))
+    prompt = f"""You are analyzing a video transcript to find the best moments for creating {num_shorts} short-form videos.
+
+DURATION REQUIREMENTS (CRITICAL):
+- TARGET: {preferred_length}-{max_length} seconds per segment
+- MINIMUM: {min_length} seconds (segments shorter than this are NOT acceptable)
+- When in doubt, include MORE content to reach the target duration
+- It is better to be slightly over {preferred_length}s than under it
 {custom_section}{existing_shorts_section}
 Criteria for selection:
 - Engaging moments (exciting, funny, emotionally compelling)
@@ -312,23 +318,30 @@ Criteria for selection:
 - Self-contained segments that feel like standalone content, not fragments
 - Segments MUST NOT overlap with each other - each segment should cover unique content from the video
 
-CRITICAL - Flow & Naturalness Requirements:
-- The segment MUST feel like a complete, standalone piece with a natural beginning and ending
-- Viewers should NOT feel confused, disoriented, or like they're entering mid-conversation
-- The opening should establish context naturally - avoid starting with pronouns ("it", "that", "this") without clear referents
-- The ending should provide closure and feel conclusive - avoid cutting off mid-thought or mid-statement
-- Avoid segments that would create jarring audio transitions or make the speaker sound abruptly interrupted
-- Prioritize smooth, natural flow over raw engagement - a slightly less exciting segment with perfect flow is better than an engaging segment with abrupt cuts
+DURATION GUIDANCE:
+- If a segment feels complete but is under {preferred_length} seconds, EXTEND it by including:
+  - The speaker's elaboration or examples that follow
+  - Supporting statements or context that precedes
+  - The full explanation, not just the key point
+- Only end a segment early ({min_length}-{preferred_length}s) if there is a STRONG natural break with no related content nearby
+- Prefer longer, complete explanations over short, punchy clips
+
+Flow & Naturalness Guidelines:
+- Segments should feel complete and standalone
+- The opening should establish context - avoid starting with pronouns ("it", "that", "this") without clear referents
+- The ending should feel conclusive, not abruptly cut off
+- Balance flow with duration: a well-flowing {preferred_length}s segment is ideal, but don't sacrifice duration for marginal flow improvements
+- When choosing between a shorter segment with perfect flow and a longer segment with good flow, choose the longer segment
 
 Transcript with timestamps:
 {transcript}
 
-Please identify the {num_shorts} best segments. Each segment should be:
-- Ideally around {preferred_length} seconds long (range: {min_length}-{preferred_length} seconds), but can extend up to {max_length} seconds if needed to complete the thought/message
+Please identify the {num_shorts} best segments. Each segment MUST:
+- Be {preferred_length}-{max_length} seconds long (absolute minimum: {min_length} seconds)
+- Include complete thoughts WITH their supporting context, examples, and elaboration
+- Capture the FULL explanation, not just the headline point
 - Start and end at natural pauses (breath breaks, sentence completions, topic shifts)
-- Contain a complete thought or idea that stands alone without requiring prior context
 - Be engaging and valuable on its own
-- Feel polished and intentional, not like a fragment ripped from a longer video
 
 For each segment, provide:
 1. The exact start and end timestamps
