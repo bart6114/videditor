@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   ReactNode,
 } from 'react';
 import { useAuth } from '@clerk/nextjs';
@@ -54,30 +55,26 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const [activeTourId, setActiveTourId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for dev override via query param or localStorage
-  const getDevOverrideTourId = useCallback((): string | null => {
-    if (process.env.NODE_ENV !== 'development') return null;
+  // Dev override ref - using ref avoids causing re-renders and useEffect re-triggers
+  const devOverrideRef = useRef<string | null>(null);
 
-    // Check query param: ?tour=reset or ?tour=start (defaults to projects_overview for backwards compat)
-    // Or ?tour=project_detail to force that tour
+  // Handle dev override via query param or localStorage (dev mode only)
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    if (!router.isReady) return;
+
     const tourParam = router.query.tour;
     if (tourParam === 'reset' || tourParam === 'start') {
       localStorage.setItem(DEV_TOUR_OVERRIDE_KEY, TOUR_IDS.PROJECTS_OVERVIEW);
-      return TOUR_IDS.PROJECTS_OVERVIEW;
-    }
-    if (typeof tourParam === 'string' && Object.values(TOUR_IDS).includes(tourParam as TourId)) {
+      devOverrideRef.current = TOUR_IDS.PROJECTS_OVERVIEW;
+    } else if (typeof tourParam === 'string' && Object.values(TOUR_IDS).includes(tourParam as TourId)) {
       localStorage.setItem(DEV_TOUR_OVERRIDE_KEY, tourParam);
-      return tourParam;
+      devOverrideRef.current = tourParam;
+    } else {
+      const stored = localStorage.getItem(DEV_TOUR_OVERRIDE_KEY);
+      devOverrideRef.current = stored && Object.values(TOUR_IDS).includes(stored as TourId) ? stored : null;
     }
-
-    // Check localStorage for persistent override
-    const stored = localStorage.getItem(DEV_TOUR_OVERRIDE_KEY);
-    if (stored && Object.values(TOUR_IDS).includes(stored as TourId)) {
-      return stored;
-    }
-
-    return null;
-  }, [router.query.tour]);
+  }, [router.isReady, router.query.tour]);
 
   // Fetch completed tours from API
   const fetchCompletedTours = useCallback(async () => {
@@ -92,7 +89,11 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Initialize - fetch completed tours
   useEffect(() => {
-    if (!isLoaded || !isSignedIn) {
+    // Don't do anything until Clerk is done loading
+    if (!isLoaded) return;
+
+    // If user is not signed in, we won't fetch tours - tours shouldn't show to signed-out users
+    if (!isSignedIn) {
       setIsLoading(false);
       return;
     }
@@ -121,13 +122,12 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
       if (isLoading) return false;
       if (activeTourId) return false; // Another tour is active
 
-      // Check dev override
-      const devOverride = getDevOverrideTourId();
-      if (devOverride === tourId) return true;
+      // Check dev override (ref read doesn't cause re-renders)
+      if (devOverrideRef.current === tourId) return true;
 
       return !completedTours[tourId];
     },
-    [isLoading, activeTourId, completedTours, getDevOverrideTourId]
+    [isLoading, activeTourId, completedTours]
   );
 
   // Start a tour
@@ -149,6 +149,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         // Clear dev override
         if (process.env.NODE_ENV === 'development') {
           localStorage.removeItem(DEV_TOUR_OVERRIDE_KEY);
+          devOverrideRef.current = null;
         }
       } catch (err) {
         console.error('Error completing tour:', err);
@@ -172,6 +173,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     if (process.env.NODE_ENV !== 'development') return;
 
     localStorage.setItem(DEV_TOUR_OVERRIDE_KEY, tourId);
+    devOverrideRef.current = tourId;
     setCompletedTours((prev) => ({ ...prev, [tourId]: false }));
     setActiveTourId(tourId);
   }, []);
