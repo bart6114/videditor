@@ -69,7 +69,10 @@ class JobWorker:
                 jobs = result.scalars().all()
 
                 if not jobs:
-                    self.logger.debug("No queued jobs found")
+                    self.logger.debug(
+                        "No queued jobs found",
+                        running_jobs=len(self.active_jobs),
+                    )
                     return
 
                 # Map job types to emojis for better visibility
