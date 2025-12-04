@@ -95,11 +95,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const model = process.env.OPENROUTER_SOCIAL_MODEL || 'openai/gpt-5-mini';
 
-  // Build rich time context for the AI
+  // Build time context for the AI (local time only, no UTC)
   const now = new Date();
-  const currentTimeISO = now.toISOString();
 
-  // Format current time in user's timezone for better context
+  // Format current time in user's timezone
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     weekday: 'long',
@@ -129,8 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const systemPrompt = `You are a social media scheduling assistant. The user wants to schedule ${shortsInfo.length} video shorts for publishing.
 
 ## Current Time Context
-- Current time (ISO): ${currentTimeISO}
-- Current time (local): ${currentTimeFormatted}
+- Current time: ${currentTimeFormatted}
 - Today is: ${currentDayOfWeek}
 - Tomorrow is: ${tomorrowFormatted}
 - User's timezone: ${timezone}
@@ -140,7 +138,8 @@ Generate a schedule that assigns each short to a specific date and time based on
 
 ## Rules
 - All scheduled times must be in the future (after the current time shown above)
-- Return times in ISO 8601 format (e.g., "2025-12-04T09:00:00Z")
+- Return times in ISO 8601 format WITHOUT timezone suffix (e.g., "2025-12-04T09:00:00")
+- All times are in the user's local timezone - do NOT convert to UTC
 - When user says "tomorrow", that means ${tomorrowFormatted}
 - When user says "next week", start from 7 days after today
 - If the user says "mornings", schedule between 7am-11am in their timezone

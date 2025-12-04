@@ -40,6 +40,12 @@ interface BulkScheduleDialogProps {
   onSuccess?: () => void
 }
 
+// Format Date to local datetime-local input format (YYYY-MM-DDTHH:MM)
+const formatLocalDateTime = (d: Date) => {
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export function BulkScheduleDialog({
   open,
   onOpenChange,
@@ -182,7 +188,8 @@ export function BulkScheduleDialog({
         return {
           shortId: item.shortId,
           socialAccountId: selectedAccountId,
-          scheduledFor: item.scheduledFor,
+          // Convert local time string to UTC ISO format for storage
+          scheduledFor: new Date(item.scheduledFor).toISOString(),
           title,
           description,
         }
@@ -352,14 +359,11 @@ export function BulkScheduleDialog({
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Input
                         type="datetime-local"
-                        value={date.toISOString().slice(0, 16)}
+                        value={formatLocalDateTime(date)}
                         onChange={(e) => {
-                          const newDate = new Date(e.target.value)
-                          if (!isNaN(newDate.getTime())) {
-                            handleUpdateScheduleTime(item.shortId, newDate.toISOString())
-                          }
+                          handleUpdateScheduleTime(item.shortId, e.target.value)
                         }}
-                        min={new Date().toISOString().slice(0, 16)}
+                        min={formatLocalDateTime(new Date())}
                         className="w-auto text-sm"
                       />
                     </div>
