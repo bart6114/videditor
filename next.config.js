@@ -39,6 +39,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'fly.storage.tigris.dev',
       },
+      {
+        // Tigris CDN/accelerated endpoints (e.g., t3.storage.dev)
+        protocol: 'https',
+        hostname: '**.storage.dev',
+      },
     ],
   },
   env: {
