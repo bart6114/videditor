@@ -866,6 +866,17 @@ export function ShortsSidePanel({
                   <span className="text-[10px] bg-muted px-1 py-0.5 rounded">Soon</span>
                 </button>
               </div>
+              {!loadingAccounts && !socialAccounts.some((a) => a.platform === 'youtube') && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mt-2">
+                  <p className="text-sm text-amber-600 dark:text-amber-400">
+                    Connect a publishing platform in{' '}
+                    <Link href="/settings/organization" className="underline font-medium hover:text-amber-700 dark:hover:text-amber-300">
+                      Preferences
+                    </Link>{' '}
+                    to schedule shorts.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Title */}
