@@ -1246,7 +1246,7 @@ export default function ProjectDetail() {
                         />
                         <p className="text-xs text-muted-foreground mt-2">
                           Guide the AI when identifying the best moments for shorts. For example, ensure a short about a specific topic you discussed.
-                          Set defaults in <a href="/settings" className="text-primary hover:underline">Preferences</a>.
+                          Set defaults in <Link href="/settings" className="text-primary hover:underline">Preferences</Link>.
                         </p>
                       </div>
                     )}
@@ -1277,7 +1277,7 @@ export default function ProjectDetail() {
                     </div>
                     <p className="text-xs text-muted-foreground mb-3">
                       Choose platforms to generate titles and descriptions for.
-                      Set defaults in <a href="/settings" className="text-primary hover:underline">Preferences</a>.
+                      Set defaults in <Link href="/settings" className="text-primary hover:underline">Preferences</Link>.
                     </p>
                     <div className="flex flex-wrap gap-2" data-tour="social-platforms">
                       {SOCIAL_PLATFORMS.map((platform) => {
