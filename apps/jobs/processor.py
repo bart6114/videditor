@@ -379,6 +379,7 @@ class JobProcessor:
                 api_key=self.config.OPENAI_API_KEY,
                 chunk_size_mb=self.config.WHISPER_CHUNK_SIZE_MB,
                 audio_bitrate=self.config.WHISPER_AUDIO_BITRATE,
+                max_chunk_duration=self.config.WHISPER_MAX_CHUNK_DURATION,
             )
 
             # Save transcription to database

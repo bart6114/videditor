@@ -226,12 +226,14 @@ async def split_audio_chunk(
         # -ss: seek to start time
         # -t: duration
         # -c copy: stream copy (no re-encoding, fast)
+        # -reset_timestamps 1: required for OpenAI API to read duration correctly from chunks
         proc = await asyncio.create_subprocess_exec(
             "ffmpeg",
             "-ss", str(start_time),
             "-t", str(duration),
             "-i", audio_path,
             "-c", "copy",
+            "-reset_timestamps", "1",
             "-y",  # Overwrite output file
             output_path,
             stdout=asyncio.subprocess.PIPE,
