@@ -6,6 +6,8 @@ import { useRouter } from 'next/router'
 import dynamic from 'next/dynamic'
 import { useAuth } from '@clerk/nextjs'
 import { useApi } from '@/lib/api/client'
+import { useOnboarding } from '@/contexts/OnboardingContext'
+import { TOUR_IDS } from '@/components/onboarding/tour-ids'
 import WorkspaceLayout from '@/components/layout/WorkspaceLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -200,6 +202,7 @@ export default function ProjectDetail() {
   const { id } = router.query
   const { call } = useApi()
   const { getToken } = useAuth()
+  const { shouldShowTour, startTour } = useOnboarding()
 
   const [project, setProject] = useState<Project | null>(null)
   const [shorts, setShorts] = useState<Short[]>([])
@@ -301,6 +304,13 @@ export default function ProjectDetail() {
   }
 
   const hasSelections = selectedShortIds.size > 0
+
+  // Start project detail tour if user hasn't completed it
+  useEffect(() => {
+    if (shouldShowTour(TOUR_IDS.PROJECT_DETAIL)) {
+      startTour(TOUR_IDS.PROJECT_DETAIL)
+    }
+  }, [shouldShowTour, startTour])
 
   // Initial load
   useEffect(() => {
@@ -921,7 +931,7 @@ export default function ProjectDetail() {
           {/* Top Row: 2-Column Grid */}
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Left Column: Video Player */}
-            <Card className="bg-card border-border h-full flex flex-col">
+            <Card className="bg-card border-border h-full flex flex-col" data-tour="video-player">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -1031,7 +1041,7 @@ export default function ProjectDetail() {
             <div className="space-y-6">
             {/* Transcription Section - Success State */}
             {transcription && (
-              <Card className="bg-card border-border">
+              <Card className="bg-card border-border" data-tour="transcription-status">
                 <CardHeader
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => setTranscriptionPanelOpen(true)}
@@ -1102,7 +1112,7 @@ export default function ProjectDetail() {
 
             {/* Shorts Generation Section */}
             {transcription && (
-              <Card className="bg-card border-border">
+              <Card className="bg-card border-border" data-tour="generate-shorts">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-foreground">
                     <Sparkles className="w-5 h-5 text-primary" />
@@ -1235,7 +1245,8 @@ export default function ProjectDetail() {
                           className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                         />
                         <p className="text-xs text-muted-foreground mt-2">
-                          Guide the AI when identifying the best moments for shorts
+                          Guide the AI when identifying the best moments for shorts. For example, ensure a short about a specific topic you discussed.
+                          Set defaults in <a href="/settings" className="text-primary hover:underline">Preferences</a>.
                         </p>
                       </div>
                     )}
@@ -1265,9 +1276,10 @@ export default function ProjectDetail() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mb-3">
-                      Choose platforms to generate titles and descriptions for
+                      Choose platforms to generate titles and descriptions for.
+                      Set defaults in <a href="/settings" className="text-primary hover:underline">Preferences</a>.
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2" data-tour="social-platforms">
                       {SOCIAL_PLATFORMS.map((platform) => {
                         const isSelected = socialPlatforms.includes(platform)
                         const Icon = PLATFORM_ICONS[platform]
@@ -1501,7 +1513,7 @@ export default function ProjectDetail() {
 
           {/* Bottom Row: Shorts Table (Full Width) */}
           {shorts.length > 0 && (
-            <Card className="bg-card border-border">
+            <Card className="bg-card border-border" data-tour="shorts-table">
               <CardHeader className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -1544,6 +1556,7 @@ export default function ProjectDetail() {
                       disabled={hasSelections ? selectedShortIds.size === 0 : shorts.filter((s) => s.status === 'completed' && s.outputObjectKey).length === 0}
                       title={hasSelections ? "Schedule Selected Shorts" : "Schedule All Shorts"}
                       className="min-h-[44px] sm:min-h-0"
+                      data-tour="schedule-button"
                     >
                       <Calendar className="w-4 h-4 sm:mr-2" />
                       <span className="hidden sm:inline">
