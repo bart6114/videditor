@@ -1,9 +1,9 @@
 import { eq, and, desc, count, sql } from 'drizzle-orm';
 import type { DB } from '../index';
-import { projects, transcriptions, shorts, type NewProject, type Project } from '../schema';
+import { projects, transcriptions, shorts, processingJobs, type NewProject, type Project } from '../schema';
 
 /**
- * List all projects for an organization with shorts count and transcription status
+ * List all projects for an organization with shorts count, transcription status, and job progress
  */
 export async function listOrganizationProjects(db: DB, organizationId: string, limit: number = 100) {
   // Get projects with aggregated data
@@ -21,11 +21,37 @@ export async function listOrganizationProjects(db: DB, organizationId: string, l
     .orderBy(desc(projects.createdAt))
     .limit(limit);
 
+  // Get transcription job progress for projects that are still processing
+  const projectIds = results.map(r => r.project.id);
+  const transcriptionJobs = projectIds.length > 0
+    ? await db
+        .select({
+          projectId: processingJobs.projectId,
+          progress: processingJobs.progress,
+        })
+        .from(processingJobs)
+        .where(
+          and(
+            sql`${processingJobs.projectId} IN (${sql.join(projectIds.map(id => sql`${id}`), sql`, `)})`,
+            eq(processingJobs.type, 'transcription'),
+            eq(processingJobs.status, 'running')
+          )
+        )
+    : [];
+
+  // Create a map of project ID to transcription progress
+  const progressByProject = new Map(
+    transcriptionJobs
+      .filter(j => j.projectId && j.progress?.phase === 'transcribing')
+      .map(j => [j.projectId, { current: j.progress!.current, total: j.progress!.total }])
+  );
+
   // Map to enriched project objects
   return results.map((row) => ({
     ...row.project,
     shortsCount: row.shortsCount,
     hasTranscription: row.hasTranscription,
+    transcriptionProgress: progressByProject.get(row.project.id) ?? null,
   }));
 }
 

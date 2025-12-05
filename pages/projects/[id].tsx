@@ -243,12 +243,14 @@ export default function ProjectDetail() {
   const [savingTitle, setSavingTitle] = useState(false)
   const [userCredits, setUserCredits] = useState<number | null>(null)
   const [showInsufficientCredits, setShowInsufficientCredits] = useState(false)
+  const [defaultSchedulingPrompt, setDefaultSchedulingPrompt] = useState<string | null>(null)
 
   // Transcription job tracking for error/retry handling
   const [transcriptionJob, setTranscriptionJob] = useState<{
     id: string;
     status: string;
     errorMessage?: string | null;
+    progress?: { phase: string; current: number; total: number };
   } | null>(null)
   const [retryingTranscription, setRetryingTranscription] = useState(false)
 
@@ -339,7 +341,7 @@ export default function ProjectDetail() {
             transcription: Transcription | null
             shorts: Short[]
           }>(`/v1/projects/${id}`),
-          call<{ jobs: Array<{ id: string; type: string; status: string; errorMessage?: string | null; createdAt?: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
+          call<{ jobs: Array<{ id: string; type: string; status: string; errorMessage?: string | null; createdAt?: string; progress?: { phase: 'transcribing' | 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
         ])
 
         // Update project/shorts data (preserve URLs)
@@ -369,14 +371,23 @@ export default function ProjectDetail() {
             id: latestJob.id,
             status: latestJob.status,
             errorMessage: latestJob.errorMessage,
+            progress: latestJob.progress,
           })
         }
 
-        // Find active analysis job
+        // Find active analysis job (only analysis jobs have 'analyzing' or 'generating' phases)
         const analysisJob = jobsData.jobs.find(
           (j) => j.type === 'analysis' && ['queued', 'running'].includes(j.status)
         )
-        setActiveJob(analysisJob || null)
+        if (analysisJob) {
+          setActiveJob({
+            id: analysisJob.id,
+            status: analysisJob.status,
+            progress: analysisJob.progress?.phase !== 'transcribing' ? analysisJob.progress as { phase: 'analyzing' | 'generating'; current: number; total: number } : undefined,
+          })
+        } else {
+          setActiveJob(null)
+        }
 
         // Stop polling when job completes AND no pending shorts in current batch
         const currentBatchShorts = lastAnalysisJobId
@@ -424,7 +435,7 @@ export default function ProjectDetail() {
     async function loadDefaultSettings() {
       try {
         const [settingsData, creditsData] = await Promise.all([
-          call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean; defaultPreferredLength: number; defaultMaxLength: number } }>('/v1/user/settings'),
+          call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean; defaultPreferredLength: number; defaultMaxLength: number; defaultSchedulingPrompt: string | null } }>('/v1/user/settings'),
           call<{ credits: number }>('/v1/billing/credits'),
         ])
 
@@ -451,6 +462,9 @@ export default function ProjectDetail() {
         if (settingsData.settings.defaultMaxLength) {
           setMaxLength(settingsData.settings.defaultMaxLength)
         }
+        if (settingsData.settings.defaultSchedulingPrompt) {
+          setDefaultSchedulingPrompt(settingsData.settings.defaultSchedulingPrompt)
+        }
 
         setUserCredits(creditsData.credits)
       } catch (error) {
@@ -473,7 +487,7 @@ export default function ProjectDetail() {
           transcription: Transcription | null
           shorts: Short[]
         }>(`/v1/projects/${id}`),
-        call<{ jobs: Array<{ id: string; type: string; status: string; errorMessage?: string | null; createdAt?: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
+        call<{ jobs: Array<{ id: string; type: string; status: string; errorMessage?: string | null; createdAt?: string; progress?: { phase: 'transcribing' | 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
       ])
 
       // Preserve existing URLs to prevent video player restart during polling
@@ -505,6 +519,7 @@ export default function ProjectDetail() {
           id: latestJob.id,
           status: latestJob.status,
           errorMessage: latestJob.errorMessage,
+          progress: latestJob.progress,
         })
       } else {
         setTranscriptionJob(null)
@@ -515,7 +530,11 @@ export default function ProjectDetail() {
         (j) => j.type === 'analysis' && ['queued', 'running'].includes(j.status)
       )
       if (activeAnalysisJob) {
-        setActiveJob(activeAnalysisJob)
+        setActiveJob({
+          id: activeAnalysisJob.id,
+          status: activeAnalysisJob.status,
+          progress: activeAnalysisJob.progress?.phase !== 'transcribing' ? activeAnalysisJob.progress as { phase: 'analyzing' | 'generating'; current: number; total: number } : undefined,
+        })
         setIsGeneratingShorts(true) // Resume showing progress
       } else {
         setActiveJob(null)
@@ -1069,11 +1088,18 @@ export default function ProjectDetail() {
                     <div className="flex-1">
                       <p className="font-medium text-foreground mb-1">
                         Transcribing video...
+                        {transcriptionJob?.progress?.phase === 'transcribing' && transcriptionJob.progress.total > 0 && (
+                          <span className="ml-2 text-primary">
+                            {Math.round((transcriptionJob.progress.current / transcriptionJob.progress.total) * 100)}%
+                          </span>
+                        )}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {retryingTranscription || transcriptionJob?.status === 'queued'
                           ? 'Waiting in queue...'
-                          : 'Processing audio and generating transcript'}
+                          : transcriptionJob?.progress?.phase === 'transcribing' && transcriptionJob.progress.total > 1
+                            ? `Processing audio in parallel (${transcriptionJob.progress.current}/${transcriptionJob.progress.total} segments)`
+                            : 'Processing audio and generating transcript'}
                       </p>
                     </div>
                   </div>
@@ -1874,6 +1900,7 @@ export default function ProjectDetail() {
             clearSelection()
             loadProjectData()
           }}
+          defaultSchedulingPrompt={defaultSchedulingPrompt}
         />
       </WorkspaceLayout>
     </>

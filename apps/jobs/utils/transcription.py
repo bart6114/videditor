@@ -3,6 +3,7 @@
 import asyncio
 import os
 import tempfile
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 import structlog
@@ -13,8 +14,11 @@ from utils.ffmpeg import extract_audio, split_audio_chunk, get_video_duration
 
 logger = structlog.get_logger()
 
-# OpenAI Whisper API has a 25MB file size limit
+# OpenAI Whisper API has a 25MB file size limit (kept for reference)
 MAX_FILE_SIZE_MB = 25.0
+
+# Default chunk duration for time-based splitting
+DEFAULT_CHUNK_DURATION_SECONDS = 360.0  # 6 minutes
 
 
 @dataclass
@@ -30,9 +34,10 @@ class AudioChunk:
 async def transcribe_video(
     video_path: str,
     api_key: str,
-    chunk_size_mb: float = 20.0,
+    chunk_duration_seconds: float = DEFAULT_CHUNK_DURATION_SECONDS,
     audio_bitrate: str = "64k",
-    max_chunk_duration: float = 1200.0,
+    max_concurrent: int = 5,
+    progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
 ) -> TranscriptionResult:
     """
     Transcribe a video file using OpenAI Whisper API.
@@ -40,16 +45,17 @@ async def transcribe_video(
     Args:
         video_path: Path to the video file
         api_key: OpenAI API key
-        chunk_size_mb: Target chunk size in MB for splitting large files
+        chunk_duration_seconds: Max duration per chunk in seconds (default 360 = 6 min)
         audio_bitrate: Audio bitrate for extraction (e.g., "64k")
-        max_chunk_duration: Maximum chunk duration in seconds (API limit is 1400s)
+        max_concurrent: Max concurrent API calls (default 5)
+        progress_callback: Optional async callback(current, total) for progress updates
 
     Returns:
         TranscriptionResult with text, segments, and detected language
 
     Note:
-        Audio is split into chunks if file size > 25MB OR duration > max_chunk_duration.
-        Chunks are transcribed concurrently, then merged with proper timestamp offsets.
+        Videos longer than chunk_duration_seconds are split into chunks that
+        are transcribed concurrently, then merged with proper timestamp offsets.
     """
     with tempfile.TemporaryDirectory(prefix="whisper-") as temp_dir:
         # 1. Extract audio from video
@@ -66,7 +72,7 @@ async def transcribe_video(
             bitrate=audio_bitrate,
         )
 
-        # 2. Check file size
+        # 2. Log audio info
         file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
         logger.info(
             "audio_extracted",
@@ -77,79 +83,74 @@ async def transcribe_video(
         # 3. Initialize OpenAI client with extended timeout for transcription
         client = AsyncOpenAI(api_key=api_key, timeout=600.0)
 
-        # 4. Process based on size AND duration (API limit is 1400s for gpt-4o-transcribe-diarize)
-        needs_chunking = file_size_mb > MAX_FILE_SIZE_MB or duration > max_chunk_duration
-        if not needs_chunking:
-            # Single file, no chunking needed
-            logger.info("transcribing_single_file", size_mb=round(file_size_mb, 2))
+        # 4. Process based on duration (time-based chunking)
+        if duration <= chunk_duration_seconds:
+            # Short video, no chunking needed
+            logger.info(
+                "transcribing_single_file",
+                duration_seconds=round(duration, 2),
+                size_mb=round(file_size_mb, 2),
+            )
+            # Report progress for single file (0/1 -> 1/1)
+            if progress_callback:
+                await progress_callback(0, 1)
             text, segments, language = await _transcribe_chunk_with_retry(
                 client, audio_path, None
             )
+            if progress_callback:
+                await progress_callback(1, 1)
             return TranscriptionResult(
                 text=text,
                 segments=[WhisperSegment(**seg) for seg in segments],
                 language=language,
             )
         else:
-            # Split into chunks (due to file size > 25MB or duration > limit)
-            logger.info(
-                "chunking_required",
-                size_mb=round(file_size_mb, 2),
-                duration_seconds=round(duration, 2),
-                max_chunk_duration=max_chunk_duration,
-                reason="size" if file_size_mb > MAX_FILE_SIZE_MB else "duration",
-            )
-            chunks = await _split_audio_into_chunks(
+            # Split into time-based chunks
+            chunks = await _split_audio_into_chunks_by_time(
                 audio_path=audio_path,
                 output_dir=temp_dir,
-                max_chunk_size_mb=chunk_size_mb,
+                chunk_duration_seconds=chunk_duration_seconds,
                 total_duration=duration,
-                max_chunk_duration=max_chunk_duration,
             )
 
             logger.info(
                 "audio_chunked",
                 num_chunks=len(chunks),
+                chunk_duration_seconds=chunk_duration_seconds,
                 total_duration=round(duration, 2),
             )
 
-            # Transcribe all chunks concurrently
-            results = await _transcribe_all_chunks(client, chunks)
+            # Report initial progress
+            if progress_callback:
+                await progress_callback(0, len(chunks))
+
+            # Transcribe all chunks concurrently with progress tracking
+            results = await _transcribe_all_chunks(
+                client, chunks, max_concurrent, progress_callback
+            )
 
             # Merge results
             return _merge_transcription_results(results)
 
 
-async def _split_audio_into_chunks(
+async def _split_audio_into_chunks_by_time(
     audio_path: str,
     output_dir: str,
-    max_chunk_size_mb: float,
+    chunk_duration_seconds: float,
     total_duration: float,
-    max_chunk_duration: float = 1200.0,
 ) -> list[AudioChunk]:
     """
-    Split audio file into chunks under both size and duration limits.
+    Split audio file into fixed-duration chunks.
 
     Args:
         audio_path: Path to input audio file
         output_dir: Directory for chunk files
-        max_chunk_size_mb: Maximum size per chunk in MB
+        chunk_duration_seconds: Maximum duration per chunk in seconds
         total_duration: Total duration of audio in seconds
-        max_chunk_duration: Maximum duration per chunk in seconds (API limit)
 
     Returns:
         List of AudioChunk objects with paths and timing info
     """
-    file_size = os.path.getsize(audio_path)
-    bytes_per_second = file_size / total_duration
-
-    # Calculate max chunk duration based on file size with 10% safety margin
-    max_chunk_bytes = max_chunk_size_mb * 1024 * 1024 * 0.9
-    size_based_duration = max_chunk_bytes / bytes_per_second
-
-    # Use the smaller of size-based and API duration limits
-    effective_max_duration = min(size_based_duration, max_chunk_duration)
-
     chunks: list[AudioChunk] = []
     current_time = 0.0
     chunk_index = 0
@@ -157,7 +158,7 @@ async def _split_audio_into_chunks(
     while current_time < total_duration:
         # Calculate chunk duration (don't exceed remaining time)
         remaining = total_duration - current_time
-        chunk_duration = min(effective_max_duration, remaining)
+        chunk_duration = min(chunk_duration_seconds, remaining)
 
         # Create chunk path
         chunk_path = os.path.join(output_dir, f"chunk_{chunk_index:03d}.mp3")
@@ -169,6 +170,16 @@ async def _split_audio_into_chunks(
             start_time=current_time,
             duration=chunk_duration,
         )
+
+        # Verify chunk file size as sanity check
+        chunk_size_mb = os.path.getsize(chunk_path) / (1024 * 1024)
+        if chunk_size_mb > 20.0:
+            logger.warning(
+                "chunk_larger_than_expected",
+                chunk_index=chunk_index,
+                size_mb=round(chunk_size_mb, 2),
+                duration_seconds=round(chunk_duration, 2),
+            )
 
         chunks.append(
             AudioChunk(
@@ -183,11 +194,10 @@ async def _split_audio_into_chunks(
         chunk_index += 1
 
     logger.info(
-        "split_audio_complete",
+        "split_audio_by_time_complete",
         num_chunks=len(chunks),
-        effective_max_duration=round(effective_max_duration, 2),
-        size_based_duration=round(size_based_duration, 2),
-        api_duration_limit=max_chunk_duration,
+        chunk_duration_seconds=chunk_duration_seconds,
+        total_duration=round(total_duration, 2),
     )
 
     return chunks
@@ -321,7 +331,8 @@ async def _transcribe_chunk_with_retry(
 async def _transcribe_all_chunks(
     client: AsyncOpenAI,
     chunks: list[AudioChunk],
-    max_concurrent: int = 4,
+    max_concurrent: int = 5,
+    progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
 ) -> list[tuple[str, list[dict], str]]:
     """
     Transcribe multiple chunks with controlled concurrency.
@@ -330,13 +341,18 @@ async def _transcribe_all_chunks(
         client: OpenAI async client
         chunks: List of audio chunks to transcribe
         max_concurrent: Maximum concurrent API calls
+        progress_callback: Optional async callback(current, total) for progress updates
 
     Returns:
         List of results in chunk order
     """
     semaphore = asyncio.Semaphore(max_concurrent)
+    completed_count = 0
+    total_chunks = len(chunks)
+    lock = asyncio.Lock()
 
     async def process_chunk(chunk: AudioChunk) -> tuple[str, list[dict], str]:
+        nonlocal completed_count
         async with semaphore:
             logger.info(
                 "transcribing_chunk",
@@ -351,6 +367,11 @@ async def _transcribe_all_chunks(
                 text_length=len(result[0]),
                 segment_count=len(result[1]),
             )
+            # Update progress after successful transcription
+            if progress_callback:
+                async with lock:
+                    completed_count += 1
+                    await progress_callback(completed_count, total_chunks)
             return result
 
     # Process in order but allow concurrency

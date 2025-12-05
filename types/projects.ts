@@ -13,4 +13,5 @@ export type ProjectSummary = {
   updatedAt: string;
   shortsCount?: number;
   hasTranscription?: boolean;
+  transcriptionProgress?: { current: number; total: number } | null;
 };

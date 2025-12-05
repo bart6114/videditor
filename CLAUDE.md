@@ -170,10 +170,6 @@ The `fly.app.toml` file contains `[build.args]` that pass these values to the Do
 
 ## TODOs / Follow-ups
 
-- ~~Scheduling system for YT/TikTok/Instagram~~ (YouTube implemented in `feature/youtube-scheduling` branch)
-- Upload video should cost 1 credit
-- ~~EUR/USD currency options for pricing~~ (implemented with €0.20/credit base, auto-detect EU via IP)
-
 ### YouTube Scheduling Deployment
 
 To deploy the YouTube scheduling feature:
@@ -288,7 +284,4 @@ After initial setup, every push to `main` triggers automatic migrations and depl
 - Jobs worker was migrated from TypeScript/Node.js to Python 3.13 for better AI/ML tooling
 - Previous Cloudflare-specific code has been removed
 - System has been migrated from CloudFlare to Fly, if you encounter any remnants ask if OK to delete 'em
-- todo: allow to set specific models via env vars
-- todo: fix double publishing due to bad UX
-- todo: improve status UI in projects is for shorts (both completed and published indicators and stuff)
 - todo: up number of threads on prod before release

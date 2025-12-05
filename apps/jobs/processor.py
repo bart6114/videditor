@@ -373,13 +373,23 @@ class JobProcessor:
                 "Running OpenAI Whisper transcription",
                 job_id=job.id,
                 temp_file_path=temp_file_path,
+                chunk_duration_seconds=self.config.WHISPER_CHUNK_DURATION_SECONDS,
+                max_concurrent=self.config.WHISPER_MAX_CONCURRENT,
             )
+
+            # Create progress callback to update job progress
+            async def update_transcription_progress(current: int, total: int) -> None:
+                await self._update_job_progress(
+                    session, job.id, phase="transcribing", current=current, total=total
+                )
+
             transcription_result = await transcribe_video(
                 video_path=temp_file_path,
                 api_key=self.config.OPENAI_API_KEY,
-                chunk_size_mb=self.config.WHISPER_CHUNK_SIZE_MB,
+                chunk_duration_seconds=self.config.WHISPER_CHUNK_DURATION_SECONDS,
                 audio_bitrate=self.config.WHISPER_AUDIO_BITRATE,
-                max_chunk_duration=self.config.WHISPER_MAX_CHUNK_DURATION,
+                max_concurrent=self.config.WHISPER_MAX_CONCURRENT,
+                progress_callback=update_transcription_progress,
             )
 
             # Save transcription to database

@@ -140,6 +140,7 @@ export const users = pgTable(
     defaultAvoidOverlap: boolean('default_avoid_overlap').default(false), // Default setting for avoiding overlap with existing shorts
     defaultPreferredLength: integer('default_preferred_length').default(45), // Default preferred short length in seconds (15-120)
     defaultMaxLength: integer('default_max_length').default(60), // Default maximum short length in seconds (15-120)
+    defaultSchedulingPrompt: text('default_scheduling_prompt'), // Default prompt for bulk scheduling
     // Onboarding - tracks which tours user has completed (e.g., { "projects_overview": true, "project_detail": true })
     completedTours: jsonb('completed_tours').$type<Record<string, boolean>>().default(sql`'{}'::jsonb`),
     // Organization - user's currently active organization
@@ -253,7 +254,7 @@ export const processingJobs = pgTable(
     status: jobStatusEnum('status').notNull().default('queued'),
     payload: jsonb('payload'),
     result: jsonb('result'),
-    progress: jsonb('progress').$type<{ phase: 'analyzing' | 'generating'; current: number; total: number }>(),
+    progress: jsonb('progress').$type<{ phase: 'transcribing' | 'analyzing' | 'generating'; current: number; total: number }>(),
     errorMessage: text('error_message'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),

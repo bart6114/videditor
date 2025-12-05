@@ -142,23 +142,40 @@ export default function Projects() {
     return false
   }
 
-  function getProcessingLabel(status: ProjectSummary['status'], durationSeconds?: number | null): string {
-    // Processing multiplier: ~0.3x video duration for thumbnail + audio + transcription
-    const PROCESSING_MULTIPLIER = 0.3
+  function getEstimatedMinutes(duration: number | null | undefined): number | null {
+    if (!duration) return null
+    const CHUNK_DURATION = 360  // 6 minutes
+    const CONCURRENT = 5
+    const API_TIME_PER_BATCH = 60  // ~60 seconds per batch of API calls
+    const OVERHEAD = 30  // audio extraction + thumbnail
 
-    const getEstimate = (duration: number | null | undefined) => {
-      if (!duration) return ''
-      const estimatedSeconds = Math.ceil(duration * PROCESSING_MULTIPLIER)
-      const minutes = Math.ceil(estimatedSeconds / 60)
-      return ` (~${minutes}m)`
-    }
+    const chunks = Math.ceil(duration / CHUNK_DURATION)
+    const batches = Math.ceil(chunks / CONCURRENT)
+    const estimatedSeconds = (batches * API_TIME_PER_BATCH) + OVERHEAD
+    return Math.ceil(estimatedSeconds / 60)
+  }
+
+  function getProcessingLabel(
+    status: ProjectSummary['status'],
+    durationSeconds?: number | null,
+    transcriptionProgress?: { current: number; total: number } | null
+  ): { label: string; estimate: string | null } {
+    const estimateMinutes = getEstimatedMinutes(durationSeconds)
+    const estimate = estimateMinutes ? `~${estimateMinutes}m total` : null
 
     if (status === 'uploading') {
-      return 'Uploading...'
+      return { label: 'Uploading...', estimate: null }
     }
 
-    // All other processing states show "Processing..." with optional estimate
-    return `Processing...${getEstimate(durationSeconds)}`
+    // Show percentage if transcription progress is available
+    if (transcriptionProgress && transcriptionProgress.total > 0) {
+      const percent = Math.round((transcriptionProgress.current / transcriptionProgress.total) * 100)
+      return { label: `Transcribing... ${percent}%`, estimate }
+    }
+
+    // All other processing states show "Processing..." with optional estimate inline
+    const label = estimateMinutes ? `Processing... (~${estimateMinutes}m)` : 'Processing...'
+    return { label, estimate: null }
   }
 
   // Show loading state while checking authentication
@@ -257,16 +274,24 @@ export default function Projects() {
                       </div>
                     )}
                     {/* Processing Overlay */}
-                    {isProcessing(project) && (
-                      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3 animate-in fade-in duration-300">
-                        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-                          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                    {isProcessing(project) && (() => {
+                      const { label, estimate } = getProcessingLabel(project.status, project.durationSeconds, project.transcriptionProgress)
+                      return (
+                        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 animate-in fade-in duration-300">
+                          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                          </div>
+                          <span className="text-foreground text-sm font-medium">
+                            {label}
+                          </span>
+                          {estimate && (
+                            <span className="text-muted-foreground text-xs">
+                              ({estimate})
+                            </span>
+                          )}
                         </div>
-                        <span className="text-foreground text-sm font-medium">
-                          {getProcessingLabel(project.status, project.durationSeconds)}
-                        </span>
-                      </div>
-                    )}
+                      )
+                    })()}
                     {/* Delete Button Overlay - always visible on mobile for touch access */}
                     <button
                       onClick={(e) => openDeleteDialog(project, e)}

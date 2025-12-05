@@ -47,9 +47,9 @@ class JobRunnerConfig(BaseSettings):
 
     # Transcription (OpenAI Whisper API)
     OPENAI_API_KEY: str = Field(min_length=1)
-    WHISPER_CHUNK_SIZE_MB: int = Field(default=10, ge=5, le=24)
+    WHISPER_CHUNK_DURATION_SECONDS: int = Field(default=360, ge=60, le=600)  # 6 min max chunks
+    WHISPER_MAX_CONCURRENT: int = Field(default=5, ge=1, le=10)  # Concurrent API calls
     WHISPER_AUDIO_BITRATE: str = "64k"
-    WHISPER_MAX_CHUNK_DURATION: int = Field(default=1200, ge=60, le=1400)  # gpt-4o-transcribe-diarize limit is 1400s
 
     # Video cache (for short processing)
     VIDEO_CACHE_DIR: str = "/tmp/videditor-cache"
