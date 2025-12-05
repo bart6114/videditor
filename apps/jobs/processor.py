@@ -390,6 +390,7 @@ class JobProcessor:
                 audio_bitrate=self.config.WHISPER_AUDIO_BITRATE,
                 max_concurrent=self.config.WHISPER_MAX_CONCURRENT,
                 progress_callback=update_transcription_progress,
+                trace_id=f"{job.project_id}_transcription_{job.id}",
             )
 
             # Save transcription to database
@@ -552,6 +553,7 @@ class JobProcessor:
             custom_prompt=custom_prompt,
             existing_shorts=existing_shorts,
             model=self.config.OPENROUTER_ANALYSIS_MODEL,
+            trace_id=f"{job.project_id}_analysis_{job.id}",
         )
 
         self.logger.info(
@@ -887,6 +889,7 @@ class JobProcessor:
                         context_before=context_before,
                         context_after=context_after,
                         custom_prompt=custom_social_prompt,
+                        trace_id=f"{project_id}_social_{short_id}",
                     )
                     await self._update_short_task(session, short_id, "social_content", ShortTaskStatus.DONE.value)
                     result_data["socialContent"] = social_content_data

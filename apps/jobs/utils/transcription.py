@@ -10,6 +10,7 @@ import structlog
 from openai import AsyncOpenAI, RateLimitError, APIError, APITimeoutError
 
 from models import TranscriptionResult, WhisperSegment
+from utils.analytics import get_openai_client
 from utils.ffmpeg import extract_audio, split_audio_chunk, get_video_duration
 
 logger = structlog.get_logger()
@@ -38,6 +39,7 @@ async def transcribe_video(
     audio_bitrate: str = "64k",
     max_concurrent: int = 5,
     progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
+    trace_id: str | None = None,
 ) -> TranscriptionResult:
     """
     Transcribe a video file using OpenAI Whisper API.
@@ -81,7 +83,8 @@ async def transcribe_video(
         )
 
         # 3. Initialize OpenAI client with extended timeout for transcription
-        client = AsyncOpenAI(api_key=api_key, timeout=600.0)
+        # Uses PostHog-wrapped client if POSTHOG_API_KEY is configured
+        client = get_openai_client(api_key=api_key, timeout=600.0)
 
         # 4. Process based on duration (time-based chunking)
         if duration <= chunk_duration_seconds:
@@ -95,7 +98,7 @@ async def transcribe_video(
             if progress_callback:
                 await progress_callback(0, 1)
             text, segments, language = await _transcribe_chunk_with_retry(
-                client, audio_path, None
+                client, audio_path, None, trace_id=trace_id
             )
             if progress_callback:
                 await progress_callback(1, 1)
@@ -126,7 +129,7 @@ async def transcribe_video(
 
             # Transcribe all chunks concurrently with progress tracking
             results = await _transcribe_all_chunks(
-                client, chunks, max_concurrent, progress_callback
+                client, chunks, max_concurrent, progress_callback, trace_id=trace_id
             )
 
             # Merge results
@@ -207,6 +210,7 @@ async def _transcribe_chunk(
     client: AsyncOpenAI,
     audio_path: str,
     chunk_info: AudioChunk | None = None,
+    trace_id: str | None = None,
 ) -> tuple[str, list[dict], str]:
     """
     Transcribe a single audio chunk via OpenAI API with speaker diarization.
@@ -215,6 +219,7 @@ async def _transcribe_chunk(
         client: OpenAI async client
         audio_path: Path to audio chunk
         chunk_info: Optional chunk metadata for timestamp offset
+        trace_id: Optional trace ID for PostHog analytics
 
     Returns:
         Tuple of (text, segments, language)
@@ -225,6 +230,7 @@ async def _transcribe_chunk(
             file=audio_file,
             response_format="diarized_json",
             chunking_strategy="auto",  # Required for diarization models
+            posthog_trace_id=trace_id,
         )
 
     # Extract and offset timestamps if this is a chunk
@@ -252,6 +258,7 @@ async def _transcribe_chunk_with_retry(
     chunk_info: AudioChunk | None,
     max_retries: int = 3,
     retry_base_delay: float = 1.0,
+    trace_id: str | None = None,
 ) -> tuple[str, list[dict], str]:
     """
     Transcribe chunk with exponential backoff retry.
@@ -267,6 +274,7 @@ async def _transcribe_chunk_with_retry(
         chunk_info: Optional chunk metadata
         max_retries: Maximum number of retries
         retry_base_delay: Base delay for exponential backoff
+        trace_id: Optional trace ID for PostHog analytics
 
     Returns:
         Tuple of (text, segments, language)
@@ -275,7 +283,7 @@ async def _transcribe_chunk_with_retry(
 
     for attempt in range(max_retries):
         try:
-            return await _transcribe_chunk(client, audio_path, chunk_info)
+            return await _transcribe_chunk(client, audio_path, chunk_info, trace_id)
         except RateLimitError as e:
             last_error = e
             delay = retry_base_delay * (2**attempt)
@@ -333,6 +341,7 @@ async def _transcribe_all_chunks(
     chunks: list[AudioChunk],
     max_concurrent: int = 5,
     progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
+    trace_id: str | None = None,
 ) -> list[tuple[str, list[dict], str]]:
     """
     Transcribe multiple chunks with controlled concurrency.
@@ -342,6 +351,7 @@ async def _transcribe_all_chunks(
         chunks: List of audio chunks to transcribe
         max_concurrent: Maximum concurrent API calls
         progress_callback: Optional async callback(current, total) for progress updates
+        trace_id: Optional trace ID for PostHog analytics
 
     Returns:
         List of results in chunk order
@@ -360,7 +370,7 @@ async def _transcribe_all_chunks(
                 start_time=round(chunk.start_time, 2),
                 duration=round(chunk.duration, 2),
             )
-            result = await _transcribe_chunk_with_retry(client, chunk.path, chunk)
+            result = await _transcribe_chunk_with_retry(client, chunk.path, chunk, trace_id=trace_id)
             logger.info(
                 "chunk_transcribed",
                 chunk_index=chunk.index,

@@ -85,6 +85,8 @@ Job Runner (Fly Machine, Python 3.13)
 - `CLERK_SECRET_KEY` – for JWT verification
 - `CLERK_PUBLISHABLE_KEY` – for frontend auth
 - `STRIPE_*` – Stripe keys for payments
+- `POSTHOG_API_KEY` – PostHog project API key (optional, enables LLM analytics)
+- `POSTHOG_HOST` – PostHog host (default: `https://eu.i.posthog.com`)
 
 **Python Jobs Worker:**
 - `DATABASE_URL` – same Neon Postgres connection (automatically converts to asyncpg format)
@@ -93,6 +95,8 @@ Job Runner (Fly Machine, Python 3.13)
 - `POLL_INTERVAL_MS` – queue polling interval in ms (default: 1000, min: 100)
 - `FFMPEG_BINARY` – path to FFmpeg binary (optional, uses system FFmpeg by default)
 - `NODE_ENV` – environment mode (development/production, default: development)
+- `POSTHOG_API_KEY` – PostHog project API key (optional, enables LLM analytics)
+- `POSTHOG_HOST` – PostHog host (default: `https://eu.i.posthog.com`)
 
 ## Flow Notes
 
@@ -167,6 +171,30 @@ The `fly.app.toml` file contains `[build.args]` that pass these values to the Do
 
 **Package Management:**
 - **uv** – Fast Python package installer and resolver
+
+## PostHog LLM Analytics
+
+All OpenAI and OpenRouter API calls are instrumented with PostHog LLM analytics when `POSTHOG_API_KEY` is set.
+
+**What's captured:**
+- Token usage (input/output)
+- Latency metrics
+- Full prompts and responses
+- Cost estimates
+- Error tracking
+
+**Integration Points:**
+- `apps/jobs/utils/analytics.py` – Python PostHog client wrapper for OpenAI/OpenRouter
+- `apps/jobs/utils/transcription.py` – OpenAI Whisper calls (via wrapped client)
+- `apps/jobs/utils/ai.py` – OpenRouter calls for analysis and social content (uses OpenAI SDK)
+- `lib/posthog/index.ts` – Node.js PostHog client for API routes
+- `pages/api/v1/schedule/ai-generate.ts` – OpenRouter scheduling calls
+
+**Deployment:**
+```bash
+fly secrets set -a videditor-jobs POSTHOG_API_KEY="phc_..." POSTHOG_HOST="https://eu.i.posthog.com"
+fly secrets set -a videditor-app POSTHOG_API_KEY="phc_..." POSTHOG_HOST="https://eu.i.posthog.com"
+```
 
 ## TODOs / Follow-ups
 
@@ -285,3 +313,5 @@ After initial setup, every push to `main` triggers automatic migrations and depl
 - Previous Cloudflare-specific code has been removed
 - System has been migrated from CloudFlare to Fly, if you encounter any remnants ask if OK to delete 'em
 - todo: up number of threads on prod before release
+- todo: add sane defaults for available preferences
+- todo: see if editing a scheduled post is possible

@@ -3,6 +3,7 @@ import { getDb } from '@server/db';
 import { getShortsByIds } from '@server/db/queries/shorts';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
+import { captureAiGeneration } from '@/lib/posthog';
 
 interface AiGenerateRequest {
   shortIds: string[];
@@ -183,6 +184,13 @@ Generate a schedule for these shorts.`;
     },
   };
 
+  const startTime = Date.now();
+  const traceId = `${authResult.organizationId}_bulkschedule_${startTime}`;
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ];
+
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -193,24 +201,49 @@ Generate a schedule for these shorts.`;
       },
       body: JSON.stringify({
         model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
+        messages,
         temperature: 0.7,
         max_tokens: 4000,
         response_format: responseFormat,
       }),
     });
 
+    const latencyMs = Date.now() - startTime;
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenRouter API error:', response.status, errorText);
+
+      // Capture failed AI generation
+      captureAiGeneration(authResult.userId, {
+        model,
+        provider: 'openrouter',
+        input: messages,
+        output: errorText,
+        latencyMs,
+        success: false,
+        error: `HTTP ${response.status}: ${errorText}`,
+        traceId,
+      });
+
       return failure(res, 502, 'AI service error');
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
+
+    // Capture successful AI generation
+    captureAiGeneration(authResult.userId, {
+      model,
+      provider: 'openrouter',
+      input: messages,
+      output: content || '',
+      inputTokens: data.usage?.prompt_tokens,
+      outputTokens: data.usage?.completion_tokens,
+      latencyMs,
+      success: true,
+      traceId,
+    });
 
     if (!content) {
       return failure(res, 502, 'AI returned empty response');
@@ -244,7 +277,21 @@ Generate a schedule for these shorts.`;
       schedule: validSchedule,
     });
   } catch (error) {
+    const latencyMs = Date.now() - startTime;
     console.error('OpenRouter request failed:', error);
+
+    // Capture failed AI generation
+    captureAiGeneration(authResult.userId, {
+      model,
+      provider: 'openrouter',
+      input: messages,
+      output: '',
+      latencyMs,
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      traceId,
+    });
+
     return failure(res, 502, 'Failed to connect to AI service');
   }
 }

@@ -60,6 +60,10 @@ class JobRunnerConfig(BaseSettings):
     YOUTUBE_CLIENT_ID: Optional[str] = None
     YOUTUBE_CLIENT_SECRET: Optional[str] = None
 
+    # PostHog LLM Analytics
+    POSTHOG_API_KEY: Optional[str] = None
+    POSTHOG_HOST: str = "https://eu.i.posthog.com"
+
     # Tigris storage
     TIGRIS_ENDPOINT: HttpUrl
     TIGRIS_REGION: str = Field(min_length=1)

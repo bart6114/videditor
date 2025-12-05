@@ -4,8 +4,10 @@ import asyncio
 import json
 from typing import Any
 
-import httpx
 import structlog
+from openai import APIError, APITimeoutError, RateLimitError
+
+from utils.analytics import get_openrouter_client
 
 logger = structlog.get_logger()
 
@@ -245,6 +247,7 @@ async def analyze_transcript_for_shorts(
     custom_prompt: str | None = None,
     existing_shorts: list[dict[str, Any]] | None = None,
     model: str = "openai/gpt-4o",
+    trace_id: str | None = None,
 ) -> list[ShortSuggestion]:
     """
     Analyze transcript using OpenRouter GPT-4o to identify viral short opportunities.
@@ -359,42 +362,36 @@ Return your response as a JSON array with this exact format:
 
 Return ONLY the JSON array, no other text."""
 
-    # Call OpenRouter API
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        try:
-            response = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://videditor.app",
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt,
-                        }
-                    ],
-                    "temperature": 0.7,
-                    "max_tokens": 4000,
-                },
-            )
-            response.raise_for_status()
-        except httpx.HTTPError as e:
-            logger.error("openrouter_api_error", error=str(e))
-            raise
+    # Call OpenRouter API using OpenAI SDK
+    # Uses PostHog-wrapped client if POSTHOG_API_KEY is configured
+    client = get_openrouter_client(api_key=api_key, timeout=120.0)
 
-    # Parse response
-    result = response.json()
-    logger.debug("openrouter_response", result=result)
+    try:
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            temperature=0.7,
+            max_tokens=4000,
+            posthog_trace_id=trace_id,
+        )
+    except (APIError, APITimeoutError, RateLimitError) as e:
+        logger.error("openrouter_api_error", error=str(e))
+        raise
+
+    logger.debug("openrouter_response", response=response.model_dump(), trace_id=trace_id)
 
     # Extract content from response
     try:
-        content = result["choices"][0]["message"]["content"]
-    except (KeyError, IndexError) as e:
-        logger.error("invalid_openrouter_response", error=str(e), result=result)
+        content = response.choices[0].message.content
+        if content is None:
+            raise ValueError("Response content is None")
+    except (IndexError, AttributeError) as e:
+        logger.error("invalid_openrouter_response", error=str(e), response=response.model_dump())
         raise ValueError("Invalid response format from OpenRouter") from e
 
     # Parse JSON array from content
@@ -496,6 +493,7 @@ async def generate_social_content(
     context_before: str | None = None,
     context_after: str | None = None,
     custom_prompt: str | None = None,
+    trace_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate social media content for a short video clip using structured outputs.
@@ -592,42 +590,37 @@ IMPORTANT:
 - NEVER include placeholder text like "[link]", "[URL]", "Watch more: [link]", or similar bracketed placeholders unless the user explicitly requests them in their custom instructions
 - Write complete, ready-to-use content"""
 
-    # Retry configuration - only retry HTTP errors, not parsing errors
+    # Retry configuration - only retry API errors, not parsing errors
     max_retries = 3
     retry_base_delay = 1.0
+
+    # Get OpenRouter client (PostHog-wrapped if configured)
+    client = get_openrouter_client(api_key=api_key, timeout=60.0)
 
     last_error: Exception | None = None
 
     for attempt in range(max_retries):
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": "https://videditor.app",
-                    },
-                    json={
-                        "model": model,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": prompt,
-                            }
-                        ],
-                        "temperature": 1,
-                        "max_tokens": 4800,
-                        "response_format": response_format,
-                    },
-                )
-                response.raise_for_status()
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+                temperature=1,
+                max_tokens=4800,
+                response_format=response_format,  # type: ignore[arg-type]
+                posthog_trace_id=trace_id,
+            )
 
-            result = response.json()
-            logger.debug("openrouter_response_social_content", result=result)
+            logger.debug("openrouter_response_social_content", response=response.model_dump(), trace_id=trace_id)
 
             # With structured outputs, content is guaranteed valid JSON
-            content = result["choices"][0]["message"]["content"]
+            content = response.choices[0].message.content
+            if content is None:
+                raise ValueError("Response content is None")
             social_content = json.loads(content)
 
             logger.info(
@@ -637,12 +630,12 @@ IMPORTANT:
 
             return social_content
 
-        except httpx.HTTPError as e:
+        except (APIError, APITimeoutError, RateLimitError) as e:
             last_error = e
             if attempt < max_retries - 1:
                 delay = retry_base_delay * (2**attempt)
                 logger.warning(
-                    "social_content_http_retry",
+                    "social_content_api_retry",
                     attempt=attempt + 1,
                     max_retries=max_retries,
                     delay_seconds=delay,
@@ -651,7 +644,7 @@ IMPORTANT:
                 await asyncio.sleep(delay)
             else:
                 logger.error(
-                    "social_content_http_failed_all_retries",
+                    "social_content_api_failed_all_retries",
                     attempts=max_retries,
                     error=str(e),
                 )
