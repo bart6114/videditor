@@ -282,8 +282,11 @@ export default function Settings() {
                 </p>
               </div>
 
-              <div className="border-t border-border pt-4 mt-4">
-                <h4 className="text-sm font-medium text-foreground mb-3">Publishing Preferences</h4>
+              <div className="border-t border-border pt-6 mt-6">
+                <h3 className="text-lg font-semibold text-foreground mb-2">Publishing Preferences</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Set your default preferences for scheduling and publishing shorts
+                </p>
                 <div>
                   <label className="text-sm font-medium mb-2 block text-foreground">
                     Default Scheduling Prompt
