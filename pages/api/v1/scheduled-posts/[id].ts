@@ -57,8 +57,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (isNaN(scheduledDate.getTime())) {
         return failure(res, 400, 'Invalid scheduled time format');
       }
-      if (scheduledDate <= new Date()) {
-        return failure(res, 400, 'Scheduled time must be in the future');
+      const fifteenMinutesFromNow = new Date(Date.now() + 15 * 60 * 1000);
+      if (scheduledDate < fifteenMinutesFromNow) {
+        return failure(res, 400, 'Scheduled time must be at least 15 minutes from now');
       }
       updates.scheduledFor = scheduledDate;
     }

@@ -10,6 +10,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import {
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -20,6 +29,7 @@ import {
   XCircle,
   CalendarDays,
   Trash2,
+  Pencil,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SiYoutube } from '@icons-pack/react-simple-icons'
@@ -96,6 +106,18 @@ function formatTime(dateString: string): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+// Format Date to local datetime-local input format (YYYY-MM-DDTHH:MM)
+function formatLocalDateTime(d: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Get minimum datetime (15 minutes from now)
+function getMinDateTime(): string {
+  const minDate = new Date(Date.now() + 15 * 60 * 1000)
+  return formatLocalDateTime(minDate)
+}
+
 export default function CalendarPage() {
   const router = useRouter()
   const { isSignedIn, isLoaded } = useUser()
@@ -105,6 +127,11 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+
+  // Edit modal state
+  const [editingPost, setEditingPost] = useState<CalendarPost | null>(null)
+  const [editFormData, setEditFormData] = useState({ scheduledFor: '', title: '', description: '' })
+  const [saving, setSaving] = useState(false)
 
   // Calendar state
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -163,6 +190,73 @@ export default function CalendarPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to delete post')
     } finally {
       setDeleting(null)
+    }
+  }
+
+  function openEditModal(post: CalendarPost) {
+    setEditFormData({
+      scheduledFor: formatLocalDateTime(new Date(post.scheduledFor)),
+      title: post.title,
+      description: post.description || '',
+    })
+    setEditingPost(post)
+  }
+
+  function closeEditModal() {
+    setEditingPost(null)
+    setEditFormData({ scheduledFor: '', title: '', description: '' })
+  }
+
+  async function handleSaveEdit() {
+    if (!editingPost) return
+
+    // Client-side validation
+    const scheduledDate = new Date(editFormData.scheduledFor)
+    const fifteenMinutesFromNow = new Date(Date.now() + 15 * 60 * 1000)
+
+    if (scheduledDate < fifteenMinutesFromNow) {
+      toast.error('Scheduled time must be at least 15 minutes from now')
+      return
+    }
+
+    if (!editFormData.title.trim()) {
+      toast.error('Title cannot be empty')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const response = await call<{ scheduledPost: { scheduledFor: string; title: string; description: string | null } }>(
+        `/v1/scheduled-posts/${editingPost.id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            scheduledFor: scheduledDate.toISOString(),
+            title: editFormData.title.trim(),
+            description: editFormData.description.trim() || null,
+          }),
+        }
+      )
+
+      // Update posts state
+      setPosts(posts.map((p) =>
+        p.id === editingPost.id
+          ? {
+              ...p,
+              scheduledFor: response.scheduledPost.scheduledFor,
+              title: response.scheduledPost.title,
+              description: response.scheduledPost.description,
+            }
+          : p
+      ))
+
+      toast.success('Scheduled post updated')
+      closeEditModal()
+    } catch (err) {
+      console.error('Error updating post:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to update post')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -411,19 +505,29 @@ export default function CalendarPage() {
                                   </span>
                                 </Badge>
                                 {post.status === 'scheduled' && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
-                                    onClick={() => handleDeletePost(post)}
-                                    disabled={deleting === post.id}
-                                  >
-                                    {deleting === post.id ? (
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="w-4 h-4" />
-                                    )}
-                                  </Button>
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                                      onClick={() => openEditModal(post)}
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                                      onClick={() => handleDeletePost(post)}
+                                      disabled={deleting === post.id}
+                                    >
+                                      {deleting === post.id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="w-4 h-4" />
+                                      )}
+                                    </Button>
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -516,23 +620,58 @@ export default function CalendarPage() {
 
                     <div className="space-y-1">
                       {dayPosts.slice(0, 3).map((post) => (
-                        <Link
+                        <div
                           key={post.id}
-                          href={`/projects/${post.project.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className={`block p-1.5 rounded text-xs border transition-colors hover:opacity-80 ${
+                          className={`group relative p-1.5 rounded text-xs border transition-colors ${
                             STATUS_COLORS[post.status] || STATUS_COLORS.scheduled
                           }`}
                         >
-                          <div className="flex items-center gap-1 mb-0.5">
-                            <SiYoutube size={10} />
-                            <span className="font-medium truncate">
-                              {formatTime(post.scheduledFor)}
-                            </span>
-                            {STATUS_ICONS[post.status]}
-                          </div>
-                          <div className="truncate text-[10px] opacity-80">{post.title}</div>
-                        </Link>
+                          <Link
+                            href={`/projects/${post.project.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="block hover:opacity-80"
+                          >
+                            <div className="flex items-center gap-1 mb-0.5">
+                              <SiYoutube size={10} />
+                              <span className="font-medium truncate">
+                                {formatTime(post.scheduledFor)}
+                              </span>
+                              {STATUS_ICONS[post.status]}
+                            </div>
+                            <div className="truncate text-[10px] opacity-80">{post.title}</div>
+                          </Link>
+
+                          {/* Hover actions - only for scheduled posts */}
+                          {post.status === 'scheduled' && (
+                            <div className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-background/90 rounded p-0.5">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openEditModal(post)
+                                }}
+                                className="p-0.5 hover:bg-muted rounded"
+                                title="Edit"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeletePost(post)
+                                }}
+                                disabled={deleting === post.id}
+                                className="p-0.5 hover:bg-muted hover:text-red-500 rounded"
+                                title="Delete"
+                              >
+                                {deleting === post.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       ))}
                       {dayPosts.length > 3 && (
                         <button
@@ -602,19 +741,29 @@ export default function CalendarPage() {
                               </span>
                             </Badge>
                             {post.status === 'scheduled' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
-                                onClick={() => handleDeletePost(post)}
-                                disabled={deleting === post.id}
-                              >
-                                {deleting === post.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="w-4 h-4" />
-                                )}
-                              </Button>
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                                  onClick={() => openEditModal(post)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                                  onClick={() => handleDeletePost(post)}
+                                  disabled={deleting === post.id}
+                                >
+                                  {deleting === post.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -664,11 +813,11 @@ export default function CalendarPage() {
             <CalendarDays className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No scheduled posts this month</h3>
             <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-              Schedule your first short from any project, or connect YouTube to get started.
+              Schedule your first short from any project, or connect your channels to get started.
             </p>
             <div className="flex items-center justify-center gap-3">
               <Button asChild variant="outline">
-                <Link href="/settings/organization">Connect YouTube</Link>
+                <Link href="/settings/organization">Connect your channels</Link>
               </Button>
               <Button asChild>
                 <Link href="/projects">Browse Projects</Link>
@@ -677,6 +826,77 @@ export default function CalendarPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Post Modal */}
+      <Dialog open={!!editingPost} onOpenChange={(open) => !open && closeEditModal()}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-base">Edit Scheduled Post</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {/* Scheduled Time */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Publish at
+              </label>
+              <Input
+                type="datetime-local"
+                value={editFormData.scheduledFor}
+                onChange={(e) => setEditFormData({ ...editFormData, scheduledFor: e.target.value })}
+                min={getMinDateTime()}
+                className="w-auto text-sm h-9"
+              />
+            </div>
+
+            {/* Title */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Title</label>
+                <span className="text-[10px] text-muted-foreground">{editFormData.title.length}/100</span>
+              </div>
+              <Input
+                type="text"
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                placeholder="Enter title"
+                maxLength={100}
+                className="h-9"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Description <span className="font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                placeholder="Enter description"
+                rows={3}
+                className="w-full px-3 py-2 rounded-md border border-input bg-transparent text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button variant="ghost" size="sm" onClick={closeEditModal} disabled={saving}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  Saving
+                </>
+              ) : (
+                'Save'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </WorkspaceLayout>
   )
 }
