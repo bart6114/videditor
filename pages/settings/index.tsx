@@ -30,6 +30,7 @@ interface UserSettings {
   defaultAvoidOverlap: boolean;
   defaultPreferredLength: number;
   defaultMaxLength: number;
+  defaultSchedulingPrompt: string | null;
 }
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
@@ -50,6 +51,7 @@ export default function Settings() {
   const [defaultAvoidOverlap, setDefaultAvoidOverlap] = useState(false);
   const [defaultPreferredLength, setDefaultPreferredLength] = useState(45);
   const [defaultMaxLength, setDefaultMaxLength] = useState(60);
+  const [defaultSchedulingPrompt, setDefaultSchedulingPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export default function Settings() {
         setDefaultAvoidOverlap(data.settings.defaultAvoidOverlap ?? false);
         setDefaultPreferredLength(data.settings.defaultPreferredLength ?? 45);
         setDefaultMaxLength(data.settings.defaultMaxLength ?? 60);
+        setDefaultSchedulingPrompt(data.settings.defaultSchedulingPrompt || '');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load settings');
       } finally {
@@ -94,6 +97,7 @@ export default function Settings() {
           defaultAvoidOverlap,
           defaultPreferredLength,
           defaultMaxLength,
+          defaultSchedulingPrompt: defaultSchedulingPrompt.trim() || null,
         }),
       });
       setSaved(true);
@@ -276,6 +280,26 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground mt-2">
                   The AI will target the preferred length but may extend up to the max length when needed for content continuity. You can override these per-project.
                 </p>
+              </div>
+
+              <div className="border-t border-border pt-4 mt-4">
+                <h4 className="text-sm font-medium text-foreground mb-3">Publishing Preferences</h4>
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-foreground">
+                    Default Scheduling Prompt
+                  </label>
+                  <textarea
+                    placeholder="e.g., One per day at 9am, spread over weekdays only"
+                    value={defaultSchedulingPrompt}
+                    onChange={(e) => setDefaultSchedulingPrompt(e.target.value)}
+                    rows={3}
+                    maxLength={500}
+                    className="w-full bg-input border border-border text-foreground rounded-lg px-4 py-3 transition-colors duration-200 hover:border-primary/50 focus:border-primary outline-none resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Pre-fills the bulk scheduling dialog. Examples: &quot;One per day for the next week&quot;, &quot;Mornings at 9am, spread over 5 days&quot;, &quot;Every weekday at 6pm&quot;
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center gap-3">

@@ -14,6 +14,7 @@ const updateSettingsSchema = z.object({
   defaultAvoidOverlap: z.boolean().optional(),
   defaultPreferredLength: z.number().int().min(15).max(120).optional(),
   defaultMaxLength: z.number().int().min(15).max(120).optional(),
+  defaultSchedulingPrompt: z.string().max(500).nullable().optional(),
 }).refine(
   (data) => {
     // If both are provided, maxLength must be >= preferredLength
@@ -42,6 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         defaultAvoidOverlap: users.defaultAvoidOverlap,
         defaultPreferredLength: users.defaultPreferredLength,
         defaultMaxLength: users.defaultMaxLength,
+        defaultSchedulingPrompt: users.defaultSchedulingPrompt,
       })
       .from(users)
       .where(eq(users.id, authResult.userId));
@@ -58,6 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         defaultAvoidOverlap: user.defaultAvoidOverlap ?? false,
         defaultPreferredLength: user.defaultPreferredLength ?? 45,
         defaultMaxLength: user.defaultMaxLength ?? 60,
+        defaultSchedulingPrompt: user.defaultSchedulingPrompt,
       }
     });
   }
@@ -88,6 +91,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (parsed.data.defaultMaxLength !== undefined) {
       updateData.defaultMaxLength = parsed.data.defaultMaxLength;
     }
+    if (parsed.data.defaultSchedulingPrompt !== undefined) {
+      updateData.defaultSchedulingPrompt = parsed.data.defaultSchedulingPrompt ?? null;
+    }
 
     const [updated] = await db
       .update(users)
@@ -100,6 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         defaultAvoidOverlap: users.defaultAvoidOverlap,
         defaultPreferredLength: users.defaultPreferredLength,
         defaultMaxLength: users.defaultMaxLength,
+        defaultSchedulingPrompt: users.defaultSchedulingPrompt,
       });
 
     if (!updated) {
@@ -114,6 +121,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         defaultAvoidOverlap: updated.defaultAvoidOverlap ?? false,
         defaultPreferredLength: updated.defaultPreferredLength ?? 45,
         defaultMaxLength: updated.defaultMaxLength ?? 60,
+        defaultSchedulingPrompt: updated.defaultSchedulingPrompt,
       }
     });
   }

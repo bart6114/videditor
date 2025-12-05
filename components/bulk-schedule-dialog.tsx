@@ -38,6 +38,7 @@ interface BulkScheduleDialogProps {
   shorts: Short[]
   organizationId: string
   onSuccess?: () => void
+  defaultSchedulingPrompt?: string | null
 }
 
 // Format Date to local datetime-local input format (YYYY-MM-DDTHH:MM)
@@ -52,6 +53,7 @@ export function BulkScheduleDialog({
   shorts,
   organizationId,
   onSuccess,
+  defaultSchedulingPrompt,
 }: BulkScheduleDialogProps) {
   const { call } = useApi()
   const submittingRef = useRef(false)
@@ -77,7 +79,7 @@ export function BulkScheduleDialog({
   useEffect(() => {
     if (open) {
       setStep('input')
-      setPrompt('')
+      setPrompt(defaultSchedulingPrompt || '')
       setSchedule([])
       setError(null)
       submittingRef.current = false
@@ -104,7 +106,7 @@ export function BulkScheduleDialog({
           })
       }
     }
-  }, [open, organizationId, call])
+  }, [open, organizationId, call, defaultSchedulingPrompt])
 
   const handleClose = () => {
     onOpenChange(false)
