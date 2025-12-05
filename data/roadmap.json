@@ -43,5 +43,10 @@
     "topic": "Analytics",
     "description": "Not a current focus, but might be interesting down the road. Track how your shorts perform across platforms.",
     "priority": "low"
+  },
+  {
+    "topic": "AI tone of voice fine-tuning",
+    "description": "Allow AI to learn and fine-tune your social media tone of voice based on titles and descriptions from your previous content.",
+    "priority": "low"
   }
 ]
