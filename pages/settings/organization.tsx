@@ -18,7 +18,7 @@ import {
   AlertCircle,
   ExternalLink,
 } from 'lucide-react';
-import { SiYoutube } from '@icons-pack/react-simple-icons';
+import { SiYoutube, SiTiktok } from '@icons-pack/react-simple-icons';
 import { useRouter } from 'next/router';
 import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag';
 
@@ -76,6 +76,7 @@ export default function OrganizationSettings() {
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
   const [loadingSocialAccounts, setLoadingSocialAccounts] = useState(false);
   const [disconnectingYouTube, setDisconnectingYouTube] = useState(false);
+  const [disconnectingTikTok, setDisconnectingTikTok] = useState(false);
 
   const isOwner = currentOrganization?.role === 'owner';
 
@@ -140,16 +141,27 @@ export default function OrganizationSettings() {
     }
   }, [currentOrganization, contextLoading, loadMembers, loadInvites, loadSocialAccounts, isOwner]);
 
-  // Handle YouTube OAuth callback messages
+  // Handle OAuth callback messages (YouTube and TikTok)
   useEffect(() => {
-    const { youtube, message } = router.query;
+    const { youtube, tiktok, message } = router.query;
+
+    // YouTube callbacks
     if (youtube === 'connected') {
       setSuccess('YouTube account connected successfully');
       loadSocialAccounts();
-      // Clean up URL
       router.replace('/settings/organization', undefined, { shallow: true });
     } else if (youtube === 'error') {
       setError(typeof message === 'string' ? message : 'Failed to connect YouTube account');
+      router.replace('/settings/organization', undefined, { shallow: true });
+    }
+
+    // TikTok callbacks
+    if (tiktok === 'connected') {
+      setSuccess('TikTok account connected successfully');
+      loadSocialAccounts();
+      router.replace('/settings/organization', undefined, { shallow: true });
+    } else if (tiktok === 'error') {
+      setError(typeof message === 'string' ? message : 'Failed to connect TikTok account');
       router.replace('/settings/organization', undefined, { shallow: true });
     }
   }, [router.query, router, loadSocialAccounts]);
@@ -282,7 +294,41 @@ export default function OrganizationSettings() {
     }
   }
 
+  const [connectingTikTok, setConnectingTikTok] = useState(false);
+
+  async function handleConnectTikTok() {
+    setConnectingTikTok(true);
+    setError(null);
+    try {
+      const response = await call<{ redirectUrl: string }>('/v1/social/tiktok/connect');
+      window.location.href = response.redirectUrl;
+    } catch (err) {
+      setConnectingTikTok(false);
+      setError(err instanceof Error ? err.message : 'Failed to connect TikTok');
+    }
+  }
+
+  async function handleDisconnectTikTok() {
+    if (!confirm('Disconnect TikTok account? All pending scheduled posts will be deleted.')) return;
+    setDisconnectingTikTok(true);
+    setError(null);
+
+    try {
+      await call('/v1/social/tiktok/disconnect', {
+        method: 'DELETE',
+      });
+      await loadSocialAccounts();
+      setSuccess('TikTok account disconnected');
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to disconnect TikTok');
+    } finally {
+      setDisconnectingTikTok(false);
+    }
+  }
+
   const youtubeAccount = socialAccounts.find((a) => a.platform === 'youtube');
+  const tiktokAccount = socialAccounts.find((a) => a.platform === 'tiktok');
 
   if (loading || contextLoading) {
     return (
@@ -469,6 +515,68 @@ export default function OrganizationSettings() {
                   )}
                 </div>
 
+                {/* TikTok Connection */}
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+                  <div className="flex items-center gap-3">
+                    {tiktokAccount?.channelThumbnail ? (
+                      <Image
+                        src={tiktokAccount.channelThumbnail}
+                        alt={tiktokAccount.channelTitle || 'TikTok Account'}
+                        width={40}
+                        height={40}
+                        className="rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-black/10 dark:bg-white/10 flex items-center justify-center">
+                        <SiTiktok className="w-6 h-6" />
+                      </div>
+                    )}
+                    <div>
+                      {tiktokAccount ? (
+                        <>
+                          <p className="font-medium text-foreground">{tiktokAccount.channelTitle}</p>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            Connected
+                            <Check className="w-3 h-3 text-green-500" />
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-foreground">TikTok</p>
+                          <p className="text-sm text-muted-foreground">Not connected</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {isOwner && (
+                    tiktokAccount ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDisconnectTikTok}
+                        disabled={disconnectingTikTok}
+                      >
+                        {disconnectingTikTok ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Disconnect'
+                        )}
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={handleConnectTikTok} disabled={connectingTikTok}>
+                        {connectingTikTok ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Connect
+                          </>
+                        )}
+                      </Button>
+                    )
+                  )}
+                </div>
+
                 {/* Placeholder for future platforms */}
                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50 opacity-60">
                   <div className="flex items-center gap-3">
@@ -476,7 +584,7 @@ export default function OrganizationSettings() {
                       <span className="text-lg">📸</span>
                     </div>
                     <div>
-                      <p className="font-medium text-foreground">Instagram & TikTok</p>
+                      <p className="font-medium text-foreground">Instagram</p>
                       <p className="text-sm text-muted-foreground">Coming soon</p>
                     </div>
                   </div>
