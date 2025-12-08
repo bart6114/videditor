@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
 import { Sparkles, Upload, Download, ArrowRight } from 'lucide-react'
+import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 import { Button } from '@/components/ui/button'
 import { MonkeyLogo } from '@/components/MonkeyLogo'
 import { AppPreviewMockup } from '@/components/AppPreviewMockup'
@@ -263,31 +264,95 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Export */}
+            {/* Share */}
             <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 card-tilt p-8 text-center">
               <div className="absolute inset-0 glow-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="relative">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5 flex items-center justify-center mb-5 border border-primary/20">
                   <Download className="w-7 h-7 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold mb-3 text-foreground">Export</h3>
+                <h3 className="text-xl font-bold mb-3 text-foreground">Share</h3>
                 <p className="text-muted-foreground text-sm leading-relaxed mb-5">
-                  Preview clips, download what you like.
+                  Download clips or publish directly to platforms.
                 </p>
                 {/* Visual hint - platform icons */}
                 <div className="flex justify-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-primary">YT</span>
+                    <SiYoutube size={12} className="text-primary" />
                   </div>
                   <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-primary">IG</span>
+                    <SiInstagram size={12} className="text-primary" />
                   </div>
                   <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-primary">TT</span>
+                    <SiTiktok size={12} className="text-primary" />
                   </div>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Schedule & Publish */}
+        <div className="relative container mx-auto px-4 py-32">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground">Schedule & Publish</h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Publish your shorts directly to social platforms.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {/* YouTube */}
+            <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-red-500/30 transition-all duration-300 card-tilt p-8 text-center">
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(255, 0, 0, 0.1), transparent 70%)' }} />
+              <div className="relative">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 flex items-center justify-center mb-5 border border-red-500/20">
+                  <SiYoutube size={28} color="#FF0000" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-foreground">YouTube</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                  Publish YouTube Shorts directly. Currently available to selected beta users.
+                </p>
+                <span className="inline-block px-3 py-1 text-xs font-medium rounded-full border bg-purple-500/20 text-purple-400 border-purple-500/30">
+                  beta
+                </span>
+              </div>
+            </div>
+
+            {/* Instagram */}
+            <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-pink-500/30 transition-all duration-300 card-tilt p-8 text-center">
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(228, 64, 95, 0.1), transparent 70%)' }} />
+              <div className="relative">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/10 to-orange-500/10 flex items-center justify-center mb-5 border border-pink-500/20">
+                  <SiInstagram size={28} color="#E4405F" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-foreground">Instagram</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                  Publish Reels directly. Currently available to selected beta users.
+                </p>
+                <span className="inline-block px-3 py-1 text-xs font-medium rounded-full border bg-purple-500/20 text-purple-400 border-purple-500/30">
+                  beta
+                </span>
+              </div>
+            </div>
+
+            {/* TikTok */}
+            <Link href="/roadmap" className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-foreground/30 transition-all duration-300 card-tilt p-8 text-center block">
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.05), transparent 70%)' }} />
+              <div className="relative">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-foreground/10 flex items-center justify-center mb-5 border border-foreground/20">
+                  <SiTiktok size={28} className="text-foreground" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-foreground">TikTok</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                  Coming after YouTube and Instagram are live.
+                </p>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border bg-amber-500/20 text-amber-400 border-amber-500/30">
+                  roadmap
+                  <ArrowRight className="w-3 h-3" />
+                </span>
+              </div>
+            </Link>
           </div>
         </div>
 
