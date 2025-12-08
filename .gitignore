@@ -73,3 +73,5 @@ override.tf.json
 .terraform.tfstate.lock.info
 # Keep lock file
 !.terraform.lock.hcl
+
+.vscode
