@@ -1,23 +1,13 @@
 [
   {
-    "topic": "YouTube integration",
-    "description": "Integration being reviewed by Google. Code logic already exists but hidden behind a feature flag.",
-    "priority": "high"
-  },
-  {
-    "topic": "Publish to socials & scheduling",
-    "description": "Framework for publishing directly to social platforms with scheduling support. Pick a date and time, and your shorts go live automatically.",
-    "priority": "high"
-  },
-  {
     "topic": "API platform for developers",
     "description": "Public API for developers to integrate our services via scripting or automation tools like n8n, Make, Zapier, and more.",
-    "priority": "medium"
+    "priority": "high"
   },
   {
     "topic": "Further optimize onboarding flow",
     "description": "Guided experience for new users to help them get started quickly and understand the workflow.",
-    "priority": "medium"
+    "priority": "high"
   },
   {
     "topic": "Queues",
@@ -25,13 +15,8 @@
     "priority": "medium"
   },
   {
-    "topic": "Instagram integration",
-    "description": "Coming after YouTube integration is approved and live.",
-    "priority": "medium"
-  },
-  {
     "topic": "TikTok integration",
-    "description": "Coming after YouTube integration is approved and live.",
+    "description": "Coming after YouTube and Instagram integrations are approved and live.",
     "priority": "medium"
   },
   {
@@ -48,5 +33,20 @@
     "topic": "AI tone of voice fine-tuning",
     "description": "Allow AI to learn and fine-tune your social media tone of voice based on titles and descriptions from your previous content.",
     "priority": "low"
+  },
+  {
+    "topic": "Scheduling (individual & bulk)",
+    "description": "Schedule shorts for publishing with a calendar view. Supports individual scheduling and bulk scheduling for multiple shorts at once.",
+    "priority": "beta"
+  },
+  {
+    "topic": "YouTube integration",
+    "description": "Currently in beta testing behind a feature flag. Integration is being reviewed by Google.",
+    "priority": "beta"
+  },
+  {
+    "topic": "Instagram Reels integration",
+    "description": "Currently in beta testing behind a feature flag. Available for select users.",
+    "priority": "beta"
   }
 ]

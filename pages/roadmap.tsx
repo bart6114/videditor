@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { MonkeyLogo } from '@/components/MonkeyLogo'
 import roadmapData from '@/data/roadmap.json'
 
-type Priority = 'high' | 'medium' | 'low'
+type Priority = 'high' | 'medium' | 'low' | 'beta'
 
 interface RoadmapItem {
   topic: string
@@ -12,15 +12,17 @@ interface RoadmapItem {
 }
 
 const priorityOrder: Record<Priority, number> = {
-  high: 0,
-  medium: 1,
-  low: 2,
+  beta: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
 }
 
 const priorityStyles: Record<Priority, string> = {
   high: 'bg-primary/20 text-primary border-primary/30',
   medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   low: 'bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30',
+  beta: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
 }
 
 export default function Roadmap() {
