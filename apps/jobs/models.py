@@ -35,6 +35,7 @@ class JobType(str, Enum):
     ANALYSIS = "analysis"
     SHORT_PROCESSING = "short_processing"
     YOUTUBE_PUBLISH = "youtube_publish"
+    INSTAGRAM_PUBLISH = "instagram_publish"
 
 
 class JobStatus(str, Enum):
@@ -123,7 +124,7 @@ class ProcessingJob(Base):
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=True, index=True)
     short_id = Column(String(255), nullable=True)
-    type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'short_processing', 'youtube_publish', name='job_type', create_type=False), nullable=False, index=True)
+    type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'short_processing', 'youtube_publish', 'instagram_publish', name='job_type', create_type=False), nullable=False, index=True)
     status = Column(ENUM('queued', 'running', 'succeeded', 'failed', 'canceled', name='job_status', create_type=False), nullable=False, default="queued", index=True)
     payload = Column(JSONB, nullable=True)
     result = Column(JSONB, nullable=True)
@@ -308,6 +309,23 @@ class YouTubePublishResult(BaseModel):
     """Result from YouTube publish job."""
 
     videoId: str
+    url: str
+    scheduledPostId: str
+
+
+class InstagramPublishPayload(BaseModel):
+    """Payload for Instagram publish job."""
+
+    scheduledPostId: str
+    shortId: str
+    socialAccountId: str
+    caption: str
+
+
+class InstagramPublishResult(BaseModel):
+    """Result from Instagram publish job."""
+
+    mediaId: str
     url: str
     scheduledPostId: str
 

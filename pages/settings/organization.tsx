@@ -18,9 +18,9 @@ import {
   AlertCircle,
   ExternalLink,
 } from 'lucide-react';
-import { SiYoutube } from '@icons-pack/react-simple-icons';
+import { SiYoutube, SiInstagram } from '@icons-pack/react-simple-icons';
 import { useRouter } from 'next/router';
-import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag';
+import { useYouTubeSchedulingEnabled, useInstagramSchedulingEnabled } from '@/hooks/useFeatureFlag';
 
 interface Member {
   userId: string;
@@ -52,7 +52,8 @@ export default function OrganizationSettings() {
   const router = useRouter();
   const { call } = useApi();
   const { currentOrganization, refreshCurrentOrganization, isLoading: contextLoading } = useOrganization();
-  const { enabled: schedulingEnabled } = useYouTubeSchedulingEnabled();
+  const { enabled: youtubeSchedulingEnabled } = useYouTubeSchedulingEnabled();
+  const { enabled: instagramSchedulingEnabled } = useInstagramSchedulingEnabled();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -76,6 +77,8 @@ export default function OrganizationSettings() {
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
   const [loadingSocialAccounts, setLoadingSocialAccounts] = useState(false);
   const [disconnectingYouTube, setDisconnectingYouTube] = useState(false);
+  const [connectingInstagram, setConnectingInstagram] = useState(false);
+  const [disconnectingInstagram, setDisconnectingInstagram] = useState(false);
 
   const isOwner = currentOrganization?.role === 'owner';
 
@@ -140,13 +143,20 @@ export default function OrganizationSettings() {
     }
   }, [currentOrganization, contextLoading, loadMembers, loadInvites, loadSocialAccounts, isOwner]);
 
-  // Handle YouTube OAuth callback messages
+  // Handle OAuth callback messages
   useEffect(() => {
-    const { youtube, message } = router.query;
+    const { youtube, instagram, message } = router.query;
     if (youtube === 'connected') {
       setSuccess('YouTube account connected successfully');
       loadSocialAccounts();
       // Clean up URL
+      router.replace('/settings/organization', undefined, { shallow: true });
+    } else if (instagram === 'connected') {
+      setSuccess('Instagram account connected successfully');
+      loadSocialAccounts();
+      router.replace('/settings/organization', undefined, { shallow: true });
+    } else if (instagram === 'error') {
+      setError(typeof message === 'string' ? message : 'Failed to connect Instagram account');
       router.replace('/settings/organization', undefined, { shallow: true });
     } else if (youtube === 'error') {
       setError(typeof message === 'string' ? message : 'Failed to connect YouTube account');
@@ -282,7 +292,39 @@ export default function OrganizationSettings() {
     }
   }
 
+  async function handleConnectInstagram() {
+    setConnectingInstagram(true);
+    setError(null);
+    try {
+      const response = await call<{ redirectUrl: string }>('/v1/social/instagram/connect');
+      window.location.href = response.redirectUrl;
+    } catch (err) {
+      setConnectingInstagram(false);
+      setError(err instanceof Error ? err.message : 'Failed to connect Instagram');
+    }
+  }
+
+  async function handleDisconnectInstagram() {
+    if (!confirm('Disconnect Instagram account? All pending scheduled posts will be deleted.')) return;
+    setDisconnectingInstagram(true);
+    setError(null);
+
+    try {
+      await call('/v1/social/instagram/disconnect', {
+        method: 'DELETE',
+      });
+      await loadSocialAccounts();
+      setSuccess('Instagram account disconnected');
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to disconnect Instagram');
+    } finally {
+      setDisconnectingInstagram(false);
+    }
+  }
+
   const youtubeAccount = socialAccounts.find((a) => a.platform === 'youtube');
+  const instagramAccount = socialAccounts.find((a) => a.platform === 'instagram');
 
   if (loading || contextLoading) {
     return (
@@ -383,19 +425,7 @@ export default function OrganizationSettings() {
           </Card>
 
           {/* Connected Accounts */}
-          <Card className="p-6 relative">
-            {!schedulingEnabled && (
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center">
-                <div className="text-center p-4">
-                  <span className="inline-block px-3 py-1 bg-muted rounded-full text-sm font-medium text-muted-foreground mb-2">
-                    Coming Soon
-                  </span>
-                  <p className="text-sm text-muted-foreground max-w-[280px]">
-                    Connect your YouTube channel to schedule and publish shorts directly
-                  </p>
-                </div>
-              </div>
-            )}
+          <Card className="p-6">
             <h3 className="text-lg font-semibold text-foreground mb-2">Connected Accounts</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Connect social media accounts to publish shorts directly
@@ -408,75 +438,165 @@ export default function OrganizationSettings() {
             ) : (
               <div className="space-y-3">
                 {/* YouTube Connection */}
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
-                  <div className="flex items-center gap-3">
-                    {youtubeAccount?.channelThumbnail ? (
-                      <Image
-                        src={youtubeAccount.channelThumbnail}
-                        alt={youtubeAccount.channelTitle || 'YouTube Channel'}
-                        width={40}
-                        height={40}
-                        className="rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
-                        <SiYoutube className="w-6 h-6 text-red-500" />
-                      </div>
-                    )}
-                    <div>
-                      {youtubeAccount ? (
-                        <>
-                          <p className="font-medium text-foreground">{youtubeAccount.channelTitle}</p>
-                          <p className="text-sm text-muted-foreground flex items-center gap-1">
-                            Connected
-                            <Check className="w-3 h-3 text-green-500" />
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="font-medium text-foreground">YouTube</p>
-                          <p className="text-sm text-muted-foreground">Not connected</p>
-                        </>
-                      )}
+                <div className="relative">
+                  {!youtubeSchedulingEnabled && (
+                    <div className="absolute inset-0 bg-background/80 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center">
+                      <span className="px-3 py-1 bg-muted rounded-full text-sm font-medium text-muted-foreground">
+                        Coming Soon
+                      </span>
                     </div>
-                  </div>
-                  {isOwner && (
-                    youtubeAccount ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDisconnectYouTube}
-                        disabled={disconnectingYouTube}
-                      >
-                        {disconnectingYouTube ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          'Disconnect'
-                        )}
-                      </Button>
-                    ) : (
-                      <Button size="sm" onClick={handleConnectYouTube} disabled={connectingYouTube}>
-                        {connectingYouTube ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+                    <div className="flex items-center gap-3">
+                      {youtubeAccount?.channelThumbnail ? (
+                        <div className="relative">
+                          <Image
+                            src={youtubeAccount.channelThumbnail}
+                            alt={youtubeAccount.channelTitle || 'YouTube Channel'}
+                            width={40}
+                            height={40}
+                            className="rounded-full object-cover"
+                          />
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shadow-sm">
+                            <SiYoutube size={12} className="text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                          <SiYoutube className="w-6 h-6 text-red-500" />
+                        </div>
+                      )}
+                      <div>
+                        {youtubeAccount ? (
+                          <>
+                            <p className="font-medium text-foreground">{youtubeAccount.channelTitle}</p>
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              Connected
+                              <Check className="w-3 h-3 text-green-500" />
+                            </p>
+                          </>
                         ) : (
                           <>
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            Connect
+                            <p className="font-medium text-foreground">YouTube</p>
+                            <p className="text-sm text-muted-foreground">Not connected</p>
                           </>
                         )}
-                      </Button>
-                    )
-                  )}
+                      </div>
+                    </div>
+                    {isOwner && (
+                      youtubeAccount ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDisconnectYouTube}
+                          disabled={disconnectingYouTube}
+                        >
+                          {disconnectingYouTube ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            'Disconnect'
+                          )}
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={handleConnectYouTube} disabled={connectingYouTube}>
+                          {connectingYouTube ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Connect
+                            </>
+                          )}
+                        </Button>
+                      )
+                    )}
+                  </div>
                 </div>
 
-                {/* Placeholder for future platforms */}
+                {/* Instagram Connection */}
+                <div className="relative">
+                  {!instagramSchedulingEnabled && (
+                    <div className="absolute inset-0 bg-background/80 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center">
+                      <span className="px-3 py-1 bg-muted rounded-full text-sm font-medium text-muted-foreground">
+                        Coming Soon
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+                    <div className="flex items-center gap-3">
+                      {instagramAccount?.channelThumbnail ? (
+                        <div className="relative">
+                          <Image
+                            src={instagramAccount.channelThumbnail}
+                            alt={instagramAccount.channelTitle || 'Instagram Account'}
+                            width={40}
+                            height={40}
+                            className="rounded-full object-cover"
+                          />
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center shadow-sm">
+                            <SiInstagram size={12} className="text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
+                          <SiInstagram className="w-6 h-6 text-white" />
+                        </div>
+                      )}
+                      <div>
+                        {instagramAccount ? (
+                          <>
+                            <p className="font-medium text-foreground">@{instagramAccount.channelTitle}</p>
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              Connected
+                              <Check className="w-3 h-3 text-green-500" />
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium text-foreground">Instagram</p>
+                            <p className="text-sm text-muted-foreground">Not connected</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {isOwner && (
+                      instagramAccount ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDisconnectInstagram}
+                          disabled={disconnectingInstagram}
+                        >
+                          {disconnectingInstagram ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            'Disconnect'
+                          )}
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={handleConnectInstagram} disabled={connectingInstagram}>
+                          {connectingInstagram ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Connect
+                            </>
+                          )}
+                        </Button>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* Placeholder for TikTok */}
                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50 opacity-60">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                      <span className="text-lg">📸</span>
+                      <span className="text-lg">🎵</span>
                     </div>
                     <div>
-                      <p className="font-medium text-foreground">Instagram & TikTok</p>
+                      <p className="font-medium text-foreground">TikTok</p>
                       <p className="text-sm text-muted-foreground">Coming soon</p>
                     </div>
                   </div>

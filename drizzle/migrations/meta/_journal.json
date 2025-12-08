@@ -71,6 +71,13 @@
       "when": 1764943705522,
       "tag": "0009_condemned_strong_guy",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1765178607126,
+      "tag": "0010_material_ozymandias",
+      "breakpoints": true
     }
   ]
 }

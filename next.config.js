@@ -44,6 +44,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: '**.storage.dev',
       },
+      {
+        // Instagram CDN for profile pictures
+        protocol: 'https',
+        hostname: '**.cdninstagram.com',
+      },
     ],
   },
   env: {

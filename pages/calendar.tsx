@@ -32,8 +32,8 @@ import {
   Pencil,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { SiYoutube } from '@icons-pack/react-simple-icons'
-import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag'
+import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
+import { useAnySchedulingEnabled } from '@/hooks/useFeatureFlag'
 
 interface CalendarPost {
   id: string
@@ -71,6 +71,19 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   publishing: <Loader2 className="w-3 h-3 animate-spin" />,
   published: <CheckCircle2 className="w-3 h-3" />,
   failed: <XCircle className="w-3 h-3" />,
+}
+
+function PlatformIcon({ platform, size = 10 }: { platform: string; size?: number }) {
+  switch (platform) {
+    case 'youtube':
+      return <SiYoutube size={size} />
+    case 'instagram':
+      return <SiInstagram size={size} />
+    case 'tiktok':
+      return <SiTiktok size={size} />
+    default:
+      return <SiYoutube size={size} />
+  }
 }
 
 function getMonthDays(year: number, month: number): Date[] {
@@ -122,7 +135,7 @@ export default function CalendarPage() {
   const router = useRouter()
   const { isSignedIn, isLoaded } = useUser()
   const { call } = useApi()
-  const { enabled: schedulingEnabled, loading: flagLoading } = useYouTubeSchedulingEnabled()
+  const { enabled: schedulingEnabled, loading: flagLoading } = useAnySchedulingEnabled()
   const [posts, setPosts] = useState<CalendarPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -480,7 +493,7 @@ export default function CalendarPage() {
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
-                                <SiYoutube className="w-6 h-6 text-muted-foreground" />
+                                <PlatformIcon platform={post.socialAccount.platform} size={24} />
                               </div>
                             )}
                           </div>
@@ -554,7 +567,7 @@ export default function CalendarPage() {
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
                               >
-                                View on YouTube
+                                View on {post.socialAccount.platform === 'instagram' ? 'Instagram' : post.socialAccount.platform === 'tiktok' ? 'TikTok' : 'YouTube'}
                                 <ExternalLink className="w-3 h-3" />
                               </a>
                             )}
@@ -632,7 +645,7 @@ export default function CalendarPage() {
                             className="block hover:opacity-80"
                           >
                             <div className="flex items-center gap-1 mb-0.5">
-                              <SiYoutube size={10} />
+                              <PlatformIcon platform={post.socialAccount.platform} size={10} />
                               <span className="font-medium truncate">
                                 {formatTime(post.scheduledFor)}
                               </span>
@@ -716,7 +729,7 @@ export default function CalendarPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <SiYoutube className="w-6 h-6 text-muted-foreground" />
+                            <PlatformIcon platform={post.socialAccount.platform} size={24} />
                           </div>
                         )}
                       </div>
@@ -790,7 +803,7 @@ export default function CalendarPage() {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
                           >
-                            View on YouTube
+                            View on {post.socialAccount.platform === 'instagram' ? 'Instagram' : post.socialAccount.platform === 'tiktok' ? 'TikTok' : 'YouTube'}
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         )}

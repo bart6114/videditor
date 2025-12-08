@@ -11,7 +11,7 @@ export const PROJECT_STATUSES = [
 
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
-export const JOB_TYPES = ['thumbnail', 'transcription', 'analysis', 'short_processing', 'youtube_publish'] as const;
+export const JOB_TYPES = ['thumbnail', 'transcription', 'analysis', 'short_processing', 'youtube_publish', 'instagram_publish'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 export const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'canceled'] as const;
@@ -137,6 +137,14 @@ export type YouTubePublishPayload = {
   socialAccountId: string;
   title: string;
   description?: string;
+};
+
+// Payload for instagram_publish job
+export type InstagramPublishPayload = {
+  scheduledPostId: string;
+  shortId: string;
+  socialAccountId: string;
+  caption: string;
 };
 
 // API payloads for scheduling

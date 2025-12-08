@@ -35,6 +35,7 @@ export const jobTypeEnum = pgEnum('job_type', [
   'analysis',
   'short_processing',
   'youtube_publish',
+  'instagram_publish',
 ]);
 
 export const socialPlatformEnum = pgEnum('social_platform', ['youtube', 'tiktok', 'instagram']);

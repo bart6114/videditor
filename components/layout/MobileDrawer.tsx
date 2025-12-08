@@ -21,7 +21,7 @@ import { useClerk, useUser } from '@clerk/nextjs';
 import { MonkeyLogo } from '@/components/MonkeyLogo';
 import { useOrganizationSafe } from '@/contexts/OrganizationContext';
 import { cn } from '@/lib/utils';
-import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag';
+import { useAnySchedulingEnabled } from '@/hooks/useFeatureFlag';
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: Video },
@@ -43,7 +43,7 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
   const { user } = useUser();
   const orgContext = useOrganizationSafe();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
-  const { enabled: schedulingEnabled } = useYouTubeSchedulingEnabled();
+  const { enabled: schedulingEnabled } = useAnySchedulingEnabled();
 
   const handleLogout = async () => {
     await signOut();

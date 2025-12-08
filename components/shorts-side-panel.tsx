@@ -17,7 +17,7 @@ import { useApi } from '@/lib/api/client'
 import type { Short } from '@server/db/schema'
 import type { SocialContent, SocialPlatform } from '@shared/index'
 import { getShortFilename } from '@/lib/api/shorts'
-import { useYouTubeSchedulingEnabled } from '@/hooks/useFeatureFlag'
+import { useYouTubeSchedulingEnabled, useInstagramSchedulingEnabled, useAnySchedulingEnabled } from '@/hooks/useFeatureFlag'
 import { toast } from 'sonner'
 
 interface SocialAccount {
@@ -86,7 +86,9 @@ export function ShortsSidePanel({
   onShortUpdate,
 }: ShortsSidePanelProps) {
   const { call } = useApi()
-  const { enabled: schedulingEnabled } = useYouTubeSchedulingEnabled()
+  const { enabled: youtubeSchedulingEnabled } = useYouTubeSchedulingEnabled()
+  const { enabled: instagramSchedulingEnabled } = useInstagramSchedulingEnabled()
+  const { enabled: anySchedulingEnabled } = useAnySchedulingEnabled()
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -101,10 +103,11 @@ export function ShortsSidePanel({
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(false)
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('')
-  const [selectedPlatform, setSelectedPlatform] = useState<'youtube' | 'tiktok' | 'instagram'>('youtube')
-  const [scheduleTitle, setScheduleTitle] = useState('')
-  const [scheduleDescription, setScheduleDescription] = useState('')
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<'youtube' | 'instagram'>>(new Set())
+  // Per-platform content
+  const [youtubeTitle, setYoutubeTitle] = useState('')
+  const [youtubeDescription, setYoutubeDescription] = useState('')
+  const [instagramCaption, setInstagramCaption] = useState('')
   const [scheduleDate, setScheduleDate] = useState('')
   const [scheduleTime, setScheduleTime] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -243,15 +246,24 @@ export function ShortsSidePanel({
     setScheduleModalOpen(true)
     setScheduleError(null)
 
-    // Prefill title/description from YouTube social content if available
+    // Prefill content from social content if available
     const socialContent = selectedShort?.socialContent as SocialContent | null
+    const fallbackTitle = selectedShort?.transcriptionSlice?.slice(0, 100) || ''
+
+    // YouTube content
     if (socialContent?.youtube && 'title' in socialContent.youtube) {
-      setScheduleTitle(socialContent.youtube.title || '')
-      setScheduleDescription(socialContent.youtube.description || '')
+      setYoutubeTitle(socialContent.youtube.title || fallbackTitle)
+      setYoutubeDescription(socialContent.youtube.description || '')
     } else {
-      // Fall back to transcription slice as title
-      setScheduleTitle(selectedShort?.transcriptionSlice?.slice(0, 100) || '')
-      setScheduleDescription('')
+      setYoutubeTitle(fallbackTitle)
+      setYoutubeDescription('')
+    }
+
+    // Instagram content
+    if (socialContent?.instagram && 'caption' in socialContent.instagram) {
+      setInstagramCaption(socialContent.instagram.caption || '')
+    } else {
+      setInstagramCaption('')
     }
 
     // Set default date/time to 1 hour from now
@@ -269,11 +281,15 @@ export function ShortsSidePanel({
           `/v1/organizations/${organizationId}/social-accounts`
         )
         setSocialAccounts(data.accounts)
-        // Auto-select first YouTube account
-        const youtubeAccount = data.accounts.find((a) => a.platform === 'youtube')
-        if (youtubeAccount) {
-          setSelectedAccountId(youtubeAccount.id)
+        // Auto-select platforms that have connected accounts AND enabled flags
+        const newSelectedPlatforms = new Set<'youtube' | 'instagram'>()
+        if (youtubeSchedulingEnabled && data.accounts.some((a) => a.platform === 'youtube')) {
+          newSelectedPlatforms.add('youtube')
         }
+        if (instagramSchedulingEnabled && data.accounts.some((a) => a.platform === 'instagram')) {
+          newSelectedPlatforms.add('instagram')
+        }
+        setSelectedPlatforms(newSelectedPlatforms)
       } catch (err) {
         console.error('Error fetching social accounts:', err)
         setScheduleError('Failed to load connected accounts')
@@ -286,10 +302,10 @@ export function ShortsSidePanel({
   const handleCloseScheduleModal = () => {
     setScheduleModalOpen(false)
     setScheduleError(null)
-    setSelectedAccountId('')
-    setSelectedPlatform('youtube')
-    setScheduleTitle('')
-    setScheduleDescription('')
+    setSelectedPlatforms(new Set())
+    setYoutubeTitle('')
+    setYoutubeDescription('')
+    setInstagramCaption('')
     setScheduleDate('')
     setScheduleTime('')
     setConfirmingPublishNow(false)
@@ -301,7 +317,26 @@ export function ShortsSidePanel({
     if (submittingRef.current) return
     submittingRef.current = true
 
-    if (!selectedShort || !selectedAccountId || !scheduleTitle.trim() || !scheduleDate || !scheduleTime) {
+    // Validate at least one platform selected
+    if (selectedPlatforms.size === 0) {
+      setScheduleError('Please select at least one platform')
+      submittingRef.current = false
+      return
+    }
+
+    // Validate content for each selected platform
+    if (selectedPlatforms.has('youtube') && !youtubeTitle.trim()) {
+      setScheduleError('Please enter a YouTube title')
+      submittingRef.current = false
+      return
+    }
+    if (selectedPlatforms.has('instagram') && !instagramCaption.trim()) {
+      setScheduleError('Please enter an Instagram caption')
+      submittingRef.current = false
+      return
+    }
+
+    if (!selectedShort || !scheduleDate || !scheduleTime) {
       setScheduleError('Please fill in all required fields')
       submittingRef.current = false
       return
@@ -319,21 +354,39 @@ export function ShortsSidePanel({
     setScheduleError(null)
 
     try {
-      await call(
-        `/v1/projects/${projectId}/shorts/${selectedShort.id}/schedule`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            socialAccountId: selectedAccountId,
-            scheduledFor: scheduledFor.toISOString(),
-            title: scheduleTitle.trim(),
-            description: scheduleDescription.trim() || undefined,
-          }),
-        }
-      )
+      const platformsToSchedule = Array.from(selectedPlatforms)
+      const results: string[] = []
+
+      for (const platform of platformsToSchedule) {
+        const account = socialAccounts.find((a) => a.platform === platform)
+        if (!account) continue
+
+        const isInstagram = platform === 'instagram'
+        const title = isInstagram
+          ? instagramCaption.trim().slice(0, 100)
+          : youtubeTitle.trim()
+        const description = isInstagram
+          ? instagramCaption.trim()
+          : youtubeDescription.trim() || undefined
+
+        await call(
+          `/v1/projects/${projectId}/shorts/${selectedShort.id}/schedule`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              socialAccountId: account.id,
+              scheduledFor: scheduledFor.toISOString(),
+              title,
+              description,
+            }),
+          }
+        )
+        results.push(PLATFORM_LABELS[platform as SocialPlatform])
+      }
+
       handleCloseScheduleModal()
       toast.success('Short scheduled successfully!', {
-        description: `Scheduled for ${scheduledFor.toLocaleString()}`,
+        description: `Scheduled for ${results.join(' & ')} at ${scheduledFor.toLocaleString()}`,
       })
     } catch (err) {
       console.error('Error scheduling short:', err)
@@ -349,8 +402,27 @@ export function ShortsSidePanel({
     if (submittingRef.current) return
     submittingRef.current = true
 
-    if (!selectedShort || !selectedAccountId || !scheduleTitle.trim()) {
-      setScheduleError('Please select an account and enter a title')
+    // Validate at least one platform selected
+    if (selectedPlatforms.size === 0) {
+      setScheduleError('Please select at least one platform')
+      submittingRef.current = false
+      return
+    }
+
+    // Validate content for each selected platform
+    if (selectedPlatforms.has('youtube') && !youtubeTitle.trim()) {
+      setScheduleError('Please enter a YouTube title')
+      submittingRef.current = false
+      return
+    }
+    if (selectedPlatforms.has('instagram') && !instagramCaption.trim()) {
+      setScheduleError('Please enter an Instagram caption')
+      submittingRef.current = false
+      return
+    }
+
+    if (!selectedShort) {
+      setScheduleError('No short selected')
       submittingRef.current = false
       return
     }
@@ -359,20 +431,38 @@ export function ShortsSidePanel({
     setScheduleError(null)
 
     try {
-      await call(
-        `/v1/projects/${projectId}/shorts/${selectedShort.id}/publish-now`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            socialAccountId: selectedAccountId,
-            title: scheduleTitle.trim(),
-            description: scheduleDescription.trim() || undefined,
-          }),
-        }
-      )
+      const platformsToPublish = Array.from(selectedPlatforms)
+      const results: string[] = []
+
+      for (const platform of platformsToPublish) {
+        const account = socialAccounts.find((a) => a.platform === platform)
+        if (!account) continue
+
+        const isInstagram = platform === 'instagram'
+        const title = isInstagram
+          ? instagramCaption.trim().slice(0, 100)
+          : youtubeTitle.trim()
+        const description = isInstagram
+          ? instagramCaption.trim()
+          : youtubeDescription.trim() || undefined
+
+        await call(
+          `/v1/projects/${projectId}/shorts/${selectedShort.id}/publish-now`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              socialAccountId: account.id,
+              title,
+              description,
+            }),
+          }
+        )
+        results.push(PLATFORM_LABELS[platform as SocialPlatform])
+      }
+
       handleCloseScheduleModal()
       toast.success('Publishing started!', {
-        description: 'Check the calendar for status updates.',
+        description: `Publishing to ${results.join(' & ')}. Check the calendar for status updates.`,
       })
     } catch (err) {
       console.error('Error publishing short:', err)
@@ -516,14 +606,14 @@ export function ShortsSidePanel({
                   </Button>
                   <Button
                     size="sm"
-                    variant={schedulingEnabled ? 'default' : 'outline'}
-                    onClick={schedulingEnabled ? handleOpenScheduleModal : undefined}
-                    disabled={!schedulingEnabled}
-                    title={schedulingEnabled ? 'Schedule or publish to YouTube' : 'Coming Soon'}
+                    variant={anySchedulingEnabled ? 'default' : 'outline'}
+                    onClick={anySchedulingEnabled ? handleOpenScheduleModal : undefined}
+                    disabled={!anySchedulingEnabled}
+                    title={anySchedulingEnabled ? 'Schedule or publish' : 'Coming Soon'}
                     className="min-h-[44px] md:min-h-0 p-2 md:px-3"
                   >
                     <Calendar className="w-4 h-4 md:mr-2" />
-                    <span className="hidden md:inline">{schedulingEnabled ? 'Schedule' : 'Soon'}</span>
+                    <span className="hidden md:inline">{anySchedulingEnabled ? 'Schedule' : 'Soon'}</span>
                   </Button>
                 </>
               )}
@@ -788,39 +878,50 @@ export function ShortsSidePanel({
 
       {/* Schedule Modal */}
       <Dialog open={scheduleModalOpen} onOpenChange={(open) => !open && handleCloseScheduleModal()}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Schedule or Publish</DialogTitle>
             <DialogDescription>
-              Publish this short to YouTube now or schedule it for later.
+              Select platforms and publish now or schedule for later.
             </DialogDescription>
           </DialogHeader>
 
           {/* Error message */}
           {scheduleError && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex-shrink-0">
               <p className="text-sm text-red-600 dark:text-red-400">{scheduleError}</p>
             </div>
           )}
 
-          <fieldset disabled={submitting} className="space-y-4 py-4 disabled:opacity-60">
-            {/* Platform Selection */}
+          <fieldset disabled={submitting} className="space-y-4 py-2 disabled:opacity-60 overflow-y-auto flex-1 min-h-0">
+            {/* Platform Selection - Multi-select */}
             <div>
-              <label className="text-sm font-medium mb-2 block">Platform</label>
+              <label className="text-sm font-medium mb-2 block">Platforms</label>
               <div className="flex flex-wrap gap-2">
                 {/* YouTube */}
-                {(() => {
+                {youtubeSchedulingEnabled && (() => {
                   const hasYouTubeAccount = !loadingAccounts && socialAccounts.some((a) => a.platform === 'youtube')
                   const isDisabled = loadingAccounts || !hasYouTubeAccount
+                  const isSelected = selectedPlatforms.has('youtube')
                   return (
                     <button
                       type="button"
-                      onClick={() => !isDisabled && setSelectedPlatform('youtube')}
+                      onClick={() => {
+                        if (!isDisabled) {
+                          const newSelected = new Set(selectedPlatforms)
+                          if (isSelected) {
+                            newSelected.delete('youtube')
+                          } else {
+                            newSelected.add('youtube')
+                          }
+                          setSelectedPlatforms(newSelected)
+                        }
+                      }}
                       disabled={isDisabled}
                       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all duration-200 ${
                         isDisabled
                           ? 'border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50'
-                          : selectedPlatform === 'youtube'
+                          : isSelected
                             ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
                       }`}
@@ -837,7 +938,54 @@ export function ShortsSidePanel({
                         >
                           Connect
                         </Link>
-                      ) : selectedPlatform === 'youtube' ? (
+                      ) : isSelected ? (
+                        <Check className="w-3.5 h-3.5" />
+                      ) : null}
+                    </button>
+                  )
+                })()}
+
+                {/* Instagram */}
+                {instagramSchedulingEnabled && (() => {
+                  const hasInstagramAccount = !loadingAccounts && socialAccounts.some((a) => a.platform === 'instagram')
+                  const isDisabled = loadingAccounts || !hasInstagramAccount
+                  const isSelected = selectedPlatforms.has('instagram')
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isDisabled) {
+                          const newSelected = new Set(selectedPlatforms)
+                          if (isSelected) {
+                            newSelected.delete('instagram')
+                          } else {
+                            newSelected.add('instagram')
+                          }
+                          setSelectedPlatforms(newSelected)
+                        }
+                      }}
+                      disabled={isDisabled}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all duration-200 ${
+                        isDisabled
+                          ? 'border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50'
+                          : isSelected
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                      }`}
+                    >
+                      <SiInstagram size={16} />
+                      <span className="text-sm">Instagram</span>
+                      {loadingAccounts ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : !hasInstagramAccount ? (
+                        <Link
+                          href="/settings/organization"
+                          className="text-[10px] bg-muted text-foreground px-1 py-0.5 rounded hover:bg-muted/80"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Connect
+                        </Link>
+                      ) : isSelected ? (
                         <Check className="w-3.5 h-3.5" />
                       ) : null}
                     </button>
@@ -854,54 +1002,86 @@ export function ShortsSidePanel({
                   <span className="text-sm">TikTok</span>
                   <span className="text-[10px] bg-muted px-1 py-0.5 rounded">Soon</span>
                 </button>
-
-                {/* Instagram - Coming Soon */}
-                <button
-                  type="button"
-                  disabled
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50"
-                >
-                  <SiInstagram size={16} />
-                  <span className="text-sm">Instagram</span>
-                  <span className="text-[10px] bg-muted px-1 py-0.5 rounded">Soon</span>
-                </button>
               </div>
-              {!loadingAccounts && !socialAccounts.some((a) => a.platform === 'youtube') && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mt-2">
-                  <p className="text-sm text-amber-600 dark:text-amber-400">
-                    Connect a publishing platform in{' '}
-                    <Link href="/settings/organization" className="underline font-medium hover:text-amber-700 dark:hover:text-amber-300">
-                      Preferences
-                    </Link>{' '}
-                    to schedule shorts.
-                  </p>
-                </div>
-              )}
+              {!loadingAccounts && (() => {
+                // Check if any enabled platform has a connected account
+                const hasEnabledPlatformWithAccount =
+                  (youtubeSchedulingEnabled && socialAccounts.some((a) => a.platform === 'youtube')) ||
+                  (instagramSchedulingEnabled && socialAccounts.some((a) => a.platform === 'instagram'))
+
+                if (!hasEnabledPlatformWithAccount) {
+                  return (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mt-2">
+                      <p className="text-sm text-amber-600 dark:text-amber-400">
+                        Connect a publishing platform in{' '}
+                        <Link href="/settings/organization" className="underline font-medium hover:text-amber-700 dark:hover:text-amber-300">
+                          Preferences
+                        </Link>{' '}
+                        to schedule shorts.
+                      </p>
+                    </div>
+                  )
+                }
+                return null
+              })()}
             </div>
 
-            {/* Title */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">Title *</label>
-              <Input
-                value={scheduleTitle}
-                onChange={(e) => setScheduleTitle(e.target.value)}
-                placeholder="Enter video title"
-                maxLength={100}
-              />
-              <p className="text-xs text-muted-foreground mt-1">{scheduleTitle.length}/100</p>
-            </div>
+            {/* Platform Content - side by side when both selected */}
+            {(selectedPlatforms.has('youtube') || selectedPlatforms.has('instagram')) && (
+              <div className={`grid gap-3 ${selectedPlatforms.size === 2 ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
+                {/* YouTube Content */}
+                {selectedPlatforms.has('youtube') && (
+                  <div className="space-y-2 p-3 border border-border rounded-lg">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <SiYoutube size={14} className="text-red-500" />
+                      <span>YouTube</span>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1 block text-muted-foreground">Title *</label>
+                      <Input
+                        value={youtubeTitle}
+                        onChange={(e) => setYoutubeTitle(e.target.value)}
+                        placeholder="Enter video title"
+                        maxLength={100}
+                        className="h-8 text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground mt-0.5">{youtubeTitle.length}/100</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1 block text-muted-foreground">Description</label>
+                      <textarea
+                        value={youtubeDescription}
+                        onChange={(e) => setYoutubeDescription(e.target.value)}
+                        placeholder="Enter video description"
+                        className="w-full h-20 px-3 py-1.5 rounded-md border border-input bg-background text-sm resize-none"
+                        maxLength={5000}
+                      />
+                    </div>
+                  </div>
+                )}
 
-            {/* Description */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">Description</label>
-              <textarea
-                value={scheduleDescription}
-                onChange={(e) => setScheduleDescription(e.target.value)}
-                placeholder="Enter video description"
-                className="w-full min-h-[100px] px-3 py-2 rounded-md border border-input bg-background text-sm resize-y"
-                maxLength={5000}
-              />
-            </div>
+                {/* Instagram Content */}
+                {selectedPlatforms.has('instagram') && (
+                  <div className="space-y-2 p-3 border border-border rounded-lg">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <SiInstagram size={14} className="text-pink-500" />
+                      <span>Instagram</span>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1 block text-muted-foreground">Caption *</label>
+                      <textarea
+                        value={instagramCaption}
+                        onChange={(e) => setInstagramCaption(e.target.value)}
+                        placeholder="Enter caption"
+                        className="w-full h-[106px] px-3 py-1.5 rounded-md border border-input bg-background text-sm resize-none"
+                        maxLength={2200}
+                      />
+                      <p className="text-xs text-muted-foreground mt-0.5">{instagramCaption.length}/2200</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Schedule Date/Time */}
             <div className="grid grid-cols-2 gap-3">
@@ -929,12 +1109,12 @@ export function ShortsSidePanel({
           </fieldset>
 
           {confirmingPublishNow ? (
-            <div className="space-y-3">
+            <div className="space-y-3 flex-shrink-0">
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                 <p className="text-sm text-amber-600 dark:text-amber-400">
                   This will publish immediately to{' '}
                   <span className="font-medium">
-                    {socialAccounts.find((a) => a.id === selectedAccountId)?.channelTitle || 'YouTube'}
+                    {Array.from(selectedPlatforms).map(p => PLATFORM_LABELS[p as SocialPlatform]).join(' & ')}
                   </span>
                 </p>
               </div>
@@ -967,11 +1147,11 @@ export function ShortsSidePanel({
               </DialogFooter>
             </div>
           ) : (
-            <DialogFooter className="flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex-col sm:flex-row gap-2 flex-shrink-0">
               <Button
                 variant="outline"
                 onClick={() => setConfirmingPublishNow(true)}
-                disabled={submitting || !selectedAccountId || !scheduleTitle.trim()}
+                disabled={submitting || selectedPlatforms.size === 0 || (selectedPlatforms.has('youtube') && !youtubeTitle.trim()) || (selectedPlatforms.has('instagram') && !instagramCaption.trim())}
                 className="w-full sm:w-auto"
               >
                 <Send className="w-4 h-4 mr-2" />
@@ -979,7 +1159,7 @@ export function ShortsSidePanel({
               </Button>
               <Button
                 onClick={handleSchedule}
-                disabled={submitting || !selectedAccountId || !scheduleTitle.trim() || !scheduleDate || !scheduleTime}
+                disabled={submitting || selectedPlatforms.size === 0 || (selectedPlatforms.has('youtube') && !youtubeTitle.trim()) || (selectedPlatforms.has('instagram') && !instagramCaption.trim()) || !scheduleDate || !scheduleTime}
                 className="w-full sm:w-auto"
               >
                 {submitting ? (

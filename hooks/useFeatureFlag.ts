@@ -49,3 +49,23 @@ export function useFeatureFlag(flagName: string): FeatureFlagState {
 export function useYouTubeSchedulingEnabled(): FeatureFlagState {
   return useFeatureFlag('youtube-scheduling');
 }
+
+/**
+ * Convenience hook for the Instagram scheduling feature flag.
+ */
+export function useInstagramSchedulingEnabled(): FeatureFlagState {
+  return useFeatureFlag('instagram-scheduling');
+}
+
+/**
+ * Hook that returns true if ANY scheduling platform is enabled.
+ * Used for calendar access and navigation.
+ */
+export function useAnySchedulingEnabled(): FeatureFlagState {
+  const youtube = useFeatureFlag('youtube-scheduling');
+  const instagram = useFeatureFlag('instagram-scheduling');
+  return {
+    enabled: youtube.enabled || instagram.enabled,
+    loading: youtube.loading || instagram.loading,
+  };
+}

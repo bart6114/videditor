@@ -10,7 +10,7 @@ import {
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { enqueueJob } from '@/lib/jobs';
-import type { PublishNowPayload, YouTubePublishPayload } from '@shared/index';
+import type { PublishNowPayload, YouTubePublishPayload, InstagramPublishPayload } from '@shared/index';
 
 /**
  * POST /api/v1/projects/[projectId]/shorts/[shortId]/publish-now
@@ -95,19 +95,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Immediately update status to publishing
   await updateScheduledPostStatus(db, scheduledPost.id, 'publishing');
 
-  // Enqueue the publish job immediately
-  const payload: YouTubePublishPayload = {
-    scheduledPostId: scheduledPost.id,
-    shortId,
-    socialAccountId,
-    title: title.trim().slice(0, 100),
-    description: description?.trim(),
-  };
+  // Enqueue the publish job immediately based on platform
+  const platform = socialAccount.platform;
+  let job;
 
-  const job = await enqueueJob({
-    type: 'youtube_publish',
-    payload,
-  });
+  if (platform === 'instagram') {
+    const payload: InstagramPublishPayload = {
+      scheduledPostId: scheduledPost.id,
+      shortId,
+      socialAccountId,
+      caption: description?.trim() || title.trim(), // Instagram uses caption
+    };
+
+    job = await enqueueJob({
+      type: 'instagram_publish',
+      payload,
+    });
+  } else {
+    // Default to YouTube
+    const payload: YouTubePublishPayload = {
+      scheduledPostId: scheduledPost.id,
+      shortId,
+      socialAccountId,
+      title: title.trim().slice(0, 100),
+      description: description?.trim(),
+    };
+
+    job = await enqueueJob({
+      type: 'youtube_publish',
+      payload,
+    });
+  }
 
   return success(res, {
     scheduledPost: {

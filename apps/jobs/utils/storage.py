@@ -100,3 +100,42 @@ async def upload_to_tigris(
             Body=file_data,
             ContentType=content_type,
         )
+
+
+async def generate_presigned_url(
+    config: JobRunnerConfig,
+    bucket: str,
+    object_key: str,
+    expires_in: int = 3600,
+) -> str:
+    """
+    Generate a presigned URL for an S3 object.
+
+    Used by Instagram publishing to provide a publicly accessible URL
+    for the video file that Instagram can fetch.
+
+    Args:
+        config: Job runner configuration
+        bucket: S3 bucket name
+        object_key: S3 object key
+        expires_in: URL expiration time in seconds (default: 1 hour)
+
+    Returns:
+        Presigned URL string
+
+    Raises:
+        Exception: If URL generation fails
+    """
+    session = create_tigris_client(config)
+
+    async with session.client(
+        "s3",
+        endpoint_url=str(config.TIGRIS_ENDPOINT),
+        config=Config(s3={"addressing_style": "path"}),
+    ) as s3:
+        url = await s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": object_key},
+            ExpiresIn=expires_in,
+        )
+        return url

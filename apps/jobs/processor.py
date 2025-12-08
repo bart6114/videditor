@@ -26,6 +26,7 @@ from models import (
     SocialAccount,
     Transcription,
     YouTubePublishPayload,
+    InstagramPublishPayload,
 )
 from utils.storage import download_from_tigris, upload_to_tigris
 from utils.transcription import transcribe_video
@@ -89,6 +90,7 @@ class JobProcessor:
                     JobType.ANALYSIS.value: "🤖",
                     JobType.SHORT_PROCESSING.value: "✂️",
                     JobType.YOUTUBE_PUBLISH.value: "📺",
+                    JobType.INSTAGRAM_PUBLISH.value: "📸",
                 }.get(job.type, "⚙️")
 
                 self.logger.info(f"{job_emoji} Processing {job.type} job", job_id=job_id, type=job.type)
@@ -104,6 +106,8 @@ class JobProcessor:
                     result_data = await self._handle_short_processing(job, session)
                 elif job.type == JobType.YOUTUBE_PUBLISH.value:
                     result_data = await self._handle_youtube_publish(job, session)
+                elif job.type == JobType.INSTAGRAM_PUBLISH.value:
+                    result_data = await self._handle_instagram_publish(job, session)
                 else:
                     raise ValueError(f"Unknown job type: {job.type}")
 
@@ -1142,6 +1146,196 @@ class JobProcessor:
             # Check if we should retry
             if current_retry < MAX_RETRIES - 1:
                 # Increment retry count and keep as publishing for scheduler to retry
+                await session.execute(
+                    update(ScheduledPost)
+                    .where(ScheduledPost.id == scheduled_post_id)
+                    .values(
+                        retry_count=current_retry + 1,
+                        error_message=error_message,
+                        status=ScheduledPostStatus.SCHEDULED.value,  # Back to scheduled for retry
+                        # Set next retry time with exponential backoff
+                        scheduled_for=datetime.now(timezone.utc) + __import__('datetime').timedelta(
+                            seconds=[30, 120, 600][current_retry]  # 30s, 2min, 10min
+                        ),
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                await session.commit()
+                self.logger.info(
+                    f"Scheduled retry {current_retry + 1}/{MAX_RETRIES}",
+                    job_id=job.id,
+                    scheduled_post_id=scheduled_post_id,
+                )
+                # Don't re-raise - let the job succeed so scheduler can retry
+                return {
+                    "message": f"Publish failed, retry {current_retry + 1}/{MAX_RETRIES} scheduled",
+                    "scheduledPostId": scheduled_post_id,
+                    "error": error_message,
+                }
+            else:
+                # Max retries exceeded, mark as failed
+                await session.execute(
+                    update(ScheduledPost)
+                    .where(ScheduledPost.id == scheduled_post_id)
+                    .values(
+                        status=ScheduledPostStatus.FAILED.value,
+                        error_message=error_message,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                await session.commit()
+                raise
+
+    async def _handle_instagram_publish(
+        self, job: ProcessingJob, session: AsyncSession
+    ) -> dict[str, Any]:
+        """
+        Handle Instagram Reels publish job.
+
+        Generates a presigned URL for the short video and uploads it to Instagram as a Reel.
+
+        Args:
+            job: Processing job
+            session: Database session
+
+        Returns:
+            Job result dictionary
+        """
+        # Import here to avoid circular import and lazy load
+        from utils.instagram import refresh_access_token as refresh_instagram_token, upload_reel
+        from utils.storage import generate_presigned_url
+
+        payload_data = job.payload or {}
+        try:
+            payload = InstagramPublishPayload(**payload_data)
+        except Exception as e:
+            raise ValueError(f"Invalid Instagram publish payload: {e}")
+
+        scheduled_post_id = payload.scheduledPostId
+        short_id = payload.shortId
+        social_account_id = payload.socialAccountId
+        caption = payload.caption
+
+        self.logger.info(
+            "Starting Instagram publish",
+            job_id=job.id,
+            scheduled_post_id=scheduled_post_id,
+            short_id=short_id,
+        )
+
+        # Max retry count
+        MAX_RETRIES = 3
+
+        # Get scheduled post
+        stmt = select(ScheduledPost).where(ScheduledPost.id == scheduled_post_id).limit(1)
+        result = await session.execute(stmt)
+        scheduled_post = result.scalar_one_or_none()
+
+        if not scheduled_post:
+            raise ValueError(f"Scheduled post not found: {scheduled_post_id}")
+
+        current_retry = scheduled_post.retry_count or 0
+
+        try:
+            # Get social account
+            stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
+            result = await session.execute(stmt)
+            social_account = result.scalar_one_or_none()
+
+            if not social_account:
+                raise ValueError(f"Social account not found: {social_account_id}")
+
+            # Get short
+            stmt = select(Short).where(Short.id == short_id).limit(1)
+            result = await session.execute(stmt)
+            short = result.scalar_one_or_none()
+
+            if not short or not short.output_object_key:
+                raise ValueError(f"Short not found or not ready: {short_id}")
+
+            # Check/refresh access token if expiring within 7 days
+            access_token = social_account.access_token
+            now = datetime.now(timezone.utc)
+            buffer_days = 7  # Instagram tokens last 60 days, refresh when 7 days left
+
+            if social_account.token_expires_at <= now + __import__('datetime').timedelta(days=buffer_days):
+                self.logger.info("Refreshing Instagram access token", job_id=job.id)
+                new_tokens = await refresh_instagram_token(access_token)
+                access_token = new_tokens["access_token"]
+
+                await session.execute(
+                    update(SocialAccount)
+                    .where(SocialAccount.id == social_account_id)
+                    .values(
+                        access_token=new_tokens["access_token"],
+                        refresh_token=new_tokens["access_token"],  # Instagram uses same token
+                        token_expires_at=new_tokens["expires_at"],
+                        updated_at=now,
+                    )
+                )
+                await session.commit()
+
+            # Generate presigned URL for Instagram to fetch the video
+            # Instagram requires a publicly accessible URL
+            video_url = await generate_presigned_url(
+                self.config,
+                self.config.TIGRIS_BUCKET,
+                short.output_object_key,
+                expires_in=3600,  # 1 hour
+            )
+
+            # Upload to Instagram as Reel
+            result = await upload_reel(
+                access_token=access_token,
+                user_id=social_account.channel_id,  # Instagram user ID
+                video_url=video_url,
+                caption=caption,
+            )
+
+            media_id = result["mediaId"]
+            media_url = result["url"]
+
+            # Update scheduled_post to published
+            await session.execute(
+                update(ScheduledPost)
+                .where(ScheduledPost.id == scheduled_post_id)
+                .values(
+                    status=ScheduledPostStatus.PUBLISHED.value,
+                    platform_post_id=media_id,
+                    platform_url=media_url,
+                    published_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
+            await session.commit()
+
+            self.logger.info(
+                "✅ Instagram publish completed",
+                job_id=job.id,
+                media_id=media_id,
+                url=media_url,
+            )
+
+            return {
+                "message": "Reel published successfully",
+                "mediaId": media_id,
+                "url": media_url,
+                "scheduledPostId": scheduled_post_id,
+            }
+
+        except Exception as e:
+            error_message = str(e)
+            self.logger.error(
+                "Instagram publish failed",
+                job_id=job.id,
+                scheduled_post_id=scheduled_post_id,
+                error=error_message,
+                retry_count=current_retry,
+            )
+
+            # Check if we should retry
+            if current_retry < MAX_RETRIES - 1:
+                # Increment retry count and set to scheduled for retry
                 await session.execute(
                     update(ScheduledPost)
                     .where(ScheduledPost.id == scheduled_post_id)
