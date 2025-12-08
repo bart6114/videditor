@@ -5,7 +5,6 @@ import { getSocialAccountById } from '@server/db/queries/social-accounts';
 import {
   createScheduledPost,
   updateScheduledPostStatus,
-  hasActiveScheduledPost,
 } from '@server/db/queries/scheduled-posts';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
@@ -73,12 +72,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const socialAccount = await getSocialAccountById(db, socialAccountId);
   if (!socialAccount || socialAccount.organizationId !== authResult.organizationId) {
     return failure(res, 404, 'Social account not found');
-  }
-
-  // Check for existing active scheduled post (idempotency protection)
-  const hasExisting = await hasActiveScheduledPost(db, shortId, socialAccountId);
-  if (hasExisting) {
-    return failure(res, 409, 'This short already has an active publish job for this account');
   }
 
   // Create the scheduled post with immediate execution time

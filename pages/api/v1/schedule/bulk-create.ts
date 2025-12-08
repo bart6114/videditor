@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
 import { getShortsByIds } from '@server/db/queries/shorts';
 import { getSocialAccountById } from '@server/db/queries/social-accounts';
-import { createScheduledPost, hasActiveScheduledPost } from '@server/db/queries/scheduled-posts';
+import { createScheduledPost } from '@server/db/queries/scheduled-posts';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 
@@ -138,13 +138,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (scheduledDate <= new Date()) {
       errors.push({ shortId: item.shortId, error: 'Scheduled time must be in the future' });
-      continue;
-    }
-
-    // Check for existing active scheduled post
-    const hasExisting = await hasActiveScheduledPost(db, item.shortId, item.socialAccountId);
-    if (hasExisting) {
-      errors.push({ shortId: item.shortId, error: 'Already has an active scheduled post' });
       continue;
     }
 
