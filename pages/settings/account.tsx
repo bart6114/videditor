@@ -54,22 +54,6 @@ export default function Account() {
             </div>
           </Card>
 
-          {/* Plan Information */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Plan</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-foreground font-medium">Current Plan</p>
-                  <p className="text-sm text-muted-foreground">Free Plan</p>
-                </div>
-                <Button className="bg-primary hover:bg-primary/80 text-primary-foreground transition-colors duration-200">
-                  Upgrade
-                </Button>
-              </div>
-            </div>
-          </Card>
-
           {/* Danger Zone */}
           <Card className="border-destructive/30 p-6">
             <h3 className="text-lg font-semibold text-destructive mb-4">Danger Zone</h3>
