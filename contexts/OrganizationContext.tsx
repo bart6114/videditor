@@ -118,7 +118,12 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
 
   // Initial load
   useEffect(() => {
-    if (!isLoaded || !isSignedIn) {
+    if (!isLoaded) {
+      // Keep isLoading true until Clerk finishes loading
+      return;
+    }
+
+    if (!isSignedIn) {
       setIsLoading(false);
       return;
     }
