@@ -198,37 +198,7 @@ fly secrets set -a videditor-app POSTHOG_API_KEY="phc_..." POSTHOG_HOST="https:/
 
 ## TODOs / Follow-ups
 
-### YouTube Scheduling Deployment
-
-To deploy the YouTube scheduling feature:
-
-1. **Apply database migration** with proper credentials:
-   ```bash
-   DATABASE_URL="<prod-url>" npm run db:migrate
-   ```
-
-2. **Set YouTube OAuth secrets** on both frontend and jobs worker:
-   ```bash
-   # Frontend
-   fly secrets set -a videditor-app \
-     YOUTUBE_CLIENT_ID="<your-google-client-id>" \
-     YOUTUBE_CLIENT_SECRET="<your-google-client-secret>" \
-     YOUTUBE_REDIRECT_URI="https://videditor-app.fly.dev/api/v1/social/youtube/callback"
-
-   # Jobs worker
-   fly secrets set -a videditor-jobs \
-     YOUTUBE_CLIENT_ID="<your-google-client-id>" \
-     YOUTUBE_CLIENT_SECRET="<your-google-client-secret>"
-   ```
-
-3. **Install new Python dependencies** (happens automatically during deploy):
-   ```bash
-   cd apps/jobs && uv sync
-   ```
-
-4. **Configure Google OAuth consent screen** in Google Cloud Console:
-   - Add `https://videditor-app.fly.dev/api/v1/social/youtube/callback` as authorized redirect URI
-   - Request YouTube Data API v3 scopes: `youtube.upload`, `youtube.readonly`
+- Add sane defaults for available preferences
 
 ## First-Time Fly.io Deployment
 
@@ -312,6 +282,3 @@ After initial setup, every push to `main` triggers automatic migrations and depl
 - Jobs worker was migrated from TypeScript/Node.js to Python 3.13 for better AI/ML tooling
 - Previous Cloudflare-specific code has been removed
 - System has been migrated from CloudFlare to Fly, if you encounter any remnants ask if OK to delete 'em
-- todo: up number of threads on prod before release
-- todo: add sane defaults for available preferences
-- todo: see if editing a scheduled post is possible

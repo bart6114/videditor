@@ -20,6 +20,11 @@
     "priority": "medium"
   },
   {
+    "topic": "Direct short uploads",
+    "description": "Upload pre-made shorts directly to use VidEditor purely for scheduling and AI-powered social content generation, without needing a long-form source video.",
+    "priority": "medium"
+  },
+  {
     "topic": "Analytics",
     "description": "Not a current focus, but might be interesting down the road. Track how your shorts perform across platforms.",
     "priority": "low"
