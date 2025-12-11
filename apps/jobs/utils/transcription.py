@@ -39,6 +39,7 @@ async def transcribe_video(
     progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     trace_id: str | None = None,
     model: str = "nova-3",
+    user_id: str | None = None,
 ) -> TranscriptionResult:
     """
     Transcribe a video file using Deepgram API with diarization and word-level timestamps.
@@ -52,6 +53,7 @@ async def transcribe_video(
         progress_callback: Optional async callback(current, total) for progress updates
         trace_id: Optional trace ID for analytics
         model: Deepgram model to use (default "nova-3")
+        user_id: Optional user ID (Clerk ID) for PostHog attribution
 
     Returns:
         TranscriptionResult with text, words (with timestamps + speakers), and detected language
@@ -98,7 +100,7 @@ async def transcribe_video(
             if progress_callback:
                 await progress_callback(0, 1)
             text, words, language = await _transcribe_chunk_with_retry(
-                client, audio_path, None, model=model, trace_id=trace_id
+                client, audio_path, None, model=model, trace_id=trace_id, user_id=user_id
             )
             if progress_callback:
                 await progress_callback(1, 1)
@@ -129,7 +131,7 @@ async def transcribe_video(
 
             # Transcribe all chunks concurrently with progress tracking
             results = await _transcribe_all_chunks(
-                client, chunks, max_concurrent, progress_callback, model=model, trace_id=trace_id
+                client, chunks, max_concurrent, progress_callback, model=model, trace_id=trace_id, user_id=user_id
             )
 
             # Merge results
@@ -212,6 +214,7 @@ async def _transcribe_chunk(
     chunk_info: AudioChunk | None = None,
     model: str = "nova-3",
     trace_id: str | None = None,
+    user_id: str | None = None,
 ) -> tuple[str, list[dict], str]:
     """
     Transcribe a single audio chunk via Deepgram API with diarization.
@@ -222,6 +225,7 @@ async def _transcribe_chunk(
         chunk_info: Optional chunk metadata for timestamp offset
         model: Deepgram model to use
         trace_id: Optional trace ID for analytics
+        user_id: Optional user ID for PostHog attribution
 
     Returns:
         Tuple of (text, words, language)
@@ -271,12 +275,13 @@ async def _transcribe_chunk(
     # Track in PostHog
     chunk_duration = chunk_info.duration if chunk_info else 0.0
     track_deepgram_transcription(
-        trace_id=trace_id or "unknown",
+        trace_id=trace_id or "deepgram:no_context",
         model=model,
         duration_seconds=chunk_duration,
         word_count=len(words),
         latency_ms=latency_ms,
         success=True,
+        user_id=user_id,
     )
 
     return transcript, words, language
@@ -290,6 +295,7 @@ async def _transcribe_chunk_with_retry(
     max_retries: int = 3,
     retry_base_delay: float = 1.0,
     trace_id: str | None = None,
+    user_id: str | None = None,
 ) -> tuple[str, list[dict], str]:
     """
     Transcribe chunk with exponential backoff retry.
@@ -307,6 +313,7 @@ async def _transcribe_chunk_with_retry(
         max_retries: Maximum number of retries
         retry_base_delay: Base delay for exponential backoff
         trace_id: Optional trace ID for analytics
+        user_id: Optional user ID for PostHog attribution
 
     Returns:
         Tuple of (text, words, language)
@@ -315,7 +322,7 @@ async def _transcribe_chunk_with_retry(
 
     for attempt in range(max_retries):
         try:
-            return await _transcribe_chunk(client, audio_path, chunk_info, model, trace_id)
+            return await _transcribe_chunk(client, audio_path, chunk_info, model, trace_id, user_id)
         except Exception as e:
             last_error = e
             error_msg = str(e).lower()
@@ -338,13 +345,14 @@ async def _transcribe_chunk_with_retry(
 
                 # Track failed attempt
                 track_deepgram_transcription(
-                    trace_id=trace_id or "unknown",
+                    trace_id=trace_id or "deepgram:no_context",
                     model=model,
                     duration_seconds=chunk_info.duration if chunk_info else 0.0,
                     word_count=0,
                     latency_ms=0,
                     success=False,
                     error=str(e),
+                    user_id=user_id,
                 )
 
                 await asyncio.sleep(delay)
@@ -371,6 +379,7 @@ async def _transcribe_all_chunks(
     progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     model: str = "nova-3",
     trace_id: str | None = None,
+    user_id: str | None = None,
 ) -> list[tuple[str, list[dict], str]]:
     """
     Transcribe multiple chunks with controlled concurrency.
@@ -382,6 +391,7 @@ async def _transcribe_all_chunks(
         progress_callback: Optional async callback(current, total) for progress updates
         model: Deepgram model to use
         trace_id: Optional trace ID for analytics
+        user_id: Optional user ID for PostHog attribution
 
     Returns:
         List of results in chunk order
@@ -401,7 +411,7 @@ async def _transcribe_all_chunks(
                 duration=round(chunk.duration, 2),
             )
             result = await _transcribe_chunk_with_retry(
-                client, chunk.path, chunk, model=model, trace_id=trace_id
+                client, chunk.path, chunk, model=model, trace_id=trace_id, user_id=user_id
             )
             logger.info(
                 "chunk_transcribed",

@@ -185,7 +185,7 @@ Generate a schedule for these shorts.`;
   };
 
   const startTime = Date.now();
-  const traceId = `${authResult.organizationId}_bulkschedule_${startTime}`;
+  const traceId = `bulk_schedule:org=${authResult.organizationId}:count=${shortsInfo.length}`;
   const messages = [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userPrompt },
@@ -224,6 +224,7 @@ Generate a schedule for these shorts.`;
         success: false,
         error: `HTTP ${response.status}: ${errorText}`,
         traceId,
+        spanName: 'bulk_schedule',
       });
 
       return failure(res, 502, 'AI service error');
@@ -243,6 +244,7 @@ Generate a schedule for these shorts.`;
       latencyMs,
       success: true,
       traceId,
+      spanName: 'bulk_schedule',
     });
 
     if (!content) {
@@ -290,6 +292,7 @@ Generate a schedule for these shorts.`;
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       traceId,
+      spanName: 'bulk_schedule',
     });
 
     return failure(res, 502, 'Failed to connect to AI service');

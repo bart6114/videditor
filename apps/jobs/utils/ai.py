@@ -290,6 +290,7 @@ async def analyze_transcript_for_shorts(
     existing_shorts: list[dict[str, Any]] | None = None,
     model: str = "openai/gpt-4o",
     trace_id: str | None = None,
+    user_id: str | None = None,
 ) -> list[ShortSuggestion]:
     """
     Analyze transcript using OpenRouter GPT-4o to identify viral short opportunities.
@@ -302,6 +303,9 @@ async def analyze_transcript_for_shorts(
         max_length: Maximum allowed length in seconds (default: 60)
         custom_prompt: Optional custom instructions to include in prompt
         existing_shorts: Optional list of existing shorts to avoid overlapping with
+        model: OpenRouter model to use (default: "openai/gpt-4o")
+        trace_id: Optional trace ID for analytics
+        user_id: Optional user ID (Clerk ID) for PostHog attribution
 
     Returns:
         List of ShortSuggestion objects with suggested clips
@@ -420,6 +424,8 @@ Return ONLY the JSON array, no other text."""
             temperature=0.7,
             max_tokens=4000,
             posthog_trace_id=trace_id,
+            posthog_distinct_id=user_id,
+            posthog_properties={"$ai_span_name": "shorts_analysis"},
         )
     except (APIError, APITimeoutError, RateLimitError) as e:
         logger.error("openrouter_api_error", error=str(e))
@@ -536,6 +542,7 @@ async def generate_social_content(
     context_after: str | None = None,
     custom_prompt: str | None = None,
     trace_id: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate social media content for a short video clip using structured outputs.
@@ -548,6 +555,8 @@ async def generate_social_content(
         context_before: Optional context from before the segment (~2000 chars)
         context_after: Optional context from after the segment (~2000 chars)
         custom_prompt: Optional custom instructions for content generation style/tone
+        trace_id: Optional trace ID for analytics
+        user_id: Optional user ID (Clerk ID) for PostHog attribution
 
     Returns:
         Dictionary with content for each platform, e.g.:
@@ -655,6 +664,8 @@ IMPORTANT:
                 max_tokens=4800,
                 response_format=response_format,  # type: ignore[arg-type]
                 posthog_trace_id=trace_id,
+                posthog_distinct_id=user_id,
+                posthog_properties={"$ai_span_name": "social_content_generation"},
             )
 
             logger.debug("openrouter_response_social_content", response=response.model_dump(), trace_id=trace_id)

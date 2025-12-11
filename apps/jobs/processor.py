@@ -50,6 +50,23 @@ class JobProcessor:
         self.logger = logger
         self.active_jobs: set[str] = set()
 
+    async def _get_user_id_for_project(
+        self, session: AsyncSession, project_id: str
+    ) -> str | None:
+        """
+        Fetch the user ID (Clerk ID) for a project.
+
+        Args:
+            session: Database session
+            project_id: Project ID
+
+        Returns:
+            User ID (created_by_id) or None if not found
+        """
+        stmt = select(Project.created_by_id).where(Project.id == project_id).limit(1)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def process_job(self, job_id: str) -> None:
         """
         Process a single job by ID.
@@ -382,6 +399,9 @@ class JobProcessor:
                 model=self.config.DEEPGRAM_MODEL,
             )
 
+            # Fetch user ID for PostHog attribution
+            user_id = await self._get_user_id_for_project(session, job.project_id)
+
             # Create progress callback to update job progress
             async def update_transcription_progress(current: int, total: int) -> None:
                 await self._update_job_progress(
@@ -395,8 +415,9 @@ class JobProcessor:
                 audio_bitrate=self.config.DEEPGRAM_AUDIO_BITRATE,
                 max_concurrent=self.config.DEEPGRAM_MAX_CONCURRENT,
                 progress_callback=update_transcription_progress,
-                trace_id=f"{job.project_id}_transcription_{job.id}",
+                trace_id=f"transcription:project={job.project_id}:job={job.id}",
                 model=self.config.DEEPGRAM_MODEL,
+                user_id=user_id,
             )
 
             # Save transcription to database
@@ -559,7 +580,8 @@ class JobProcessor:
             custom_prompt=custom_prompt,
             existing_shorts=existing_shorts,
             model=self.config.OPENROUTER_ANALYSIS_MODEL,
-            trace_id=f"{job.project_id}_analysis_{job.id}",
+            trace_id=f"shorts_analysis:project={job.project_id}:count={shorts_count}:job={job.id}",
+            user_id=project.created_by_id,
         )
 
         self.logger.info(
@@ -887,6 +909,9 @@ class JobProcessor:
             if social_platforms:
                 await self._update_short_task(session, short_id, "social_content", ShortTaskStatus.PROCESSING.value)
                 try:
+                    # Fetch user ID for PostHog attribution
+                    user_id = await self._get_user_id_for_project(session, project_id)
+                    platforms_str = ",".join(social_platforms) if social_platforms else "none"
                     social_content_data = await generate_social_content(
                         api_key=self.config.OPENROUTER_API_KEY,
                         transcription=transcription_slice,
@@ -895,7 +920,8 @@ class JobProcessor:
                         context_before=context_before,
                         context_after=context_after,
                         custom_prompt=custom_social_prompt,
-                        trace_id=f"{project_id}_social_{short_id}",
+                        trace_id=f"social_content:project={project_id}:short={short_id}:platforms={platforms_str}",
+                        user_id=user_id,
                     )
                     await self._update_short_task(session, short_id, "social_content", ShortTaskStatus.DONE.value)
                     result_data["socialContent"] = social_content_data
