@@ -1409,6 +1409,18 @@ export default function ProjectDetail() {
                       )}
                     </Button>
 
+                    {/* Manual editor button */}
+                    <Link href={`/editor/${id}`} className="block">
+                      <Button
+                        variant="outline"
+                        disabled={!transcription}
+                        className="w-full"
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Manually Create Short
+                      </Button>
+                    </Link>
+
                     {/* Credit cost indicator */}
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">
