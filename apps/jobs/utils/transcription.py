@@ -231,13 +231,13 @@ async def _transcribe_chunk(
     with open(audio_path, "rb") as audio_file:
         buffer = audio_file.read()
 
-    # Deepgram SDK v5 uses keyword arguments directly
-    # Run in executor since SDK v5 is sync
+    # Deepgram SDK v5.3.0 uses client.listen.v1.media.transcribe_file()
+    # Run in executor since SDK is sync
     loop = asyncio.get_event_loop()
     response = await loop.run_in_executor(
         None,
-        lambda: client.listen.rest.v("1").transcribe_file(
-            source={"buffer": buffer},
+        lambda: client.listen.v1.media.transcribe_file(
+            request=buffer,
             model=model,
             diarize=True,  # Speaker detection
             punctuate=True,  # Add punctuation
@@ -352,6 +352,14 @@ async def _transcribe_chunk_with_retry(
                 raise
 
     if last_error:
+        logger.error(
+            "transcription_failed_after_retries",
+            chunk_index=chunk_info.index if chunk_info else 0,
+            max_retries=max_retries,
+            error=str(last_error),
+            error_type=type(last_error).__name__,
+            exc_info=True,
+        )
         raise last_error
     raise RuntimeError("Transcription failed after retries")
 
