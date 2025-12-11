@@ -150,48 +150,82 @@ def parse_timestamp(timestamp: str) -> float:
     return total_seconds
 
 
-def format_transcript_for_ai(segments: list[dict[str, Any]]) -> str:
+def _format_time(seconds: float) -> str:
+    """Convert seconds to HH:MM:SS format."""
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
+
+
+def format_transcript_for_ai(words: list[dict[str, Any]]) -> str:
     """
-    Format transcript segments with timestamps for AI analysis.
+    Format word-level transcript data into sentences for AI analysis.
+
+    Groups words into sentences using punctuation (.!?) and formats them
+    with timestamps and speaker labels for AI short detection.
 
     Args:
-        segments: List of transcript segments with start, end, text
+        words: List of word objects with start, end, text, speaker
 
     Returns:
-        Formatted transcript string with timestamps
+        Formatted transcript string with timestamps and speakers
     """
+    if not words:
+        return ""
+
     lines = []
-    for segment in segments:
-        start = segment["start"]
-        end = segment["end"]
-        text = segment["text"].strip()
+    current_sentence: list[dict[str, Any]] = []
+    sentence_end_punctuation = {".": True, "!": True, "?": True}
 
-        # Convert seconds to HH:MM:SS format
-        start_h = int(start // 3600)
-        start_m = int((start % 3600) // 60)
-        start_s = int(start % 60)
+    for word in words:
+        current_sentence.append(word)
+        text = word["text"].strip()
 
-        end_h = int(end // 3600)
-        end_m = int((end % 3600) // 60)
-        end_s = int(end % 60)
+        # Check if this word ends a sentence
+        if text and text[-1] in sentence_end_punctuation:
+            # Build the sentence line
+            if current_sentence:
+                start_time = current_sentence[0]["start"]
+                end_time = current_sentence[-1]["end"]
+                sentence_text = " ".join(w["text"] for w in current_sentence)
+                speaker = current_sentence[0].get("speaker")
 
-        timestamp = f"{start_h:02d}:{start_m:02d}:{start_s:02d} - {end_h:02d}:{end_m:02d}:{end_s:02d}"
-        lines.append(f"{timestamp}: {text}")
+                timestamp = f"{_format_time(start_time)} - {_format_time(end_time)}"
+                if speaker is not None:
+                    lines.append(f"{timestamp} [Speaker {speaker}]: {sentence_text}")
+                else:
+                    lines.append(f"{timestamp}: {sentence_text}")
+
+                current_sentence = []
+
+    # Handle any remaining words without sentence-ending punctuation
+    if current_sentence:
+        start_time = current_sentence[0]["start"]
+        end_time = current_sentence[-1]["end"]
+        sentence_text = " ".join(w["text"] for w in current_sentence)
+        speaker = current_sentence[0].get("speaker")
+
+        timestamp = f"{_format_time(start_time)} - {_format_time(end_time)}"
+        if speaker is not None:
+            lines.append(f"{timestamp} [Speaker {speaker}]: {sentence_text}")
+        else:
+            lines.append(f"{timestamp}: {sentence_text}")
 
     return "\n".join(lines)
 
 
 def extract_context_window(
-    segments: list[dict[str, Any]],
+    words: list[dict[str, Any]],
     start_time: float,
     end_time: float,
     char_limit: int = 2000,
 ) -> tuple[str, str]:
     """
-    Extract surrounding context from transcript segments.
+    Extract surrounding context from word-level transcript data.
 
     Args:
-        segments: List of transcript segments with start, end, text
+        words: List of word objects with start, end, text
         start_time: Start time of the segment in seconds
         end_time: End time of the segment in seconds
         char_limit: Maximum characters to extract before/after (default 2000)
@@ -199,39 +233,25 @@ def extract_context_window(
     Returns:
         Tuple of (context_before, context_after)
     """
-    # Collect segments before the start time
-    before_segments = []
-    for seg in segments:
-        if seg["end"] <= start_time:
-            before_segments.append(seg)
+    # Collect words before the start time
+    before_words = [w for w in words if w["end"] <= start_time]
 
-    # Collect segments after the end time
-    after_segments = []
-    for seg in segments:
-        if seg["start"] >= end_time:
-            after_segments.append(seg)
+    # Collect words after the end time
+    after_words = [w for w in words if w["start"] >= end_time]
 
-    # Build context_before by taking segments from the end (closest to our segment)
+    # Build context_before by taking words from the end (closest to our segment)
     context_before = ""
-    for seg in reversed(before_segments):
-        text = seg["text"].strip()
+    for word in reversed(before_words):
+        text = word["text"].strip()
         if len(context_before) + len(text) + 1 > char_limit:
-            # Add partial text if we have room
-            remaining = char_limit - len(context_before)
-            if remaining > 50:  # Only add if meaningful amount
-                context_before = text[-remaining:].lstrip() + " " + context_before
             break
         context_before = text + " " + context_before if context_before else text
 
-    # Build context_after by taking segments from the start (closest to our segment)
+    # Build context_after by taking words from the start (closest to our segment)
     context_after = ""
-    for seg in after_segments:
-        text = seg["text"].strip()
+    for word in after_words:
+        text = word["text"].strip()
         if len(context_after) + len(text) + 1 > char_limit:
-            # Add partial text if we have room
-            remaining = char_limit - len(context_after)
-            if remaining > 50:  # Only add if meaningful amount
-                context_after = context_after + " " + text[:remaining].rstrip()
             break
         context_after = context_after + " " + text if context_after else text
 

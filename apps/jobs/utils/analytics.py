@@ -133,6 +133,48 @@ def get_openrouter_client(
     )
 
 
+def track_deepgram_transcription(
+    trace_id: str,
+    model: str,
+    duration_seconds: float,
+    word_count: int,
+    latency_ms: float,
+    success: bool,
+    error: str | None = None,
+) -> None:
+    """
+    Track Deepgram transcription call in PostHog.
+
+    Args:
+        trace_id: Unique identifier for tracing
+        model: Deepgram model used (e.g., "nova-3")
+        duration_seconds: Audio duration transcribed
+        word_count: Number of words in transcription
+        latency_ms: API call latency in milliseconds
+        success: Whether the transcription succeeded
+        error: Error message if failed
+    """
+    if not _ensure_posthog_initialized():
+        return
+
+    try:
+        posthog.capture(
+            distinct_id="videditor-jobs",
+            event="deepgram_transcription",
+            properties={
+                "trace_id": trace_id,
+                "model": model,
+                "duration_seconds": duration_seconds,
+                "word_count": word_count,
+                "latency_ms": latency_ms,
+                "success": success,
+                "error": error,
+            },
+        )
+    except Exception as e:
+        logger.warning("posthog_capture_failed", error=str(e))
+
+
 def shutdown_posthog() -> None:
     """Flush pending events and shutdown PostHog client."""
     if _posthog_initialized:

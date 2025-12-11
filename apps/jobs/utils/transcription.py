@@ -1,22 +1,20 @@
-"""Video transcription using OpenAI Whisper API."""
+"""Video transcription using Deepgram API."""
 
 import asyncio
 import os
 import tempfile
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 import structlog
-from openai import AsyncOpenAI, RateLimitError, APIError, APITimeoutError
+from deepgram import DeepgramClient
 
-from models import TranscriptionResult, WhisperSegment
-from utils.analytics import get_openai_client
-from utils.ffmpeg import extract_audio, split_audio_chunk, get_video_duration
+from models import TranscriptionResult, TranscriptWord
+from utils.analytics import track_deepgram_transcription
+from utils.ffmpeg import extract_audio, split_audio_chunk
 
 logger = structlog.get_logger()
-
-# OpenAI Whisper API has a 25MB file size limit (kept for reference)
-MAX_FILE_SIZE_MB = 25.0
 
 # Default chunk duration for time-based splitting
 DEFAULT_CHUNK_DURATION_SECONDS = 360.0  # 6 minutes
@@ -40,26 +38,29 @@ async def transcribe_video(
     max_concurrent: int = 5,
     progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     trace_id: str | None = None,
+    model: str = "nova-3",
 ) -> TranscriptionResult:
     """
-    Transcribe a video file using OpenAI Whisper API.
+    Transcribe a video file using Deepgram API with diarization and word-level timestamps.
 
     Args:
         video_path: Path to the video file
-        api_key: OpenAI API key
+        api_key: Deepgram API key
         chunk_duration_seconds: Max duration per chunk in seconds (default 360 = 6 min)
         audio_bitrate: Audio bitrate for extraction (e.g., "64k")
         max_concurrent: Max concurrent API calls (default 5)
         progress_callback: Optional async callback(current, total) for progress updates
+        trace_id: Optional trace ID for analytics
+        model: Deepgram model to use (default "nova-3")
 
     Returns:
-        TranscriptionResult with text, segments, and detected language
+        TranscriptionResult with text, words (with timestamps + speakers), and detected language
 
     Note:
         Videos longer than chunk_duration_seconds are split into chunks that
         are transcribed concurrently, then merged with proper timestamp offsets.
     """
-    with tempfile.TemporaryDirectory(prefix="whisper-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="deepgram-") as temp_dir:
         # 1. Extract audio from video
         audio_path = os.path.join(temp_dir, "audio.mp3")
         logger.info(
@@ -82,9 +83,8 @@ async def transcribe_video(
             size_mb=round(file_size_mb, 2),
         )
 
-        # 3. Initialize OpenAI client with extended timeout for transcription
-        # Uses PostHog-wrapped client if POSTHOG_API_KEY is configured
-        client = get_openai_client(api_key=api_key, timeout=600.0)
+        # 3. Initialize Deepgram client
+        client = DeepgramClient(api_key=api_key)
 
         # 4. Process based on duration (time-based chunking)
         if duration <= chunk_duration_seconds:
@@ -97,14 +97,14 @@ async def transcribe_video(
             # Report progress for single file (0/1 -> 1/1)
             if progress_callback:
                 await progress_callback(0, 1)
-            text, segments, language = await _transcribe_chunk_with_retry(
-                client, audio_path, None, trace_id=trace_id
+            text, words, language = await _transcribe_chunk_with_retry(
+                client, audio_path, None, model=model, trace_id=trace_id
             )
             if progress_callback:
                 await progress_callback(1, 1)
             return TranscriptionResult(
                 text=text,
-                segments=[WhisperSegment(**seg) for seg in segments],
+                words=[TranscriptWord(**word) for word in words],
                 language=language,
             )
         else:
@@ -129,7 +129,7 @@ async def transcribe_video(
 
             # Transcribe all chunks concurrently with progress tracking
             results = await _transcribe_all_chunks(
-                client, chunks, max_concurrent, progress_callback, trace_id=trace_id
+                client, chunks, max_concurrent, progress_callback, model=model, trace_id=trace_id
             )
 
             # Merge results
@@ -207,55 +207,86 @@ async def _split_audio_into_chunks_by_time(
 
 
 async def _transcribe_chunk(
-    client: AsyncOpenAI,
+    client: DeepgramClient,
     audio_path: str,
     chunk_info: AudioChunk | None = None,
+    model: str = "nova-3",
     trace_id: str | None = None,
 ) -> tuple[str, list[dict], str]:
     """
-    Transcribe a single audio chunk via OpenAI API with speaker diarization.
+    Transcribe a single audio chunk via Deepgram API with diarization.
 
     Args:
-        client: OpenAI async client
+        client: Deepgram client
         audio_path: Path to audio chunk
         chunk_info: Optional chunk metadata for timestamp offset
-        trace_id: Optional trace ID for PostHog analytics
+        model: Deepgram model to use
+        trace_id: Optional trace ID for analytics
 
     Returns:
-        Tuple of (text, segments, language)
+        Tuple of (text, words, language)
     """
+    start_time = time.time()
+
     with open(audio_path, "rb") as audio_file:
-        response = await client.audio.transcriptions.create(
-            model="gpt-4o-transcribe-diarize",
-            file=audio_file,
-            response_format="diarized_json",
-            chunking_strategy="auto",  # Required for diarization models
-            posthog_trace_id=trace_id,
-        )
+        buffer = audio_file.read()
+
+    # Deepgram SDK v5 uses keyword arguments directly
+    # Run in executor since SDK v5 is sync
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None,
+        lambda: client.listen.rest.v("1").transcribe_file(
+            source={"buffer": buffer},
+            model=model,
+            diarize=True,  # Speaker detection
+            punctuate=True,  # Add punctuation
+            smart_format=True,  # Smart formatting
+        ),
+    )
+
+    latency_ms = (time.time() - start_time) * 1000
+
+    # Extract transcript and words from response
+    channel = response.results.channels[0]
+    alternative = channel.alternatives[0]
+    transcript = alternative.transcript
+    language = getattr(channel, "detected_language", None) or "unknown"
 
     # Extract and offset timestamps if this is a chunk
-    segments: list[dict] = []
+    words: list[dict] = []
     offset = chunk_info.start_time if chunk_info else 0.0
 
-    # response.segments may be None for very short/silent audio
-    if response.segments:
-        for seg in response.segments:
-            segments.append(
-                {
-                    "start": seg.start + offset,
-                    "end": seg.end + offset,
-                    "text": seg.text.strip(),
-                    "speaker": getattr(seg, "speaker", None),
-                }
-            )
+    for word in alternative.words:
+        words.append(
+            {
+                "start": word.start + offset,
+                "end": word.end + offset,
+                "text": word.word,
+                "speaker": str(word.speaker) if getattr(word, "speaker", None) is not None else None,
+                "confidence": getattr(word, "confidence", None),
+            }
+        )
 
-    return response.text, segments, getattr(response, "language", None) or "unknown"
+    # Track in PostHog
+    chunk_duration = chunk_info.duration if chunk_info else 0.0
+    track_deepgram_transcription(
+        trace_id=trace_id or "unknown",
+        model=model,
+        duration_seconds=chunk_duration,
+        word_count=len(words),
+        latency_ms=latency_ms,
+        success=True,
+    )
+
+    return transcript, words, language
 
 
 async def _transcribe_chunk_with_retry(
-    client: AsyncOpenAI,
+    client: DeepgramClient,
     audio_path: str,
     chunk_info: AudioChunk | None,
+    model: str = "nova-3",
     max_retries: int = 3,
     retry_base_delay: float = 1.0,
     trace_id: str | None = None,
@@ -264,69 +295,58 @@ async def _transcribe_chunk_with_retry(
     Transcribe chunk with exponential backoff retry.
 
     Handles:
-    - Rate limits (429) - exponential backoff
+    - Rate limits - exponential backoff
     - Server errors (5xx) - retry
     - Network errors - retry
 
     Args:
-        client: OpenAI async client
+        client: Deepgram client
         audio_path: Path to audio chunk
         chunk_info: Optional chunk metadata
+        model: Deepgram model to use
         max_retries: Maximum number of retries
         retry_base_delay: Base delay for exponential backoff
-        trace_id: Optional trace ID for PostHog analytics
+        trace_id: Optional trace ID for analytics
 
     Returns:
-        Tuple of (text, segments, language)
+        Tuple of (text, words, language)
     """
     last_error: Exception | None = None
 
     for attempt in range(max_retries):
         try:
-            return await _transcribe_chunk(client, audio_path, chunk_info, trace_id)
-        except RateLimitError as e:
-            last_error = e
-            delay = retry_base_delay * (2**attempt)
-            logger.warning(
-                "rate_limit_hit",
-                attempt=attempt + 1,
-                delay_seconds=delay,
-                chunk_index=chunk_info.index if chunk_info else 0,
-            )
-            await asyncio.sleep(delay)
-        except APITimeoutError as e:
-            last_error = e
-            delay = retry_base_delay * (2**attempt)
-            logger.warning(
-                "api_timeout",
-                attempt=attempt + 1,
-                delay_seconds=delay,
-                chunk_index=chunk_info.index if chunk_info else 0,
-            )
-            await asyncio.sleep(delay)
-        except APIError as e:
-            last_error = e
-            if hasattr(e, "status_code") and e.status_code and e.status_code >= 500:
-                delay = retry_base_delay * (2**attempt)
-                logger.warning(
-                    "api_server_error",
-                    attempt=attempt + 1,
-                    delay_seconds=delay,
-                    status_code=e.status_code,
-                )
-                await asyncio.sleep(delay)
-            else:
-                raise
+            return await _transcribe_chunk(client, audio_path, chunk_info, model, trace_id)
         except Exception as e:
             last_error = e
-            if attempt < max_retries - 1:
+            error_msg = str(e).lower()
+
+            # Check for rate limit or server errors
+            is_rate_limit = "rate" in error_msg or "429" in error_msg
+            is_server_error = "500" in error_msg or "502" in error_msg or "503" in error_msg
+
+            if is_rate_limit or is_server_error or attempt < max_retries - 1:
                 delay = retry_base_delay * (2**attempt)
                 logger.warning(
                     "transcription_error_retry",
                     attempt=attempt + 1,
                     delay_seconds=delay,
+                    chunk_index=chunk_info.index if chunk_info else 0,
+                    error=str(e),
+                    is_rate_limit=is_rate_limit,
+                    is_server_error=is_server_error,
+                )
+
+                # Track failed attempt
+                track_deepgram_transcription(
+                    trace_id=trace_id or "unknown",
+                    model=model,
+                    duration_seconds=chunk_info.duration if chunk_info else 0.0,
+                    word_count=0,
+                    latency_ms=0,
+                    success=False,
                     error=str(e),
                 )
+
                 await asyncio.sleep(delay)
             else:
                 raise
@@ -337,21 +357,23 @@ async def _transcribe_chunk_with_retry(
 
 
 async def _transcribe_all_chunks(
-    client: AsyncOpenAI,
+    client: DeepgramClient,
     chunks: list[AudioChunk],
     max_concurrent: int = 5,
     progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
+    model: str = "nova-3",
     trace_id: str | None = None,
 ) -> list[tuple[str, list[dict], str]]:
     """
     Transcribe multiple chunks with controlled concurrency.
 
     Args:
-        client: OpenAI async client
+        client: Deepgram client
         chunks: List of audio chunks to transcribe
         max_concurrent: Maximum concurrent API calls
         progress_callback: Optional async callback(current, total) for progress updates
-        trace_id: Optional trace ID for PostHog analytics
+        model: Deepgram model to use
+        trace_id: Optional trace ID for analytics
 
     Returns:
         List of results in chunk order
@@ -370,12 +392,14 @@ async def _transcribe_all_chunks(
                 start_time=round(chunk.start_time, 2),
                 duration=round(chunk.duration, 2),
             )
-            result = await _transcribe_chunk_with_retry(client, chunk.path, chunk, trace_id=trace_id)
+            result = await _transcribe_chunk_with_retry(
+                client, chunk.path, chunk, model=model, trace_id=trace_id
+            )
             logger.info(
                 "chunk_transcribed",
                 chunk_index=chunk.index,
                 text_length=len(result[0]),
-                segment_count=len(result[1]),
+                word_count=len(result[1]),
             )
             # Update progress after successful transcription
             if progress_callback:
@@ -398,20 +422,20 @@ def _merge_transcription_results(
     Merge results from multiple chunks into single result.
 
     Args:
-        chunk_results: List of (text, segments, language) tuples
+        chunk_results: List of (text, words, language) tuples
 
     Returns:
         Unified TranscriptionResult
     """
     all_text_parts: list[str] = []
-    all_segments: list[WhisperSegment] = []
+    all_words: list[TranscriptWord] = []
     language = "unknown"
 
-    for text, segments, lang in chunk_results:
+    for text, words, lang in chunk_results:
         if text:
             all_text_parts.append(text.strip())
-        for seg in segments:
-            all_segments.append(WhisperSegment(**seg))
+        for word in words:
+            all_words.append(TranscriptWord(**word))
         if language == "unknown" and lang and lang != "unknown":
             language = lang
 
@@ -421,12 +445,12 @@ def _merge_transcription_results(
         "transcription_merged",
         num_chunks=len(chunk_results),
         total_text_length=len(merged_text),
-        total_segments=len(all_segments),
+        total_words=len(all_words),
         language=language,
     )
 
     return TranscriptionResult(
         text=merged_text,
-        segments=all_segments,
+        words=all_words,
         language=language,
     )

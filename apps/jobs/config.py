@@ -45,11 +45,12 @@ class JobRunnerConfig(BaseSettings):
     OPENROUTER_ANALYSIS_MODEL: str = "openai/gpt-4o"
     OPENROUTER_SOCIAL_MODEL: str = "openai/gpt-5-mini"
 
-    # Transcription (OpenAI Whisper API)
-    OPENAI_API_KEY: str = Field(min_length=1)
-    WHISPER_CHUNK_DURATION_SECONDS: int = Field(default=360, ge=60, le=600)  # 6 min max chunks
-    WHISPER_MAX_CONCURRENT: int = Field(default=5, ge=1, le=10)  # Concurrent API calls
-    WHISPER_AUDIO_BITRATE: str = "64k"
+    # Transcription (Deepgram API)
+    DEEPGRAM_API_KEY: str = Field(min_length=1)
+    DEEPGRAM_CHUNK_DURATION_SECONDS: int = Field(default=360, ge=60, le=600)  # 6 min max chunks
+    DEEPGRAM_MAX_CONCURRENT: int = Field(default=5, ge=1, le=10)  # Concurrent API calls
+    DEEPGRAM_AUDIO_BITRATE: str = "64k"
+    DEEPGRAM_MODEL: str = "nova-3"  # Deepgram model to use
 
     # Video cache (for short processing)
     VIDEO_CACHE_DIR: str = "/tmp/videditor-cache"

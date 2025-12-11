@@ -344,6 +344,22 @@ wheels = [
 ]
 
 [[package]]
+name = "deepgram-sdk"
+version = "5.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "typing-extensions" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2d/9c/4529cc5818e9305ac9be3c24545249ad57418cbc3736c3f1c0a8397b59f5/deepgram_sdk-5.3.0.tar.gz", hash = "sha256:4e682a53f64c26dc49d8fd70865eae1e98236d313870d1bcf5f107f125e53793", size = 148179 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/e2/cda09edad156199cc9e330533f6b72cb5276c0d476cab7f1744be7ffa16e/deepgram_sdk-5.3.0-py3-none-any.whl", hash = "sha256:431418fdffbd93cdf6a78a168984e3df3cb696818ced1cfc52ce336e0bc6a7fe", size = 390669 },
+]
+
+[[package]]
 name = "distro"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1458,6 +1474,7 @@ dependencies = [
     { name = "aiofiles" },
     { name = "asyncpg" },
     { name = "boto3" },
+    { name = "deepgram-sdk" },
     { name = "fastapi" },
     { name = "google-api-python-client" },
     { name = "google-auth" },
@@ -1488,6 +1505,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.0.0" },
     { name = "boto3", specifier = ">=1.35.81" },
+    { name = "deepgram-sdk", specifier = ">=3.0.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "google-api-python-client", specifier = ">=2.153.0" },
     { name = "google-auth", specifier = ">=2.35.0" },
