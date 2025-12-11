@@ -92,7 +92,7 @@ async def extract_thumbnail(
             "-ss", str(timestamp),
             "-i", video_path,
             "-vframes", "1",
-            "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2",
+            "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=yuvj420p",
             "-q:v", str(quality),
             "-y",  # Overwrite output file
             output_path,

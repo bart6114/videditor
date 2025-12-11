@@ -7,9 +7,9 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for faster-whisper and FFmpeg
+# Install system dependencies for FFmpeg (pinned version for stability)
 RUN apt-get update && apt-get install -y \
-    ffmpeg \
+    ffmpeg=7:5.1.8-0+deb12u1 \
     && rm -rf /var/lib/apt/lists/*
 
 # ======= Dependencies Stage =======
