@@ -1120,6 +1120,7 @@ class JobProcessor:
                 # Upload to YouTube
                 result = await upload_to_youtube(
                     access_token=access_token,
+                    refresh_token=social_account.refresh_token,
                     video_path=temp_video_path,
                     title=title,
                     description=description,

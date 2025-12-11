@@ -66,6 +66,7 @@ async def refresh_access_token(refresh_token: str) -> dict[str, Any]:
 
 async def upload_to_youtube(
     access_token: str,
+    refresh_token: str,
     video_path: str,
     title: str,
     description: str = "",
@@ -78,6 +79,7 @@ async def upload_to_youtube(
 
     Args:
         access_token: Valid YouTube access token
+        refresh_token: YouTube refresh token for automatic token refresh
         video_path: Path to the video file
         title: Video title (max 100 chars)
         description: Video description (max 5000 chars)
@@ -99,6 +101,7 @@ async def upload_to_youtube(
         None,
         _upload_video_sync,
         access_token,
+        refresh_token,
         video_path,
         title,
         description,
@@ -111,6 +114,7 @@ async def upload_to_youtube(
 
 def _upload_video_sync(
     access_token: str,
+    refresh_token: str,
     video_path: str,
     title: str,
     description: str,
@@ -123,8 +127,14 @@ def _upload_video_sync(
 
     This runs in a thread executor since googleapiclient is synchronous.
     """
-    # Create credentials from access token
-    credentials = Credentials(token=access_token)
+    # Create credentials with all required fields for automatic token refresh
+    credentials = Credentials(
+        token=access_token,
+        refresh_token=refresh_token,
+        token_uri=GOOGLE_TOKEN_URL,
+        client_id=YOUTUBE_CLIENT_ID,
+        client_secret=YOUTUBE_CLIENT_SECRET,
+    )
 
     # Build the YouTube API client
     youtube = build(
