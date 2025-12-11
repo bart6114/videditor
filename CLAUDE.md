@@ -5,7 +5,7 @@ Guidance for coding agents working on the Fly.io-based VidEditor stack.
 ## Top-Level Architecture
 
 - **Next.js app** (pages router) – Frontend + API routes (port 3000)
-- **Job runner** (`apps/jobs`) – Python 3.13 worker using FastAPI, faster-whisper, and FFmpeg
+- **Job runner** (`apps/jobs`) – Python 3.13 worker using FastAPI, Deepgram, and FFmpeg
 - **Storage** – [Tigris](https://www.tigrisdata.com/) (S3-compatible) for raw + processed videos
 - **Database** – Neon Postgres (managed) via Drizzle ORM (Next.js) and SQLAlchemy (Jobs)
 - **Auth** – Clerk JWT verification in API routes
@@ -69,7 +69,7 @@ Job Runner (Fly Machine, Python 3.13)
 - `apps/jobs/database.py` – SQLAlchemy async engine and session management
 - `apps/jobs/models.py` – SQLAlchemy ORM models and Pydantic schemas
 - `apps/jobs/utils/storage.py` – Tigris S3 operations with aioboto3
-- `apps/jobs/utils/transcription.py` – faster-whisper integration
+- `apps/jobs/utils/transcription.py` – Deepgram transcription with diarization and word-level timestamps
 - `apps/jobs/pyproject.toml` – Python dependencies managed by uv
 
 **Shared:**
@@ -91,11 +91,16 @@ Job Runner (Fly Machine, Python 3.13)
 **Python Jobs Worker:**
 - `DATABASE_URL` – same Neon Postgres connection (automatically converts to asyncpg format)
 - `TIGRIS_*` – credentials for downloading/uploading processed media
+- `DEEPGRAM_API_KEY` – Deepgram API key for transcription
+- `DEEPGRAM_MODEL` – Deepgram model (default: "nova-3")
+- `DEEPGRAM_CHUNK_DURATION_SECONDS` – Max chunk duration (default: 360, 6 minutes)
+- `DEEPGRAM_MAX_CONCURRENT` – Max concurrent transcription calls (default: 5)
+- `OPENROUTER_API_KEY` – OpenRouter API key for AI analysis
 - `JOB_CONCURRENCY` – number of jobs to process simultaneously (default: 1, max: 20)
 - `POLL_INTERVAL_MS` – queue polling interval in ms (default: 1000, min: 100)
 - `FFMPEG_BINARY` – path to FFmpeg binary (optional, uses system FFmpeg by default)
 - `NODE_ENV` – environment mode (development/production, default: development)
-- `POSTHOG_API_KEY` – PostHog project API key (optional, enables LLM analytics)
+- `POSTHOG_API_KEY` – PostHog project API key (optional, enables analytics)
 - `POSTHOG_HOST` – PostHog host (default: `https://eu.i.posthog.com`)
 
 ## Flow Notes
@@ -103,7 +108,7 @@ Job Runner (Fly Machine, Python 3.13)
 1. **Upload** – `POST /api/v1/uploads` → presigned Tigris PUT → `POST /api/v1/uploads/complete` to insert job in queue
 2. **Project view** – `GET /api/v1/projects` and `GET /api/v1/projects/:id` return enriched project data (`shortsCount`, `hasTranscription`, etc.)
 3. **Job creation** – `POST /api/v1/projects/:projectId/jobs { type }` inserts into `processing_jobs` table
-4. **Job runner** – Python worker polls `processing_jobs` using `SELECT ... FOR UPDATE SKIP LOCKED`, processes jobs concurrently, and updates status directly in DB. Transcription fully implemented with faster-whisper.
+4. **Job runner** – Python worker polls `processing_jobs` using `SELECT ... FOR UPDATE SKIP LOCKED`, processes jobs concurrently, and updates status directly in DB. Transcription uses Deepgram with speaker diarization and per-word timestamps.
 
 ## When Adding Features
 
@@ -159,10 +164,11 @@ The `fly.app.toml` file contains `[build.args]` that pass these values to the Do
 
 **Storage & Transcription:**
 - **aioboto3** – Async AWS SDK for Tigris S3 operations
-- **faster-whisper** – Optimized Whisper implementation (~4x faster than openai-whisper)
-  - Uses "small" model (~460MB) by default
-  - Auto-downloads to `~/.cache/huggingface/hub/`
-  - Runs on CPU with int8 quantization for efficiency
+- **deepgram-sdk** – Deepgram Speech-to-Text API
+  - Uses "nova-3" model by default (configurable via `DEEPGRAM_MODEL`)
+  - Speaker diarization enabled (`diarize=True`)
+  - Word-level timestamps with confidence scores
+  - Supports time-based chunking for long videos
 
 **Configuration & Logging:**
 - **Pydantic** – Type-safe settings and data validation
@@ -184,8 +190,8 @@ All OpenAI and OpenRouter API calls are instrumented with PostHog LLM analytics 
 - Error tracking
 
 **Integration Points:**
-- `apps/jobs/utils/analytics.py` – Python PostHog client wrapper for OpenAI/OpenRouter
-- `apps/jobs/utils/transcription.py` – OpenAI Whisper calls (via wrapped client)
+- `apps/jobs/utils/analytics.py` – Python PostHog client wrapper for OpenRouter and Deepgram
+- `apps/jobs/utils/transcription.py` – Deepgram transcription with manual PostHog tracking
 - `apps/jobs/utils/ai.py` – OpenRouter calls for analysis and social content (uses OpenAI SDK)
 - `lib/posthog/index.ts` – Node.js PostHog client for API routes
 - `pages/api/v1/schedule/ai-generate.ts` – OpenRouter scheduling calls
@@ -230,7 +236,7 @@ fly secrets set -a videditor-app \
 ```bash
 fly secrets set -a videditor-jobs \
   DATABASE_URL="<your-neon-url>" \
-  OPENAI_API_KEY="<your-openai-key>" \
+  DEEPGRAM_API_KEY="<your-deepgram-key>" \
   OPENROUTER_API_KEY="<your-openrouter-key>" \
   TIGRIS_ACCESS_KEY_ID="<your-tigris-key>" \
   TIGRIS_SECRET_ACCESS_KEY="<your-tigris-secret>" \

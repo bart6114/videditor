@@ -252,20 +252,21 @@ class ScheduledPost(Base):
 
 
 # Pydantic Models for validation and serialization
-class WhisperSegment(BaseModel):
-    """Whisper transcription segment with optional speaker diarization."""
+class TranscriptWord(BaseModel):
+    """Single word from transcription with timing and speaker info."""
 
     start: float
     end: float
     text: str
-    speaker: str | None = None  # Speaker label from diarization (e.g., "A:", "B:")
+    speaker: str | None = None  # Speaker ID from diarization (e.g., "0", "1")
+    confidence: float | None = None  # Confidence score from Deepgram
 
 
 class TranscriptionResult(BaseModel):
     """Result from transcription processing."""
 
     text: str
-    segments: list[WhisperSegment]
+    words: list[TranscriptWord]
     language: str
 
 

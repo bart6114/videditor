@@ -14,4 +14,4 @@ primary_region = "ams"
 
 [[vm]]
   size = "shared-cpu-2x"
-  memory = "2gb"
+  memory = "4gb"

@@ -1071,7 +1071,23 @@ export default function ProjectDetail() {
                       <CardTitle className="text-foreground">Transcription</CardTitle>
                       <Badge>Ready</Badge>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    <div className="flex items-center gap-2">
+                      {process.env.NODE_ENV === 'development' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRetryTranscription()
+                          }}
+                          disabled={retryingTranscription}
+                          title="Redo transcription (dev only)"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${retryingTranscription ? 'animate-spin' : ''}`} />
+                        </Button>
+                      )}
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    </div>
                   </div>
                 </CardHeader>
               </Card>

@@ -372,13 +372,14 @@ class JobProcessor:
                 temp_file_path,
             )
 
-            # Run transcription with OpenAI Whisper API
+            # Run transcription with Deepgram API
             self.logger.info(
-                "Running OpenAI Whisper transcription",
+                "Running Deepgram transcription",
                 job_id=job.id,
                 temp_file_path=temp_file_path,
-                chunk_duration_seconds=self.config.WHISPER_CHUNK_DURATION_SECONDS,
-                max_concurrent=self.config.WHISPER_MAX_CONCURRENT,
+                chunk_duration_seconds=self.config.DEEPGRAM_CHUNK_DURATION_SECONDS,
+                max_concurrent=self.config.DEEPGRAM_MAX_CONCURRENT,
+                model=self.config.DEEPGRAM_MODEL,
             )
 
             # Create progress callback to update job progress
@@ -389,12 +390,13 @@ class JobProcessor:
 
             transcription_result = await transcribe_video(
                 video_path=temp_file_path,
-                api_key=self.config.OPENAI_API_KEY,
-                chunk_duration_seconds=self.config.WHISPER_CHUNK_DURATION_SECONDS,
-                audio_bitrate=self.config.WHISPER_AUDIO_BITRATE,
-                max_concurrent=self.config.WHISPER_MAX_CONCURRENT,
+                api_key=self.config.DEEPGRAM_API_KEY,
+                chunk_duration_seconds=self.config.DEEPGRAM_CHUNK_DURATION_SECONDS,
+                audio_bitrate=self.config.DEEPGRAM_AUDIO_BITRATE,
+                max_concurrent=self.config.DEEPGRAM_MAX_CONCURRENT,
                 progress_callback=update_transcription_progress,
                 trace_id=f"{job.project_id}_transcription_{job.id}",
+                model=self.config.DEEPGRAM_MODEL,
             )
 
             # Save transcription to database
@@ -408,7 +410,7 @@ class JobProcessor:
                 id=str(uuid.uuid4()),
                 project_id=job.project_id,
                 text=transcription_result.text,
-                segments=[seg.model_dump() for seg in transcription_result.segments],
+                segments=[word.model_dump() for word in transcription_result.words],
                 language=transcription_result.language,
                 duration_seconds=None,
             )
@@ -428,7 +430,7 @@ class JobProcessor:
             return {
                 "message": "Transcription completed",
                 "textLength": len(transcription_result.text),
-                "segmentCount": len(transcription_result.segments),
+                "wordCount": len(transcription_result.words),
                 "language": transcription_result.language,
                 "transcriptionId": transcription.id,
             }
