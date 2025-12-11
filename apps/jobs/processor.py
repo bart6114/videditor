@@ -603,7 +603,7 @@ class JobProcessor:
             context_before, context_after = "", ""
             if social_platforms and transcription.segments:
                 context_before, context_after = extract_context_window(
-                    segments=transcription.segments,
+                    words=transcription.segments,
                     start_time=suggestion.start_time,
                     end_time=suggestion.end_time,
                 )
