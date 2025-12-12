@@ -333,7 +333,7 @@ class YouTubePublishPayload(BaseModel):
 
     scheduledPostId: str
     shortId: str
-    socialAccountId: str
+    socialAccountId: Optional[str] = None  # Nullable - account may be disconnected
     title: str
     description: Optional[str] = None
 
@@ -351,7 +351,7 @@ class InstagramPublishPayload(BaseModel):
 
     scheduledPostId: str
     shortId: str
-    socialAccountId: str
+    socialAccountId: Optional[str] = None  # Nullable - account may be disconnected
     caption: str
 
 
