@@ -124,7 +124,37 @@ export default function Privacy() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-foreground">9. International Transfers</h2>
+              <h2 className="text-xl font-semibold text-foreground">9. Social Platform Integrations (Google & Meta)</h2>
+              <p>
+                When you connect your YouTube or Instagram account to VidEditor.ai, we request
+                minimal data from these platforms solely to enable video publishing features.
+              </p>
+              <p className="mt-3"><strong className="text-foreground/90">YouTube (Google)</strong></p>
+              <p>We request the following permissions:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Upload videos to your channel</li>
+                <li>Read your channel name and thumbnail (for display purposes)</li>
+              </ul>
+              <p className="text-sm mt-1">We collect: Channel ID, channel name, and channel thumbnail.</p>
+              <p className="mt-3"><strong className="text-foreground/90">Instagram (Meta)</strong></p>
+              <p>We request the following permissions:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Read basic account information (for display purposes)</li>
+                <li>Publish Reels to your account</li>
+              </ul>
+              <p className="text-sm mt-1">We collect: User ID, username, account type, and profile picture.</p>
+              <p className="mt-3"><strong className="text-foreground/90">How We Handle Your Social Platform Data</strong></p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>We only use this data to provide VidEditor.ai built-in publishing features</li>
+                <li>We do not share, sell, or transfer your Google or Meta user data to any third parties</li>
+                <li>We do not use this data for advertising, analytics, or AI/ML model training</li>
+                <li>Access tokens are stored securely and used only for publishing on your behalf</li>
+                <li>You can disconnect your accounts at any time from your account settings, which revokes our access</li>
+              </ul>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-xl font-semibold text-foreground">10. International Transfers</h2>
               <p>
                 Your data may be processed in the EU and US. We ensure appropriate safeguards
                 are in place for any international data transfers.
@@ -132,7 +162,7 @@ export default function Privacy() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-foreground">10. Governing Law</h2>
+              <h2 className="text-xl font-semibold text-foreground">11. Governing Law</h2>
               <p>
                 This privacy policy is governed by Belgian law. Any disputes will be subject
                 to the exclusive jurisdiction of the courts of Belgium.
@@ -140,7 +170,7 @@ export default function Privacy() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-foreground">11. Contact</h2>
+              <h2 className="text-xl font-semibold text-foreground">12. Contact</h2>
               <p>
                 For privacy-related inquiries:<br />
                 Email: support@videditor.ai<br />
