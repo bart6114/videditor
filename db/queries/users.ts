@@ -140,3 +140,23 @@ export async function createUser(db: DB, user: NewUser) {
   const [created] = await db.insert(users).values(user).returning();
   return created;
 }
+
+/**
+ * Get all user IDs (for broadcasting messages)
+ */
+export async function getAllUserIds(db: DB): Promise<string[]> {
+  const result = await db.select({ id: users.id }).from(users);
+  return result.map((u) => u.id);
+}
+
+/**
+ * Check if a user has admin privileges
+ */
+export async function isUserAdmin(db: DB, userId: string): Promise<boolean> {
+  const [user] = await db
+    .select({ isAdmin: users.isAdmin })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return user?.isAdmin ?? false;
+}
