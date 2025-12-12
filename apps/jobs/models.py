@@ -98,6 +98,14 @@ class ScheduledPostStatus(str, Enum):
     CANCELED = "canceled"
 
 
+class InboxMessageType(str, Enum):
+    """Inbox message type enumeration."""
+
+    ERROR = "error"
+    INFO = "info"
+    ANNOUNCEMENT = "announcement"
+
+
 # SQLAlchemy ORM Models
 class Organization(Base):
     """Organization database model."""
@@ -248,6 +256,29 @@ class ScheduledPost(Base):
 
     __table_args__ = (
         Index("idx_scheduled_posts_status_scheduled", "status", "scheduled_for"),
+    )
+
+
+class InboxMessage(Base):
+    """Inbox message database model for user notifications."""
+
+    __tablename__ = "inbox_messages"
+
+    id = Column(String(255), primary_key=True)
+    user_id = Column(String(255), nullable=False, index=True)
+    type = Column(ENUM('error', 'info', 'announcement', name='inbox_message_type', create_type=False), nullable=False)
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=False)
+    action_url = Column(String(2048), nullable=True)
+    action_label = Column(String(100), nullable=True)
+    is_read = Column(Boolean, nullable=False, default=False)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    read_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_inbox_messages_user_id", "user_id"),
+        Index("idx_inbox_messages_user_unread", "user_id", "is_read"),
+        Index("idx_inbox_messages_created_at", "created_at"),
     )
 
 

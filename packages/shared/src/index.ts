@@ -160,3 +160,31 @@ export type PublishNowPayload = {
   title: string;
   description?: string;
 };
+
+// ============================================================================
+// Inbox Message Types
+// ============================================================================
+
+export const INBOX_MESSAGE_TYPES = ['error', 'info', 'announcement'] as const;
+export type InboxMessageType = (typeof INBOX_MESSAGE_TYPES)[number];
+
+export type InboxMessageData = {
+  id: string;
+  type: InboxMessageType;
+  title: string;
+  body: string;
+  actionUrl?: string | null;
+  actionLabel?: string | null;
+  isRead: boolean;
+  createdAt: string; // ISO date string
+  readAt?: string | null;
+};
+
+export type CreateInboxMessagePayload = {
+  userId: string;
+  type: InboxMessageType;
+  title: string;
+  body: string;
+  actionUrl?: string;
+  actionLabel?: string;
+};

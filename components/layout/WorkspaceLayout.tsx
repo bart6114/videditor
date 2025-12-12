@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react';
 import Sidebar from './Sidebar';
 import MobileHeader from './MobileHeader';
 import MobileDrawer from './MobileDrawer';
+import { InboxDropdown } from '@/components/inbox';
 
 interface WorkspaceLayoutProps {
   children: ReactNode;
@@ -27,11 +28,14 @@ export default function WorkspaceLayout({ children, title }: WorkspaceLayoutProp
         <MobileHeader title={title} onMenuClick={() => setMobileMenuOpen(true)} />
 
         {/* Desktop Top Bar - hidden on mobile */}
-        {title && (
-          <div className="hidden md:flex h-16 bg-card border-b border-border items-center px-8">
-            <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <div className="hidden md:flex h-16 bg-card border-b border-border items-center justify-between px-8">
+          <div>
+            {title && <h1 className="text-xl font-semibold text-foreground">{title}</h1>}
           </div>
-        )}
+          <div className="flex items-center">
+            <InboxDropdown />
+          </div>
+        </div>
 
         {/* Content */}
         <main className="flex-1 md:overflow-y-auto">

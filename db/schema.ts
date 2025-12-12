@@ -59,6 +59,8 @@ export const creditTransactionTypeEnum = pgEnum('credit_transaction_type', [
 
 export const memberRoleEnum = pgEnum('member_role', ['owner', 'member']);
 
+export const inboxMessageTypeEnum = pgEnum('inbox_message_type', ['error', 'info', 'announcement']);
+
 // ============================================================================
 // ORGANIZATIONS
 // ============================================================================
@@ -404,3 +406,33 @@ export type NewOrganizationMember = typeof organizationMembers.$inferInsert;
 
 export type OrganizationInvite = typeof organizationInvites.$inferSelect;
 export type NewOrganizationInvite = typeof organizationInvites.$inferInsert;
+
+// ============================================================================
+// INBOX MESSAGES (User notifications)
+// ============================================================================
+
+export const inboxMessages = pgTable(
+  'inbox_messages',
+  {
+    id: varchar('id', { length: 255 }).primaryKey(),
+    userId: varchar('user_id', { length: 255 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: inboxMessageTypeEnum('type').notNull(),
+    title: varchar('title', { length: 255 }).notNull(),
+    body: text('body').notNull(),
+    actionUrl: varchar('action_url', { length: 2048 }),
+    actionLabel: varchar('action_label', { length: 100 }),
+    isRead: boolean('is_read').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    readAt: timestamp('read_at', { withTimezone: true }),
+  },
+  (table) => ({
+    userIdIdx: index('idx_inbox_messages_user_id').on(table.userId),
+    userUnreadIdx: index('idx_inbox_messages_user_unread').on(table.userId, table.isRead),
+    createdAtIdx: index('idx_inbox_messages_created_at').on(table.createdAt),
+  })
+);
+
+export type InboxMessage = typeof inboxMessages.$inferSelect;
+export type NewInboxMessage = typeof inboxMessages.$inferInsert;

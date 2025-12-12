@@ -33,6 +33,7 @@ from utils.transcription import transcribe_video
 from utils.ffmpeg import extract_clip, extract_thumbnail, get_video_duration
 from utils.ai import analyze_transcript_for_shorts, extract_context_window, generate_social_content
 from utils.cache import get_video_cache
+from utils.inbox import notifications
 
 
 class JobProcessor:
@@ -146,6 +147,7 @@ class JobProcessor:
         except Exception as error:
             self.logger.error("Job failed", job_id=job_id, error=str(error), exc_info=True)
             async with session_factory() as session:
+                # Update job status to failed
                 await session.execute(
                     update(ProcessingJob)
                     .where(ProcessingJob.id == job_id)
@@ -155,6 +157,34 @@ class JobProcessor:
                         updated_at=datetime.now(timezone.utc),
                     )
                 )
+
+                # Try to send failure notification to user
+                try:
+                    # Fetch job and project info for notification
+                    stmt = select(ProcessingJob).where(ProcessingJob.id == job_id).limit(1)
+                    result = await session.execute(stmt)
+                    failed_job = result.scalar_one_or_none()
+
+                    if failed_job and failed_job.project_id:
+                        # Get project info
+                        proj_stmt = select(Project).where(Project.id == failed_job.project_id).limit(1)
+                        proj_result = await session.execute(proj_stmt)
+                        project = proj_result.scalar_one_or_none()
+
+                        if project and project.created_by_id:
+                            await notifications.job_failed(
+                                session=session,
+                                user_id=project.created_by_id,
+                                project_id=project.id,
+                                project_title=project.title,
+                                error_message=str(error),
+                            )
+                except Exception as notif_err:
+                    self.logger.warning(
+                        "Failed to create failure notification",
+                        error=str(notif_err),
+                    )
+
                 await session.commit()
         finally:
             self.active_jobs.discard(job_id)
@@ -1151,6 +1181,22 @@ class JobProcessor:
                     url=video_url,
                 )
 
+                # Send inbox notification to user who scheduled the post
+                if scheduled_post.scheduled_by_id:
+                    try:
+                        await notifications.video_published_to_youtube(
+                            session=session,
+                            user_id=scheduled_post.scheduled_by_id,
+                            project_title=title,
+                            youtube_url=video_url,
+                        )
+                        await session.commit()
+                    except Exception as notif_err:
+                        self.logger.warning(
+                            "Failed to create inbox notification",
+                            error=str(notif_err),
+                        )
+
                 return {
                     "message": "Video published successfully",
                     "videoId": video_id,
@@ -1372,6 +1418,22 @@ class JobProcessor:
                 media_id=media_id,
                 url=media_url,
             )
+
+            # Send inbox notification to user who scheduled the post
+            if scheduled_post.scheduled_by_id:
+                try:
+                    await notifications.video_published_to_instagram(
+                        session=session,
+                        user_id=scheduled_post.scheduled_by_id,
+                        project_title=scheduled_post.title,
+                        instagram_url=media_url,
+                    )
+                    await session.commit()
+                except Exception as notif_err:
+                    self.logger.warning(
+                        "Failed to create inbox notification",
+                        error=str(notif_err),
+                    )
 
             return {
                 "message": "Reel published successfully",
