@@ -79,6 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     organizationId: authResult.organizationId,
     shortId,
     socialAccountId,
+    platform: socialAccount.platform,
     scheduledFor: new Date(), // Now
     title: title.trim().slice(0, 100),
     description: description?.trim(),

@@ -24,6 +24,7 @@ from models import (
     ShortStatus,
     ShortTaskStatus,
     SocialAccount,
+    SocialPlatform,
     Transcription,
     YouTubePublishPayload,
     InstagramPublishPayload,
@@ -1099,13 +1100,46 @@ class JobProcessor:
         current_retry = scheduled_post.retry_count or 0
 
         try:
-            # Get social account
-            stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
-            result = await session.execute(stmt)
-            social_account = result.scalar_one_or_none()
+            # Get social account - try by ID first, then by org+platform if ID is None
+            social_account = None
+            if social_account_id:
+                stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
+                result = await session.execute(stmt)
+                social_account = result.scalar_one_or_none()
+
+            # If account not found (disconnected), try to find by org+platform
+            if not social_account:
+                stmt = (
+                    select(SocialAccount)
+                    .where(SocialAccount.organization_id == scheduled_post.organization_id)
+                    .where(SocialAccount.platform == SocialPlatform.YOUTUBE.value)
+                    .limit(1)
+                )
+                result = await session.execute(stmt)
+                social_account = result.scalar_one_or_none()
 
             if not social_account:
-                raise ValueError(f"Social account not found: {social_account_id}")
+                # No account available - fail with clear message and notification
+                error_msg = "No YouTube account connected. Please reconnect your account and try again."
+                await session.execute(
+                    update(ScheduledPost)
+                    .where(ScheduledPost.id == scheduled_post_id)
+                    .values(
+                        status=ScheduledPostStatus.FAILED.value,
+                        error_message=error_msg,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                # Send notification to user
+                if scheduled_post.scheduled_by_id:
+                    await notifications.scheduled_post_failed_no_account(
+                        session=session,
+                        user_id=scheduled_post.scheduled_by_id,
+                        short_title=title,
+                        platform="YouTube",
+                    )
+                await session.commit()
+                raise ValueError(error_msg)
 
             # Get short
             stmt = select(Short).where(Short.id == short_id).limit(1)
@@ -1340,13 +1374,46 @@ class JobProcessor:
         current_retry = scheduled_post.retry_count or 0
 
         try:
-            # Get social account
-            stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
-            result = await session.execute(stmt)
-            social_account = result.scalar_one_or_none()
+            # Get social account - try by ID first, then by org+platform if ID is None
+            social_account = None
+            if social_account_id:
+                stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
+                result = await session.execute(stmt)
+                social_account = result.scalar_one_or_none()
+
+            # If account not found (disconnected), try to find by org+platform
+            if not social_account:
+                stmt = (
+                    select(SocialAccount)
+                    .where(SocialAccount.organization_id == scheduled_post.organization_id)
+                    .where(SocialAccount.platform == SocialPlatform.INSTAGRAM.value)
+                    .limit(1)
+                )
+                result = await session.execute(stmt)
+                social_account = result.scalar_one_or_none()
 
             if not social_account:
-                raise ValueError(f"Social account not found: {social_account_id}")
+                # No account available - fail with clear message and notification
+                error_msg = "No Instagram account connected. Please reconnect your account and try again."
+                await session.execute(
+                    update(ScheduledPost)
+                    .where(ScheduledPost.id == scheduled_post_id)
+                    .values(
+                        status=ScheduledPostStatus.FAILED.value,
+                        error_message=error_msg,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                # Send notification to user
+                if scheduled_post.scheduled_by_id:
+                    await notifications.scheduled_post_failed_no_account(
+                        session=session,
+                        user_id=scheduled_post.scheduled_by_id,
+                        short_title=caption[:50],  # Use first 50 chars of caption
+                        platform="Instagram",
+                    )
+                await session.commit()
+                raise ValueError(error_msg)
 
             # Get short
             stmt = select(Short).where(Short.id == short_id).limit(1)

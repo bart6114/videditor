@@ -86,6 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     organizationId: authResult.organizationId,
     shortId,
     socialAccountId,
+    platform: socialAccount.platform,
     scheduledFor: scheduledDate,
     title: title.trim().slice(0, 100), // YouTube title limit
     description: description?.trim(),

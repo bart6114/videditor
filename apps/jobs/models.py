@@ -240,7 +240,8 @@ class ScheduledPost(Base):
     id = Column(String(255), primary_key=True)
     organization_id = Column(String(255), nullable=False, index=True)
     short_id = Column(String(255), nullable=False, index=True)
-    social_account_id = Column(String(255), nullable=False)
+    social_account_id = Column(String(255), nullable=True)  # Nullable - account may be disconnected
+    platform = Column(ENUM('youtube', 'tiktok', 'instagram', name='social_platform', create_type=False), nullable=False)
     scheduled_for = Column(TIMESTAMP(timezone=True), nullable=False, index=True)
     status = Column(ENUM('scheduled', 'publishing', 'published', 'failed', name='scheduled_post_status', create_type=False), nullable=False, default="scheduled")
     title = Column(Text, nullable=False)

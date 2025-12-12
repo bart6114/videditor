@@ -149,6 +149,8 @@ export const users = pgTable(
     // Organization - user's currently active organization
     defaultOrganizationId: varchar('default_organization_id', { length: 255 })
       .references(() => organizations.id, { onDelete: 'set null' }),
+    // Admin flag for system-wide admin access
+    isAdmin: boolean('is_admin').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -367,8 +369,9 @@ export const scheduledPosts = pgTable(
       .notNull()
       .references(() => shorts.id, { onDelete: 'cascade' }),
     socialAccountId: varchar('social_account_id', { length: 255 })
-      .notNull()
-      .references(() => socialAccounts.id, { onDelete: 'cascade' }),
+      .references(() => socialAccounts.id, { onDelete: 'set null' }),
+    // Platform is stored directly so we know which platform even if account is disconnected
+    platform: socialPlatformEnum('platform').notNull(),
     // Scheduling
     scheduledFor: timestamp('scheduled_for', { withTimezone: true }).notNull(),
     status: scheduledPostStatusEnum('status').notNull().default('scheduled'),

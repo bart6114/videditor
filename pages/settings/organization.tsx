@@ -274,7 +274,7 @@ export default function OrganizationSettings() {
   }
 
   async function handleDisconnectYouTube() {
-    if (!confirm('Disconnect YouTube account? All pending scheduled posts will be deleted.')) return;
+    if (!confirm('Disconnect YouTube account? Scheduled posts will remain and automatically use a reconnected account.')) return;
     setDisconnectingYouTube(true);
     setError(null);
 
@@ -305,7 +305,7 @@ export default function OrganizationSettings() {
   }
 
   async function handleDisconnectInstagram() {
-    if (!confirm('Disconnect Instagram account? All pending scheduled posts will be deleted.')) return;
+    if (!confirm('Disconnect Instagram account? Scheduled posts will remain and automatically use a reconnected account.')) return;
     setDisconnectingInstagram(true);
     setError(null);
 

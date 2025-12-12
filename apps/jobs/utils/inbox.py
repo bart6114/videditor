@@ -162,6 +162,24 @@ class Notifications:
             action_label="View Shorts",
         )
 
+    @staticmethod
+    async def scheduled_post_failed_no_account(
+        session: AsyncSession,
+        user_id: str,
+        short_title: str,
+        platform: str,
+    ) -> InboxMessage:
+        """Notify user when a scheduled post failed because no account is connected."""
+        return await create_inbox_message(
+            session=session,
+            user_id=user_id,
+            message_type=InboxMessageType.ERROR,
+            title=f"{platform} publish failed",
+            body=f'Could not publish "{short_title}" to {platform} because no account is connected. Please reconnect your {platform} account and try again.',
+            action_url="/settings/organization",
+            action_label="Connect Account",
+        )
+
 
 # Singleton instance
 notifications = Notifications()
