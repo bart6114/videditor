@@ -7,8 +7,15 @@ from typing import Any
 
 import httpx
 from google.oauth2.credentials import Credentials
+from google.auth.exceptions import RefreshError
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+
+
+class YouTubeTokenExpiredError(Exception):
+    """Raised when YouTube refresh token has expired or been revoked."""
+    pass
+
 
 # YouTube API configuration
 YOUTUBE_API_SERVICE_NAME = "youtube"
@@ -49,6 +56,13 @@ async def refresh_access_token(refresh_token: str) -> dict[str, Any]:
 
         if response.status_code != 200:
             error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+            error_code = error_data.get("error", "")
+
+            if error_code == "invalid_grant":
+                raise YouTubeTokenExpiredError(
+                    "YouTube connection expired. Please reconnect your YouTube account."
+                )
+
             error_msg = error_data.get("error_description", error_data.get("error", response.text))
             raise Exception(f"Failed to refresh token: {error_msg}")
 
@@ -179,9 +193,16 @@ def _upload_video_sync(
         media_body=media,
     )
 
-    response = None
-    while response is None:
-        status, response = request.next_chunk()
+    try:
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+    except RefreshError as e:
+        if "invalid_grant" in str(e):
+            raise YouTubeTokenExpiredError(
+                "YouTube connection expired. Please reconnect your YouTube account."
+            )
+        raise
 
     video_id = response["id"]
     video_url = f"https://youtube.com/shorts/{video_id}"

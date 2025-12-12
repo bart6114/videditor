@@ -1033,7 +1033,8 @@ class JobProcessor:
             Job result dictionary
         """
         # Import here to avoid circular import and lazy load
-        from utils.youtube import refresh_access_token, upload_to_youtube
+        from utils.youtube import refresh_access_token, upload_to_youtube, YouTubeTokenExpiredError
+        from sqlalchemy import delete
 
         payload_data = job.payload or {}
         try:
@@ -1161,6 +1162,33 @@ class JobProcessor:
                 # Clean up temp file
                 if os.path.exists(temp_video_path):
                     os.unlink(temp_video_path)
+
+        except YouTubeTokenExpiredError as e:
+            # Token expired - delete social account so user sees they need to reconnect
+            error_message = str(e)
+            self.logger.warning(
+                "YouTube token expired - deleting social account",
+                job_id=job.id,
+                social_account_id=social_account_id,
+            )
+
+            # Delete the social account
+            await session.execute(
+                delete(SocialAccount).where(SocialAccount.id == social_account_id)
+            )
+
+            # Mark scheduled post as failed with clear message
+            await session.execute(
+                update(ScheduledPost)
+                .where(ScheduledPost.id == scheduled_post_id)
+                .values(
+                    status=ScheduledPostStatus.FAILED.value,
+                    error_message="YouTube connection expired. Please reconnect your account and try again.",
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
+            await session.commit()
+            raise
 
         except Exception as e:
             error_message = str(e)
