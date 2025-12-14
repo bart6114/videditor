@@ -143,7 +143,7 @@ export default function Privacy() {
               </ul>
               <p className="text-sm mt-2"><strong className="text-foreground/90">Data we collect from YouTube:</strong> Channel ID, channel name, and channel thumbnail URL.</p>
               <p className="text-sm mt-1"><strong className="text-foreground/90">How we use this data:</strong> Solely to display your connected channel in VidEditor.ai and to publish videos you choose to upload to your YouTube channel.</p>
-              <p className="text-sm mt-1"><strong className="text-foreground/90">Data storage:</strong> Your YouTube data is stored securely in our database with encryption at rest. Access tokens are encrypted and stored separately from other account data.</p>
+              <p className="text-sm mt-1"><strong className="text-foreground/90">Data storage:</strong> Your YouTube data is stored securely in our database. All data transmission uses HTTPS, and our database provider (Neon) provides encryption at rest.</p>
               <p className="mt-3"><strong className="text-foreground/90">Instagram (Meta)</strong></p>
               <p>We request the following permissions:</p>
               <ul className="list-disc pl-5 space-y-1">
@@ -156,7 +156,7 @@ export default function Privacy() {
                 <li>We only use this data to provide VidEditor.ai&apos;s user-facing publishing features</li>
                 <li>We do not share, sell, or transfer your Google or Meta user data to any third parties</li>
                 <li>We do not use this data for advertising, analytics, or AI/ML model training</li>
-                <li>Access tokens are stored securely with encryption and used only for publishing on your behalf</li>
+                <li>Access tokens are stored securely and used only for publishing on your behalf</li>
                 <li>You can disconnect your accounts at any time from your account settings, which revokes our access</li>
               </ul>
               <p className="mt-3"><strong className="text-foreground/90">Revoking Access</strong></p>
