@@ -133,12 +133,17 @@ export default function Privacy() {
                 minimal data from these platforms solely to enable video publishing features.
               </p>
               <p className="mt-3"><strong className="text-foreground/90">YouTube (Google)</strong></p>
-              <p>We request the following permissions:</p>
+              <p>VidEditor.ai uses YouTube API Services. By connecting your YouTube account, you agree to be bound by the{' '}
+                <a href="https://www.youtube.com/t/terms" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">YouTube Terms of Service</a>.
+              </p>
+              <p className="mt-2">We request the following permissions:</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Upload videos to your channel</li>
                 <li>Read your channel name and thumbnail (for display purposes)</li>
               </ul>
-              <p className="text-sm mt-1">We collect: Channel ID, channel name, and channel thumbnail.</p>
+              <p className="text-sm mt-2"><strong className="text-foreground/90">Data we collect from YouTube:</strong> Channel ID, channel name, and channel thumbnail URL.</p>
+              <p className="text-sm mt-1"><strong className="text-foreground/90">How we use this data:</strong> Solely to display your connected channel in VidEditor.ai and to publish videos you choose to upload to your YouTube channel.</p>
+              <p className="text-sm mt-1"><strong className="text-foreground/90">Data storage:</strong> Your YouTube data is stored securely in our database with encryption at rest. Access tokens are encrypted and stored separately from other account data.</p>
               <p className="mt-3"><strong className="text-foreground/90">Instagram (Meta)</strong></p>
               <p>We request the following permissions:</p>
               <ul className="list-disc pl-5 space-y-1">
@@ -148,12 +153,19 @@ export default function Privacy() {
               <p className="text-sm mt-1">We collect: User ID, username, account type, and profile picture.</p>
               <p className="mt-3"><strong className="text-foreground/90">How We Handle Your Social Platform Data</strong></p>
               <ul className="list-disc pl-5 space-y-1">
-                <li>We only use this data to provide VidEditor.ai built-in publishing features</li>
+                <li>We only use this data to provide VidEditor.ai&apos;s user-facing publishing features</li>
                 <li>We do not share, sell, or transfer your Google or Meta user data to any third parties</li>
                 <li>We do not use this data for advertising, analytics, or AI/ML model training</li>
-                <li>Access tokens are stored securely and used only for publishing on your behalf</li>
+                <li>Access tokens are stored securely with encryption and used only for publishing on your behalf</li>
                 <li>You can disconnect your accounts at any time from your account settings, which revokes our access</li>
               </ul>
+              <p className="mt-3"><strong className="text-foreground/90">Revoking Access</strong></p>
+              <p className="text-sm">
+                You can revoke VidEditor.ai&apos;s access to your Google account at any time by visiting the{' '}
+                <a href="https://security.google.com/settings/security/permissions" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">Google Security Settings</a> page
+                or by disconnecting your account from VidEditor.ai settings. For more information about how Google handles your data, please review the{' '}
+                <a href="https://www.google.com/policies/privacy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a>.
+              </p>
             </section>
 
             <section className="space-y-3">
