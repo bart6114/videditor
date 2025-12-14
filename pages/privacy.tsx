@@ -84,10 +84,17 @@ export default function Privacy() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-foreground">5. Data Retention</h2>
+              <h2 className="text-xl font-semibold text-foreground">5. Data Retention & Deletion</h2>
               <p>
                 We retain your data for as long as your account is active. Video content is stored until you delete it or close your account.
-                You may request deletion of your data at any time.
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong className="text-foreground/90">Account data:</strong> Retained while your account is active. Deleted when you close your account.</li>
+                <li><strong className="text-foreground/90">Video content:</strong> Retained until you delete it or close your account.</li>
+                <li><strong className="text-foreground/90">Connected social accounts (YouTube, Instagram):</strong> Platform data and access tokens are deleted immediately when you disconnect the account or close your VidEditor.ai account.</li>
+              </ul>
+              <p className="mt-2">
+                You may request deletion of your data at any time by contacting support@videditor.ai.
               </p>
             </section>
 
@@ -114,7 +121,18 @@ export default function Privacy() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-foreground">8. Third-Party Services</h2>
+              <h2 className="text-xl font-semibold text-foreground">8. Data Security</h2>
+              <p>We implement appropriate technical and organizational measures to protect your data:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong className="text-foreground/90">Encryption in transit:</strong> All data transmission uses HTTPS/TLS encryption</li>
+                <li><strong className="text-foreground/90">Encryption at rest:</strong> Your data is stored in encrypted databases</li>
+                <li><strong className="text-foreground/90">Access controls:</strong> Access tokens and credentials are stored securely with restricted access</li>
+                <li><strong className="text-foreground/90">Secure infrastructure:</strong> We use trusted cloud providers with industry-standard security certifications</li>
+              </ul>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-xl font-semibold text-foreground">9. Third-Party Services</h2>
               <ul className="list-disc pl-5 space-y-1">
                 <li><strong className="text-foreground/90">Clerk:</strong> Authentication (processes email and profile data)</li>
                 <li><strong className="text-foreground/90">Stripe:</strong> Payment processing (handles payment information)</li>
@@ -127,7 +145,7 @@ export default function Privacy() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-foreground">9. Social Platform Integrations (Google & Meta)</h2>
+              <h2 className="text-xl font-semibold text-foreground">10. Social Platform Integrations (Google & Meta)</h2>
               <p>
                 When you connect your YouTube or Instagram account to VidEditor.ai, we request
                 minimal data from these platforms solely to enable video publishing features.
@@ -141,35 +159,35 @@ export default function Privacy() {
                 <li>Upload videos to your channel</li>
                 <li>Read your channel name and thumbnail (for display purposes)</li>
               </ul>
-              <p className="text-sm mt-2"><strong className="text-foreground/90">Data we collect from YouTube:</strong> Channel ID, channel name, and channel thumbnail URL.</p>
-              <p className="text-sm mt-1"><strong className="text-foreground/90">How we use this data:</strong> Solely to display your connected channel in VidEditor.ai and to publish videos you choose to upload to your YouTube channel.</p>
-              <p className="text-sm mt-1"><strong className="text-foreground/90">Data storage:</strong> Your YouTube data is stored securely in our database. All data transmission uses HTTPS, and our database provider (Neon) provides encryption at rest.</p>
-              <p className="mt-3"><strong className="text-foreground/90">Instagram (Meta)</strong></p>
+              <p className="text-sm mt-2"><strong className="text-foreground/90">Data we collect:</strong> Channel ID, channel name, and channel thumbnail URL.</p>
+              <p className="text-sm mt-1"><strong className="text-foreground/90">How we use this data:</strong> Solely to display your connected channel in VidEditor.ai and to publish videos you choose to upload.</p>
+              <p className="text-sm mt-1"><strong className="text-foreground/90">Revoking access:</strong> You can revoke VidEditor.ai&apos;s access to your Google account at any time by visiting the{' '}
+                <a href="https://security.google.com/settings/security/permissions" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">Google Security Settings</a> page
+                or by disconnecting your account from VidEditor.ai settings. For more information about how Google handles your data, please review the{' '}
+                <a href="https://www.google.com/policies/privacy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a>.
+              </p>
+
+              <p className="mt-4"><strong className="text-foreground/90">Instagram (Meta)</strong></p>
               <p>We request the following permissions:</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Read basic account information (for display purposes)</li>
                 <li>Publish Reels to your account</li>
               </ul>
-              <p className="text-sm mt-1">We collect: User ID, username, account type, and profile picture.</p>
-              <p className="mt-3"><strong className="text-foreground/90">How We Handle Your Social Platform Data</strong></p>
+              <p className="text-sm mt-2"><strong className="text-foreground/90">Data we collect:</strong> User ID, username, account type, and profile picture.</p>
+              <p className="text-sm mt-1"><strong className="text-foreground/90">How we use this data:</strong> Solely to display your connected account in VidEditor.ai and to publish Reels you choose to upload.</p>
+              <p className="text-sm mt-1"><strong className="text-foreground/90">Revoking access:</strong> You can revoke VidEditor.ai&apos;s access by disconnecting your account from VidEditor.ai settings or via Meta&apos;s app permissions in your Instagram/Facebook settings.</p>
+
+              <p className="mt-4"><strong className="text-foreground/90">How We Handle Your Social Platform Data</strong></p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>We only use this data to provide VidEditor.ai&apos;s user-facing publishing features</li>
                 <li>We do not share, sell, or transfer your Google or Meta user data to any third parties</li>
                 <li>We do not use this data for advertising, analytics, or AI/ML model training</li>
-                <li>Access tokens are stored securely and used only for publishing on your behalf</li>
                 <li>You can disconnect your accounts at any time from your account settings, which revokes our access</li>
               </ul>
-              <p className="mt-3"><strong className="text-foreground/90">Revoking Access</strong></p>
-              <p className="text-sm">
-                You can revoke VidEditor.ai&apos;s access to your Google account at any time by visiting the{' '}
-                <a href="https://security.google.com/settings/security/permissions" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">Google Security Settings</a> page
-                or by disconnecting your account from VidEditor.ai settings. For more information about how Google handles your data, please review the{' '}
-                <a href="https://www.google.com/policies/privacy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a>.
-              </p>
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-foreground">10. International Transfers</h2>
+              <h2 className="text-xl font-semibold text-foreground">11. International Transfers</h2>
               <p>
                 Your data may be processed in the EU and US. We ensure appropriate safeguards
                 are in place for any international data transfers.
@@ -177,7 +195,7 @@ export default function Privacy() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-foreground">11. Governing Law</h2>
+              <h2 className="text-xl font-semibold text-foreground">12. Governing Law</h2>
               <p>
                 This privacy policy is governed by Belgian law. Any disputes will be subject
                 to the exclusive jurisdiction of the courts of Belgium.
@@ -185,7 +203,7 @@ export default function Privacy() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-foreground">12. Contact</h2>
+              <h2 className="text-xl font-semibold text-foreground">13. Contact</h2>
               <p>
                 For privacy-related inquiries:<br />
                 Email: support@videditor.ai<br />
