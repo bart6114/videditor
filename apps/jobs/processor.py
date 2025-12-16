@@ -615,6 +615,16 @@ class JobProcessor:
             user_id=project.created_by_id,
         )
 
+        # Enforce requested count - AI may return more suggestions than requested
+        if len(suggestions) > shorts_count:
+            self.logger.warning(
+                "AI returned more suggestions than requested, truncating",
+                job_id=job.id,
+                requested=shorts_count,
+                received=len(suggestions),
+            )
+            suggestions = suggestions[:shorts_count]
+
         self.logger.info(
             "Received short suggestions from AI, creating containers",
             job_id=job.id,

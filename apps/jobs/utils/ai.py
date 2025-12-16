@@ -351,7 +351,12 @@ Select completely different moments from the video that do not cover the same to
     # Build prompt based on user's example
     # Calculate minimum as 80% of preferred length (scales proportionally)
     min_length = max(15, int(preferred_length * 0.8))
-    prompt = f"""You are analyzing a video transcript to find the best moments for creating {num_shorts} short-form videos.
+    prompt = f"""You are analyzing a video transcript to find the best moments for creating EXACTLY {num_shorts} short-form video(s).
+
+COUNT REQUIREMENT (CRITICAL):
+- You MUST return EXACTLY {num_shorts} segment(s), no more, no less
+- If you find more good candidates, select only the {num_shorts} BEST ones
+- Returning more or fewer segments than requested is NOT acceptable
 
 DURATION REQUIREMENTS (CRITICAL):
 - TARGET: {preferred_length}-{max_length} seconds per segment
@@ -385,7 +390,7 @@ Flow & Naturalness Guidelines:
 Transcript with timestamps:
 {transcript}
 
-Please identify the {num_shorts} best segments. Each segment MUST:
+You MUST return EXACTLY {num_shorts} segment(s). Select only the {num_shorts} BEST segments from the transcript. Each segment MUST:
 - Be {preferred_length}-{max_length} seconds long (absolute minimum: {min_length} seconds)
 - Include complete thoughts WITH their supporting context, examples, and elaboration
 - Capture the FULL explanation, not just the headline point
@@ -406,7 +411,7 @@ Return your response as a JSON array with this exact format:
   }}
 ]
 
-Return ONLY the JSON array, no other text."""
+Return ONLY the JSON array with EXACTLY {num_shorts} segment(s), no other text."""
 
     # Call OpenRouter API using OpenAI SDK
     # Uses PostHog-wrapped client if POSTHOG_API_KEY is configured
