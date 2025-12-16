@@ -271,7 +271,7 @@ async def extract_clip(
     end_time: float,
 ) -> None:
     """
-    Extract a clip from a video using stream copy (no re-encoding).
+    Extract a clip from a video with frame-accurate cutting via re-encoding.
 
     Args:
         video_path: Path to the input video file
@@ -286,19 +286,30 @@ async def extract_clip(
         # Ensure output directory exists
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
-        # Build ffmpeg command with stream copy
-        # -ss: seek to start time (before -i for fast seek)
-        # -to: end time (absolute time, not duration)
+        # Calculate duration for frame-accurate cutting
+        duration = end_time - start_time
+
+        # Build ffmpeg command with re-encoding for frame-accurate cuts
+        # -ss: seek to start time (before -i for fast input seeking)
         # -i: input file
-        # -c copy: copy streams without re-encoding (fast, lossless)
-        # -avoid_negative_ts make_zero: fix timestamp issues
+        # -t: duration (ensures exact clip length)
+        # -c:v libx264: re-encode video for frame-accurate cutting
+        # -preset fast: good speed/compression balance
+        # -crf 23: visually lossless quality
+        # -c:a aac: re-encode audio
+        # -b:a 128k: standard web audio quality
+        # -movflags +faststart: optimize for web streaming
         proc = await asyncio.create_subprocess_exec(
             "ffmpeg",
             "-ss", str(start_time),
-            "-to", str(end_time),
             "-i", video_path,
-            "-c", "copy",
-            "-avoid_negative_ts", "make_zero",
+            "-t", str(duration),
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", "23",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-movflags", "+faststart",
             "-y",  # Overwrite output file
             output_path,
             stdout=asyncio.subprocess.PIPE,
