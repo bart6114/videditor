@@ -11,7 +11,12 @@ import structlog
 from deepgram import DeepgramClient
 
 from models import TranscriptionResult, TranscriptWord
-from utils.analytics import track_deepgram_transcription
+from utils.analytics import (
+    DeepgramTraceContext,
+    complete_deepgram_trace,
+    start_deepgram_trace,
+    track_deepgram_chunk,
+)
 from utils.ffmpeg import extract_audio, split_audio_chunk
 
 logger = structlog.get_logger()
@@ -51,7 +56,7 @@ async def transcribe_video(
         audio_bitrate: Audio bitrate for extraction (e.g., "64k")
         max_concurrent: Max concurrent API calls (default 5)
         progress_callback: Optional async callback(current, total) for progress updates
-        trace_id: Optional trace ID for analytics
+        trace_id: Optional trace ID for analytics (format: "transcription:project={id}:job={id}")
         model: Deepgram model to use (default "nova-3")
         user_id: Optional user ID (Clerk ID) for PostHog attribution
 
@@ -62,6 +67,18 @@ async def transcribe_video(
         Videos longer than chunk_duration_seconds are split into chunks that
         are transcribed concurrently, then merged with proper timestamp offsets.
     """
+    # Parse project_id and job_id from trace_id if provided
+    # Expected format: "transcription:project={project_id}:job={job_id}"
+    project_id = None
+    job_id = None
+    if trace_id:
+        parts = trace_id.split(":")
+        for part in parts:
+            if part.startswith("project="):
+                project_id = part.split("=", 1)[1]
+            elif part.startswith("job="):
+                job_id = part.split("=", 1)[1]
+
     with tempfile.TemporaryDirectory(prefix="deepgram-") as temp_dir:
         # 1. Extract audio from video
         audio_path = os.path.join(temp_dir, "audio.mp3")
@@ -78,7 +95,8 @@ async def transcribe_video(
         )
 
         # 2. Log audio info
-        file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
+        audio_size_bytes = os.path.getsize(audio_path)
+        file_size_mb = audio_size_bytes / (1024 * 1024)
         logger.info(
             "audio_extracted",
             duration_seconds=round(duration, 2),
@@ -88,54 +106,101 @@ async def transcribe_video(
         # 3. Initialize Deepgram client
         client = DeepgramClient(api_key=api_key)
 
-        # 4. Process based on duration (time-based chunking)
-        if duration <= chunk_duration_seconds:
-            # Short video, no chunking needed
-            logger.info(
-                "transcribing_single_file",
-                duration_seconds=round(duration, 2),
-                size_mb=round(file_size_mb, 2),
-            )
-            # Report progress for single file (0/1 -> 1/1)
-            if progress_callback:
-                await progress_callback(0, 1)
-            text, words, language = await _transcribe_chunk_with_retry(
-                client, audio_path, None, model=model, trace_id=trace_id, user_id=user_id
-            )
-            if progress_callback:
-                await progress_callback(1, 1)
-            return TranscriptionResult(
-                text=text,
-                words=[TranscriptWord(**word) for word in words],
-                language=language,
-            )
-        else:
-            # Split into time-based chunks
-            chunks = await _split_audio_into_chunks_by_time(
-                audio_path=audio_path,
-                output_dir=temp_dir,
-                chunk_duration_seconds=chunk_duration_seconds,
-                total_duration=duration,
+        # 4. Determine chunk count for trace context
+        chunk_count = 1 if duration <= chunk_duration_seconds else int(duration / chunk_duration_seconds) + 1
+
+        # 5. Start trace context for PostHog AI observability
+        trace_ctx = start_deepgram_trace(
+            user_id=user_id,
+            model=model,
+            total_audio_duration=duration,
+            total_audio_size_bytes=audio_size_bytes,
+            chunk_count=chunk_count,
+            project_id=project_id,
+            job_id=job_id,
+        )
+
+        try:
+            # 6. Process based on duration (time-based chunking)
+            if duration <= chunk_duration_seconds:
+                # Short video, no chunking needed
+                logger.info(
+                    "transcribing_single_file",
+                    duration_seconds=round(duration, 2),
+                    size_mb=round(file_size_mb, 2),
+                )
+                # Report progress for single file (0/1 -> 1/1)
+                if progress_callback:
+                    await progress_callback(0, 1)
+                text, words, language = await _transcribe_chunk_with_retry(
+                    client,
+                    audio_path,
+                    None,
+                    model=model,
+                    trace_ctx=trace_ctx,
+                    audio_size_bytes=audio_size_bytes,
+                    audio_duration=duration,
+                )
+                if progress_callback:
+                    await progress_callback(1, 1)
+                result = TranscriptionResult(
+                    text=text,
+                    words=[TranscriptWord(**word) for word in words],
+                    language=language,
+                )
+            else:
+                # Split into time-based chunks
+                chunks = await _split_audio_into_chunks_by_time(
+                    audio_path=audio_path,
+                    output_dir=temp_dir,
+                    chunk_duration_seconds=chunk_duration_seconds,
+                    total_duration=duration,
+                )
+
+                # Update trace context with actual chunk count
+                trace_ctx.chunk_count = len(chunks)
+
+                logger.info(
+                    "audio_chunked",
+                    num_chunks=len(chunks),
+                    chunk_duration_seconds=chunk_duration_seconds,
+                    total_duration=round(duration, 2),
+                )
+
+                # Report initial progress
+                if progress_callback:
+                    await progress_callback(0, len(chunks))
+
+                # Transcribe all chunks concurrently with progress tracking
+                results = await _transcribe_all_chunks(
+                    client,
+                    chunks,
+                    max_concurrent,
+                    progress_callback,
+                    model=model,
+                    trace_ctx=trace_ctx,
+                )
+
+                # Merge results
+                result = _merge_transcription_results(results)
+
+            # Complete trace on success
+            complete_deepgram_trace(
+                ctx=trace_ctx,
+                success=True,
+                transcript_snippet=result.text[:500] if result.text else None,
             )
 
-            logger.info(
-                "audio_chunked",
-                num_chunks=len(chunks),
-                chunk_duration_seconds=chunk_duration_seconds,
-                total_duration=round(duration, 2),
+            return result
+
+        except Exception as e:
+            # Complete trace on failure
+            complete_deepgram_trace(
+                ctx=trace_ctx,
+                success=False,
+                error_message=str(e),
             )
-
-            # Report initial progress
-            if progress_callback:
-                await progress_callback(0, len(chunks))
-
-            # Transcribe all chunks concurrently with progress tracking
-            results = await _transcribe_all_chunks(
-                client, chunks, max_concurrent, progress_callback, model=model, trace_id=trace_id, user_id=user_id
-            )
-
-            # Merge results
-            return _merge_transcription_results(results)
+            raise
 
 
 async def _split_audio_into_chunks_by_time(
@@ -213,8 +278,9 @@ async def _transcribe_chunk(
     audio_path: str,
     chunk_info: AudioChunk | None = None,
     model: str = "nova-3",
-    trace_id: str | None = None,
-    user_id: str | None = None,
+    trace_ctx: DeepgramTraceContext | None = None,
+    audio_size_bytes: int | None = None,
+    audio_duration: float | None = None,
 ) -> tuple[str, list[dict], str]:
     """
     Transcribe a single audio chunk via Deepgram API with diarization.
@@ -224,13 +290,18 @@ async def _transcribe_chunk(
         audio_path: Path to audio chunk
         chunk_info: Optional chunk metadata for timestamp offset
         model: Deepgram model to use
-        trace_id: Optional trace ID for analytics
-        user_id: Optional user ID for PostHog attribution
+        trace_ctx: Optional trace context for PostHog AI observability
+        audio_size_bytes: Audio file size in bytes (for single-file transcription)
+        audio_duration: Audio duration in seconds (for single-file transcription)
 
     Returns:
         Tuple of (text, words, language)
     """
     start_time = time.time()
+
+    # Get audio file size if not provided
+    if audio_size_bytes is None:
+        audio_size_bytes = os.path.getsize(audio_path)
 
     with open(audio_path, "rb") as audio_file:
         buffer = audio_file.read()
@@ -249,7 +320,7 @@ async def _transcribe_chunk(
         ),
     )
 
-    latency_ms = (time.time() - start_time) * 1000
+    latency_seconds = time.time() - start_time
 
     # Extract transcript and words from response
     channel = response.results.channels[0]
@@ -272,17 +343,20 @@ async def _transcribe_chunk(
             }
         )
 
-    # Track in PostHog
-    chunk_duration = chunk_info.duration if chunk_info else 0.0
-    track_deepgram_transcription(
-        trace_id=trace_id or "deepgram:no_context",
-        model=model,
-        duration_seconds=chunk_duration,
-        word_count=len(words),
-        latency_ms=latency_ms,
-        success=True,
-        user_id=user_id,
-    )
+    # Track in PostHog with new AI observability
+    if trace_ctx:
+        chunk_duration = chunk_info.duration if chunk_info else (audio_duration or 0.0)
+        chunk_index = chunk_info.index if chunk_info else 0
+        track_deepgram_chunk(
+            ctx=trace_ctx,
+            chunk_index=chunk_index,
+            audio_duration_seconds=chunk_duration,
+            audio_size_bytes=audio_size_bytes,
+            transcript_snippet=transcript[:200] if transcript else "",
+            word_count=len(words),
+            latency_seconds=latency_seconds,
+            success=True,
+        )
 
     return transcript, words, language
 
@@ -294,8 +368,9 @@ async def _transcribe_chunk_with_retry(
     model: str = "nova-3",
     max_retries: int = 3,
     retry_base_delay: float = 1.0,
-    trace_id: str | None = None,
-    user_id: str | None = None,
+    trace_ctx: DeepgramTraceContext | None = None,
+    audio_size_bytes: int | None = None,
+    audio_duration: float | None = None,
 ) -> tuple[str, list[dict], str]:
     """
     Transcribe chunk with exponential backoff retry.
@@ -312,17 +387,30 @@ async def _transcribe_chunk_with_retry(
         model: Deepgram model to use
         max_retries: Maximum number of retries
         retry_base_delay: Base delay for exponential backoff
-        trace_id: Optional trace ID for analytics
-        user_id: Optional user ID for PostHog attribution
+        trace_ctx: Optional trace context for PostHog AI observability
+        audio_size_bytes: Audio file size in bytes (for single-file transcription)
+        audio_duration: Audio duration in seconds (for single-file transcription)
 
     Returns:
         Tuple of (text, words, language)
     """
     last_error: Exception | None = None
 
+    # Get audio file size if not provided (needed for error tracking)
+    if audio_size_bytes is None:
+        audio_size_bytes = os.path.getsize(audio_path)
+
     for attempt in range(max_retries):
         try:
-            return await _transcribe_chunk(client, audio_path, chunk_info, model, trace_id, user_id)
+            return await _transcribe_chunk(
+                client,
+                audio_path,
+                chunk_info,
+                model,
+                trace_ctx,
+                audio_size_bytes,
+                audio_duration,
+            )
         except Exception as e:
             last_error = e
             error_msg = str(e).lower()
@@ -341,18 +429,6 @@ async def _transcribe_chunk_with_retry(
                     error=str(e),
                     is_rate_limit=is_rate_limit,
                     is_server_error=is_server_error,
-                )
-
-                # Track failed attempt
-                track_deepgram_transcription(
-                    trace_id=trace_id or "deepgram:no_context",
-                    model=model,
-                    duration_seconds=chunk_info.duration if chunk_info else 0.0,
-                    word_count=0,
-                    latency_ms=0,
-                    success=False,
-                    error=str(e),
-                    user_id=user_id,
                 )
 
                 await asyncio.sleep(delay)
@@ -378,8 +454,7 @@ async def _transcribe_all_chunks(
     max_concurrent: int = 5,
     progress_callback: Callable[[int, int], Awaitable[None]] | None = None,
     model: str = "nova-3",
-    trace_id: str | None = None,
-    user_id: str | None = None,
+    trace_ctx: DeepgramTraceContext | None = None,
 ) -> list[tuple[str, list[dict], str]]:
     """
     Transcribe multiple chunks with controlled concurrency.
@@ -390,8 +465,7 @@ async def _transcribe_all_chunks(
         max_concurrent: Maximum concurrent API calls
         progress_callback: Optional async callback(current, total) for progress updates
         model: Deepgram model to use
-        trace_id: Optional trace ID for analytics
-        user_id: Optional user ID for PostHog attribution
+        trace_ctx: Optional trace context for PostHog AI observability
 
     Returns:
         List of results in chunk order
@@ -410,8 +484,16 @@ async def _transcribe_all_chunks(
                 start_time=round(chunk.start_time, 2),
                 duration=round(chunk.duration, 2),
             )
+            # Get chunk file size for tracing
+            chunk_size_bytes = os.path.getsize(chunk.path)
             result = await _transcribe_chunk_with_retry(
-                client, chunk.path, chunk, model=model, trace_id=trace_id, user_id=user_id
+                client,
+                chunk.path,
+                chunk,
+                model=model,
+                trace_ctx=trace_ctx,
+                audio_size_bytes=chunk_size_bytes,
+                audio_duration=chunk.duration,
             )
             logger.info(
                 "chunk_transcribed",
