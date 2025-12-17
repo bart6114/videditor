@@ -113,6 +113,7 @@ function InboxMessageDialog({
     setIsMarkingRead(true);
     try {
       await onMarkAsRead(message.id);
+      onOpenChange(false);
     } finally {
       setIsMarkingRead(false);
     }
