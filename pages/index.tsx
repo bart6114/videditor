@@ -181,9 +181,18 @@ export default function Home() {
               </Button>
             </div>
 
-            <p className="text-sm text-muted-foreground/70 mt-8">
-              100 free credits to start • No credit card needed
-            </p>
+            <div className="flex items-center justify-center gap-3 mt-8">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-primary/30 bg-primary/10 text-primary/90 backdrop-blur-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                100 free credits
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400/90 backdrop-blur-sm">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                No credit card needed
+              </span>
+            </div>
           </div>
         </div>
 
