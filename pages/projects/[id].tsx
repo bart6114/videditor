@@ -1414,40 +1414,42 @@ export default function ProjectDetail() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Button
-                      onClick={handleAnalyze}
-                      disabled={analyzing || !!activeJob || !transcription || userCredits === null}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                    >
-                      {analyzing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Generating {shortsCount} shorts...
-                        </>
-                      ) : activeJob ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Generation in progress...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Generate {shortsCount} Shorts with AI
-                        </>
-                      )}
-                    </Button>
-
-                    {/* Manual editor button */}
-                    <Link href={`/editor/${id}`} className="block">
+                    <div className="flex gap-2">
                       <Button
-                        variant="outline"
-                        disabled={!transcription}
-                        className="w-full"
+                        onClick={handleAnalyze}
+                        disabled={analyzing || !!activeJob || !transcription || userCredits === null}
+                        className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Manually Create Short
+                        {analyzing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generating {shortsCount} shorts...
+                          </>
+                        ) : activeJob ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generation in progress...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Generate {shortsCount} Shorts with AI
+                          </>
+                        )}
                       </Button>
-                    </Link>
+
+                      {/* Manual editor button */}
+                      <Link href={`/editor/${id}`}>
+                        <Button
+                          variant="outline"
+                          disabled={!transcription}
+                          className="h-full"
+                        >
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Manual
+                        </Button>
+                      </Link>
+                    </div>
 
                     {/* Credit cost indicator */}
                     <div className="flex items-center justify-between text-sm">
