@@ -11,7 +11,7 @@ export const PROJECT_STATUSES = [
 
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
-export const JOB_TYPES = ['thumbnail', 'transcription', 'analysis', 'short_processing', 'youtube_publish', 'instagram_publish'] as const;
+export const JOB_TYPES = ['thumbnail', 'transcription', 'analysis', 'short_processing', 'social_content_generation', 'youtube_publish', 'instagram_publish'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 export const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'canceled'] as const;
@@ -53,6 +53,17 @@ export type ShortProcessingPayload = {
   ranges?: TimeRange[];
   transcriptionSlice: string;
   socialPlatforms?: SocialPlatform[];
+  customSocialPrompt?: string;
+  contextBefore?: string;
+  contextAfter?: string;
+};
+
+// Payload for social_content_generation job (lightweight, no video needed)
+export type SocialContentGenerationPayload = {
+  shortId: string;
+  projectId: string;
+  transcriptionSlice: string;
+  socialPlatforms: SocialPlatform[];
   customSocialPrompt?: string;
   contextBefore?: string;
   contextAfter?: string;
