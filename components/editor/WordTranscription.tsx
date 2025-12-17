@@ -1,5 +1,7 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Minus, Plus } from 'lucide-react'
 import type { Word } from '@/pages/editor/[projectId]'
 
 interface WordTranscriptionProps {
@@ -7,6 +9,16 @@ interface WordTranscriptionProps {
   currentWordId: string | null
   onWordClick: (time: number) => void
   onDisableWords: (wordIds: string[]) => void
+  onEnableWords: (wordIds: string[]) => void
+}
+
+interface ToolbarState {
+  visible: boolean
+  x: number
+  y: number
+  selectedWordIds: string[]
+  hasSelected: boolean    // Has words that can be removed
+  hasDeselected: boolean  // Has words that can be recovered
 }
 
 function formatTimestamp(seconds: number): string {
@@ -37,8 +49,17 @@ export default function WordTranscription({
   currentWordId,
   onWordClick,
   onDisableWords,
+  onEnableWords,
 }: WordTranscriptionProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [toolbar, setToolbar] = useState<ToolbarState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    selectedWordIds: [],
+    hasSelected: false,
+    hasDeselected: false,
+  })
 
   // Listen for backspace to disable selected words
   useEffect(() => {
@@ -55,6 +76,7 @@ export default function WordTranscription({
           if (selectedWordIds.length > 0) {
             onDisableWords(selectedWordIds)
             selection.removeAllRanges()
+            setToolbar(prev => ({ ...prev, visible: false }))
           }
         }
       }
@@ -64,6 +86,71 @@ export default function WordTranscription({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onDisableWords])
 
+  // Listen for selection changes to show/hide floating toolbar
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection()
+      if (!selection || !selection.toString().trim() || !containerRef.current) {
+        setToolbar(prev => ({ ...prev, visible: false }))
+        return
+      }
+
+      // Check if selection is within our container
+      const range = selection.getRangeAt(0)
+      if (!containerRef.current.contains(range.commonAncestorContainer)) {
+        setToolbar(prev => ({ ...prev, visible: false }))
+        return
+      }
+
+      const selectedWordIds = getSelectedWordIds(selection, containerRef.current)
+      if (selectedWordIds.length === 0) {
+        setToolbar(prev => ({ ...prev, visible: false }))
+        return
+      }
+
+      // Check which types of words are in the selection
+      const hasSelected = selectedWordIds.some(id => {
+        const word = words.find(w => w.id === id)
+        return word?.selected === true
+      })
+      const hasDeselected = selectedWordIds.some(id => {
+        const word = words.find(w => w.id === id)
+        return word?.selected === false
+      })
+
+      // Position toolbar above the selection (using viewport coordinates for fixed positioning)
+      const rect = range.getBoundingClientRect()
+
+      setToolbar({
+        visible: true,
+        x: rect.left + rect.width / 2,
+        y: rect.top - 8,
+        selectedWordIds,
+        hasSelected,
+        hasDeselected,
+      })
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => document.removeEventListener('selectionchange', handleSelectionChange)
+  }, [words])
+
+  const handleRemove = useCallback(() => {
+    if (toolbar.selectedWordIds.length > 0) {
+      onDisableWords(toolbar.selectedWordIds)
+      window.getSelection()?.removeAllRanges()
+      setToolbar(prev => ({ ...prev, visible: false }))
+    }
+  }, [toolbar.selectedWordIds, onDisableWords])
+
+  const handleRecover = useCallback(() => {
+    if (toolbar.selectedWordIds.length > 0) {
+      onEnableWords(toolbar.selectedWordIds)
+      window.getSelection()?.removeAllRanges()
+      setToolbar(prev => ({ ...prev, visible: false }))
+    }
+  }, [toolbar.selectedWordIds, onEnableWords])
+
   const handleWordClick = useCallback((time: number) => {
     onWordClick(time)
   }, [onWordClick])
@@ -71,8 +158,44 @@ export default function WordTranscription({
   return (
     <div
       ref={containerRef}
-      className="max-h-[500px] overflow-y-auto overflow-x-hidden p-4 bg-muted/30 rounded-lg select-text custom-scrollbar"
+      className="relative max-h-[500px] overflow-y-auto overflow-x-hidden p-4 bg-muted/30 rounded-lg select-text custom-scrollbar"
     >
+      {/* Floating toolbar - fixed position relative to viewport */}
+      {toolbar.visible && (toolbar.hasSelected || toolbar.hasDeselected) && (
+        <div
+          className="fixed z-50 flex gap-1 bg-popover border border-border rounded-lg shadow-lg p-1"
+          style={{
+            left: toolbar.x,
+            top: toolbar.y,
+            transform: 'translate(-50%, -100%)',
+          }}
+          onMouseDown={(e) => e.preventDefault()} // Prevent losing selection
+        >
+          {toolbar.hasSelected && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={handleRemove}
+            >
+              <Minus className="w-3 h-3 mr-1" />
+              Remove
+            </Button>
+          )}
+          {toolbar.hasDeselected && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={handleRecover}
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Recover
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className="leading-relaxed">
         {words.map((word, index) => {
           const isNewSpeaker = index === 0 || word.speaker !== words[index - 1].speaker
@@ -97,28 +220,18 @@ export default function WordTranscription({
                 </span>
               )}
 
-              {/* Word span with tooltip */}
+              {/* Word span */}
               <span
                 data-word-id={word.id}
                 onClick={() => handleWordClick(word.start)}
                 className={cn(
-                  "relative cursor-pointer inline-block",
-                  // Tooltip styles
-                  "after:absolute after:bottom-full after:left-1/2",
-                  "after:-translate-x-1/2 after:mb-1 after:px-2 after:py-1 after:text-xs",
-                  "after:bg-popover after:text-popover-foreground after:rounded after:shadow-md",
-                  "after:opacity-0 after:invisible hover:after:opacity-100 hover:after:visible",
-                  "after:transition-opacity after:whitespace-nowrap after:z-10",
-                  // Tooltip content based on state
-                  word.selected
-                    ? "after:content-['Remove']"
-                    : "after:content-['Recover']",
+                  "cursor-pointer inline-block rounded px-0.5",
                   // Word state styles
                   word.selected
-                    ? "text-foreground hover:bg-primary/10 rounded"
-                    : "line-through text-muted-foreground opacity-60 hover:bg-destructive/10 rounded",
+                    ? "text-foreground hover:bg-primary/10"
+                    : "line-through text-muted-foreground opacity-60 hover:bg-destructive/10",
                   // Current playing word highlight
-                  currentWordId === word.id && "bg-yellow-400/30 rounded"
+                  currentWordId === word.id && "bg-yellow-400/30"
                 )}
               >
                 {word.text}
@@ -130,10 +243,6 @@ export default function WordTranscription({
           )
         })}
       </div>
-
-      <p className="text-xs text-muted-foreground mt-4 text-center border-t border-border/50 pt-4">
-        Click words to seek. Select text + Backspace to remove.
-      </p>
     </div>
   )
 }

@@ -31,7 +31,7 @@ from models import (
 )
 from utils.storage import download_from_tigris, upload_to_tigris
 from utils.transcription import transcribe_video
-from utils.ffmpeg import extract_clip, extract_thumbnail, get_video_duration
+from utils.ffmpeg import extract_clip, extract_thumbnail, get_video_duration, concatenate_clips
 from utils.ai import analyze_transcript_for_shorts, extract_context_window, generate_social_content
 from utils.cache import get_video_cache
 from utils.inbox import notifications
@@ -810,8 +810,11 @@ class JobProcessor:
         source_object_key = payload.get("sourceObjectKey")
         source_bucket = payload.get("sourceBucket")
         organization_id = payload.get("organizationId")
+        # Legacy single-range (AI-generated shorts)
         start_time = payload.get("startTime")
         end_time = payload.get("endTime")
+        # Multi-range (manual shorts with discontinuous selections)
+        ranges = payload.get("ranges")
         transcription_slice = payload.get("transcriptionSlice")
         social_platforms = payload.get("socialPlatforms", [])
         custom_social_prompt = payload.get("customSocialPrompt")
@@ -821,12 +824,17 @@ class JobProcessor:
         if not all([short_id, project_id, source_object_key, source_bucket, organization_id]):
             raise ValueError("Missing required payload fields for short processing")
 
+        # Determine if we're using multi-range or single-range mode
+        is_multi_range = ranges and len(ranges) > 0
+
         self.logger.info(
             "✂️ Processing short",
             job_id=job.id,
             short_id=short_id,
             start_time=start_time,
             end_time=end_time,
+            ranges_count=len(ranges) if ranges else 0,
+            is_multi_range=is_multi_range,
         )
 
         # Update short status to processing
@@ -887,15 +895,52 @@ class JobProcessor:
                     temp_video_path,
                 )
 
-            # 2. Extract clip
+            # 2. Extract clip(s)
             await self._update_short_task(session, short_id, "clip_extraction", ShortTaskStatus.PROCESSING.value)
             try:
-                await extract_clip(
-                    video_path=temp_video_path,
-                    output_path=temp_clip_path,
-                    start_time=start_time,
-                    end_time=end_time,
-                )
+                if is_multi_range:
+                    # Multi-range: extract each segment, then concatenate
+                    segment_paths = []
+                    temp_dir = os.path.dirname(temp_clip_path)
+
+                    for i, r in enumerate(ranges):
+                        segment_path = os.path.join(temp_dir, f"segment-{short_id}-{i}.mp4")
+                        await extract_clip(
+                            video_path=temp_video_path,
+                            output_path=segment_path,
+                            start_time=r["start"],
+                            end_time=r["end"],
+                        )
+                        segment_paths.append(segment_path)
+                        self.logger.info(
+                            "Extracted segment",
+                            segment=i,
+                            start=r["start"],
+                            end=r["end"],
+                        )
+
+                    # Concatenate all segments into final clip
+                    await concatenate_clips(segment_paths, temp_clip_path)
+                    self.logger.info(
+                        "Concatenated segments",
+                        segment_count=len(segment_paths),
+                    )
+
+                    # Clean up segment files
+                    for seg_path in segment_paths:
+                        try:
+                            if os.path.exists(seg_path):
+                                os.unlink(seg_path)
+                        except Exception:
+                            pass
+                else:
+                    # Legacy single-range extraction
+                    await extract_clip(
+                        video_path=temp_video_path,
+                        output_path=temp_clip_path,
+                        start_time=start_time,
+                        end_time=end_time,
+                    )
 
                 clip_object_key = f"{organization_id}/projects/{project_id}/shorts/{short_id}.mp4"
                 await upload_to_tigris(
@@ -917,7 +962,8 @@ class JobProcessor:
             # 3. Extract thumbnail
             await self._update_short_task(session, short_id, "thumbnail_extraction", ShortTaskStatus.PROCESSING.value)
             try:
-                clip_duration = end_time - start_time
+                # Get actual clip duration (works for both single and multi-range)
+                clip_duration = await get_video_duration(temp_clip_path)
                 clip_midpoint = clip_duration / 2
 
                 await extract_thumbnail(

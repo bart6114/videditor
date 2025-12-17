@@ -33,6 +33,12 @@ export type ShortTasks = {
   social_content: ShortTaskStatus;
 };
 
+// Time range for multi-segment clips
+export type TimeRange = {
+  start: number;
+  end: number;
+};
+
 // Payload for short_processing job
 export type ShortProcessingPayload = {
   shortId: string;
@@ -40,8 +46,11 @@ export type ShortProcessingPayload = {
   sourceObjectKey: string;
   sourceBucket: string;
   organizationId: string;
-  startTime: number;
-  endTime: number;
+  // Single-range (legacy, for AI-generated shorts)
+  startTime?: number;
+  endTime?: number;
+  // Multi-range (for manual shorts with discontinuous selections)
+  ranges?: TimeRange[];
   transcriptionSlice: string;
   socialPlatforms?: SocialPlatform[];
   customSocialPrompt?: string;

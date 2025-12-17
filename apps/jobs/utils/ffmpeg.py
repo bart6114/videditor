@@ -341,3 +341,89 @@ async def extract_clip(
             end_time=end_time,
         )
         raise
+
+
+async def concatenate_clips(
+    clip_paths: list[str],
+    output_path: str,
+) -> None:
+    """
+    Concatenate multiple video clips into one using FFmpeg concat demuxer.
+
+    All clips must have the same codecs, resolution, and frame rate.
+    Since extract_clip() re-encodes with libx264/aac, this is guaranteed.
+
+    Args:
+        clip_paths: List of paths to clip files to concatenate
+        output_path: Path where the concatenated video should be saved
+
+    Raises:
+        RuntimeError: If ffmpeg command fails
+        ValueError: If clip_paths is empty
+    """
+    if not clip_paths:
+        raise ValueError("clip_paths cannot be empty")
+
+    if len(clip_paths) == 1:
+        # Just copy the single file
+        import shutil
+        shutil.copy2(clip_paths[0], output_path)
+        logger.info("concatenate_clips_single", input=clip_paths[0], output=output_path)
+        return
+
+    try:
+        # Ensure output directory exists
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Create concat list file (FFmpeg concat demuxer format)
+        concat_list_path = output_path + ".concat.txt"
+        with open(concat_list_path, "w") as f:
+            for clip_path in clip_paths:
+                # Escape single quotes in path and use absolute paths
+                escaped_path = Path(clip_path).absolute().as_posix().replace("'", "'\\''")
+                f.write(f"file '{escaped_path}'\n")
+
+        # Build ffmpeg command
+        # -f concat: use concat demuxer
+        # -safe 0: allow absolute paths
+        # -c copy: stream copy (no re-encode, clips already have same codec)
+        # -movflags +faststart: optimize for web streaming
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", concat_list_path,
+            "-c", "copy",
+            "-movflags", "+faststart",
+            "-y",  # Overwrite output file
+            output_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            raise RuntimeError(f"ffmpeg concat failed: {error_msg}")
+
+        # Clean up concat list file
+        try:
+            Path(concat_list_path).unlink()
+        except OSError:
+            pass
+
+        logger.info(
+            "concatenated_clips",
+            clip_count=len(clip_paths),
+            output_path=output_path,
+        )
+
+    except Exception as e:
+        logger.error(
+            "failed_to_concatenate_clips",
+            error=str(e),
+            clip_count=len(clip_paths),
+            output_path=output_path,
+        )
+        raise
