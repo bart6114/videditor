@@ -211,6 +211,14 @@ export default function Home() {
                 <p className="text-xl font-medium bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent pt-2">
                   AI augments your workflow. You stay in control of your voice.
                 </p>
+                <div className="pt-6 mt-6 border-t border-border/30">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">
+                    <span className="mr-1.5">🎯</span>What&apos;s not our focus:
+                  </p>
+                  <p className="text-sm text-muted-foreground/70">
+                    Timeline editing · Color grading · Audio mixing · Aspect ratio conversion
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -224,7 +232,10 @@ export default function Home() {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground">The Process</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Upload, process, export. That&apos;s it.
+              Start with an edited 9:16 video*. Get shorts ready to post.
+            </p>
+            <p className="text-sm text-muted-foreground/60 mt-2">
+              *9:16 works best on most short-format platforms, but any aspect ratio works
             </p>
           </div>
 
