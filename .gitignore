@@ -75,3 +75,4 @@ override.tf.json
 !.terraform.lock.hcl
 
 .vscode
+.secrets.*
