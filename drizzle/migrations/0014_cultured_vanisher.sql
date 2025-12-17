@@ -1,0 +1,2 @@
+ALTER TABLE "users" ALTER COLUMN "default_social_platforms" SET DEFAULT '["youtube", "instagram", "tiktok", "linkedin"]'::jsonb;--> statement-breakpoint
+ALTER TABLE "users" ALTER COLUMN "default_avoid_overlap" SET DEFAULT true;
