@@ -11,13 +11,12 @@ export async function listOrganizationProjects(db: DB, organizationId: string, l
     .select({
       project: projects,
       shortsCount: count(shorts.id),
-      hasTranscription: sql<boolean>`CASE WHEN ${transcriptions.id} IS NOT NULL THEN true ELSE false END`,
+      hasTranscription: sql<boolean>`EXISTS (SELECT 1 FROM transcriptions t WHERE t.project_id = ${projects.id})`,
     })
     .from(projects)
     .leftJoin(shorts, eq(projects.id, shorts.projectId))
-    .leftJoin(transcriptions, eq(projects.id, transcriptions.projectId))
     .where(eq(projects.organizationId, organizationId))
-    .groupBy(projects.id, transcriptions.id)
+    .groupBy(projects.id)
     .orderBy(desc(projects.createdAt))
     .limit(limit);
 

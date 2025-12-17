@@ -51,6 +51,7 @@ export function useApi() {
 
     const response = await fetch(resolveApiUrl(endpoint), {
       ...options,
+      cache: 'no-store', // Prevent browser from caching API responses
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,

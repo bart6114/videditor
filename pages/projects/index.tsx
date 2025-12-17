@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Head from 'next/head'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
@@ -60,29 +60,22 @@ export default function Projects() {
     }
   }, [isLoaded, isSignedIn, router])
 
-  // Load projects and poll for updates
-  useEffect(() => {
-    loadProjects()
-
-    // Poll for updates every 5 seconds
-    const interval = setInterval(loadProjects, 5000)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function loadProjects() {
-    // Add timeout to prevent infinite loading
+  // Stable loadProjects function
+  const loadProjects = useCallback(async () => {
     const controller = new AbortController()
     const timeoutError = new Error('Request timed out while loading projects')
-    const timeout = setTimeout(() => controller.abort(timeoutError), 10000) // 10 second timeout
+    const timeout = setTimeout(() => controller.abort(timeoutError), 10000)
 
     try {
       const data = await call<{ projects: ProjectSummary[] }>('/v1/projects', {
         signal: controller.signal
       })
-
-      setProjects(data.projects || [])
-      setError(null) // Clear any previous errors
+      // Sort by createdAt descending (newest first) to ensure correct order
+      const sorted = (data.projects || []).sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      setProjects(sorted)
+      setError(null)
     } catch (error) {
       if (error === timeoutError || (error instanceof DOMException && error.name === 'AbortError')) {
         console.warn('Project load request timed out')
@@ -98,7 +91,21 @@ export default function Projects() {
       clearTimeout(timeout)
       setLoading(false)
     }
-  }
+  }, [call])
+
+  // Initial load
+  useEffect(() => {
+    loadProjects()
+  }, [loadProjects])
+
+  // Poll only when there are processing projects
+  useEffect(() => {
+    const hasProcessingProjects = projects.some(isProcessing)
+    if (!hasProcessingProjects) return
+
+    const interval = setInterval(loadProjects, 5000)
+    return () => clearInterval(interval)
+  }, [projects, loadProjects])
 
   async function handleDeleteProject() {
     if (!projectToDelete) return
@@ -209,7 +216,7 @@ export default function Projects() {
       <WorkspaceLayout title="Projects">
         {/* Upload Section */}
         <div className="mb-8">
-          <VideoUpload onUploadComplete={() => loadProjects()} />
+          <VideoUpload onUploadComplete={loadProjects} />
         </div>
 
         {/* Projects Grid */}
