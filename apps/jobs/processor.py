@@ -200,13 +200,38 @@ class JobProcessor:
                     )
                 )
 
+                # Fetch job to get short_id and type for cleanup
+                stmt = select(ProcessingJob).where(ProcessingJob.id == job_id).limit(1)
+                result = await session.execute(stmt)
+                failed_job = result.scalar_one_or_none()
+
+                # Update related short status if job has a short_id
+                if failed_job and failed_job.short_id:
+                    if failed_job.type == JobType.SOCIAL_CONTENT_GENERATION.value:
+                        # Social content failure is non-fatal - short is still usable
+                        await session.execute(
+                            update(Short)
+                            .where(Short.id == failed_job.short_id)
+                            .values(
+                                status=ShortStatus.COMPLETED.value,
+                                error_message=f"Social content generation failed: {str(error)}",
+                                updated_at=datetime.now(timezone.utc),
+                            )
+                        )
+                    elif failed_job.type == JobType.SHORT_PROCESSING.value:
+                        # Short processing failure - mark short as error
+                        await session.execute(
+                            update(Short)
+                            .where(Short.id == failed_job.short_id)
+                            .values(
+                                status=ShortStatus.ERROR.value,
+                                error_message=str(error),
+                                updated_at=datetime.now(timezone.utc),
+                            )
+                        )
+
                 # Try to send failure notification to user
                 try:
-                    # Fetch job and project info for notification
-                    stmt = select(ProcessingJob).where(ProcessingJob.id == job_id).limit(1)
-                    result = await session.execute(stmt)
-                    failed_job = result.scalar_one_or_none()
-
                     if failed_job and failed_job.project_id:
                         # Get project info
                         proj_stmt = select(Project).where(Project.id == failed_job.project_id).limit(1)
