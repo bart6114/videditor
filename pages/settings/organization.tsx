@@ -606,6 +606,12 @@ export default function OrganizationSettings() {
                         <p className="text-sm text-muted-foreground">Not connected</p>
                       </div>
                     </div>
+                    {isOwner && (
+                      <Button size="sm" disabled>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Connect
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
