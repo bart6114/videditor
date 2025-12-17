@@ -934,6 +934,7 @@ export default function ProjectDetail() {
       ? (project.metadata as Record<string, unknown>)
       : {}) ?? {}
   const playbackUrl = (project as any).videoUrl || null
+  const isProcessingShorts = shorts.some(s => s.status === 'pending' || s.status === 'processing')
 
   return (
     <>
@@ -1417,7 +1418,7 @@ export default function ProjectDetail() {
                     <div className="flex gap-2">
                       <Button
                         onClick={handleAnalyze}
-                        disabled={analyzing || !!activeJob || !transcription || userCredits === null}
+                        disabled={analyzing || !!activeJob || !transcription || userCredits === null || isProcessingShorts}
                         className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         {analyzing ? (
@@ -1442,7 +1443,7 @@ export default function ProjectDetail() {
                       <Link href={`/editor/${id}`}>
                         <Button
                           variant="outline"
-                          disabled={!transcription}
+                          disabled={!transcription || isProcessingShorts}
                           className="h-full"
                         >
                           <Pencil className="w-4 h-4 mr-2" />
