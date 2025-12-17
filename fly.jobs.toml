@@ -14,6 +14,8 @@ kill_timeout = 300
 
 [http_service]
   internal_port = 8081
+  auto_stop_machines = "off"
+  auto_start_machines = false
   min_machines_running = 1
 
 [[vm]]
