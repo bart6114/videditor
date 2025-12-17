@@ -245,13 +245,26 @@ export function isTokenExpired(tokenExpiresAt: Date): boolean {
 
 /**
  * Revoke OAuth access (disconnect account)
- * Note: Instagram API doesn't have a direct revoke endpoint
- * Users must disconnect from Instagram app settings
+ * Uses the Meta Graph API to revoke all permissions, invalidating the token
  */
-export async function revokeAccess(_accessToken: string): Promise<void> {
-  // Instagram Direct Login doesn't have a programmatic revoke endpoint
-  // The user must revoke access from their Instagram settings
-  // This is a no-op but kept for interface consistency
+export async function revokeAccess(accessToken: string): Promise<void> {
+  try {
+    // Revoke all permissions via Instagram Graph API
+    // This invalidates the token at Meta's servers
+    const response = await fetch(
+      `https://graph.instagram.com/me/permissions?access_token=${accessToken}`,
+      { method: 'DELETE' }
+    );
+
+    if (!response.ok) {
+      // Log but don't throw - we still want to delete locally
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.warn('Failed to revoke Instagram permissions:', errorText);
+    }
+  } catch (error) {
+    // Best effort - ignore errors, local deletion proceeds anyway
+    console.warn('Instagram revocation error:', error);
+  }
 }
 
 /**
