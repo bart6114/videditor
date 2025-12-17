@@ -316,16 +316,16 @@ export default function Home() {
             {/* YouTube */}
             <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-red-500/30 transition-all duration-300 card-tilt p-8 text-center">
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(255, 0, 0, 0.1), transparent 70%)' }} />
-              <div className="relative">
+              <div className="relative flex flex-col h-full">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 flex items-center justify-center mb-5 border border-red-500/20">
                   <SiYoutube size={28} color="#FF0000" />
                 </div>
                 <h3 className="text-xl font-bold mb-3 text-foreground">YouTube</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
-                  Publish YouTube Shorts directly. Currently available to selected beta users.
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4 flex-grow">
+                  Publish YouTube Shorts directly. Available to all users.
                 </p>
-                <span className="inline-block px-3 py-1 text-xs font-medium rounded-full border bg-purple-500/20 text-purple-400 border-purple-500/30">
-                  beta
+                <span className="inline-block self-center px-3 py-1 text-xs font-medium rounded-full border bg-green-500/20 text-green-400 border-green-500/30">
+                  open beta
                 </span>
               </div>
             </div>
@@ -333,16 +333,16 @@ export default function Home() {
             {/* Instagram */}
             <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-pink-500/30 transition-all duration-300 card-tilt p-8 text-center">
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(228, 64, 95, 0.1), transparent 70%)' }} />
-              <div className="relative">
+              <div className="relative flex flex-col h-full">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/10 to-orange-500/10 flex items-center justify-center mb-5 border border-pink-500/20">
                   <SiInstagram size={28} color="#E4405F" />
                 </div>
                 <h3 className="text-xl font-bold mb-3 text-foreground">Instagram</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4 flex-grow">
                   Publish Reels directly. Currently available to selected beta users.
                 </p>
-                <span className="inline-block px-3 py-1 text-xs font-medium rounded-full border bg-purple-500/20 text-purple-400 border-purple-500/30">
-                  beta
+                <span className="inline-block self-center px-3 py-1 text-xs font-medium rounded-full border bg-purple-500/20 text-purple-400 border-purple-500/30">
+                  closed beta
                 </span>
               </div>
             </div>
@@ -350,15 +350,15 @@ export default function Home() {
             {/* TikTok */}
             <Link href="/roadmap" className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-foreground/30 transition-all duration-300 card-tilt p-8 text-center block">
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.05), transparent 70%)' }} />
-              <div className="relative">
+              <div className="relative flex flex-col h-full">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-foreground/10 flex items-center justify-center mb-5 border border-foreground/20">
                   <SiTiktok size={28} className="text-foreground" />
                 </div>
                 <h3 className="text-xl font-bold mb-3 text-foreground">TikTok</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4 flex-grow">
                   Coming after YouTube and Instagram are live.
                 </p>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border bg-amber-500/20 text-amber-400 border-amber-500/30">
+                <span className="inline-flex self-center items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border bg-amber-500/20 text-amber-400 border-amber-500/30">
                   roadmap
                   <ArrowRight className="w-3 h-3" />
                 </span>
