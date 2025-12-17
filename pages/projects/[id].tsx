@@ -233,22 +233,6 @@ export default function ProjectDetail() {
   const [avoidExistingOverlap, setAvoidExistingOverlap] = useState(false)
   const [socialPlatforms, setSocialPlatforms] = useState<SocialPlatform[]>([])
   const [settingsApplied, setSettingsApplied] = useState(false) // Track if defaults have been applied to form
-  // Store loaded defaults to compute "using default" flags
-  const [loadedDefaults, setLoadedDefaults] = useState<{
-    customPrompt: string | null
-    socialPrompt: string | null
-    platforms: SocialPlatform[]
-  }>({ customPrompt: null, socialPrompt: null, platforms: [] })
-
-  // Computed "using default" flags - compare current values with loaded defaults
-  const arraysEqual = (a: string[], b: string[]) =>
-    a.length === b.length && a.every((v, i) => v === b[i])
-  const usingDefaultPrompt = loadedDefaults.customPrompt !== null &&
-    customPrompt === loadedDefaults.customPrompt
-  const usingDefaultSocialPrompt = loadedDefaults.socialPrompt !== null &&
-    customSocialPrompt === loadedDefaults.socialPrompt
-  const usingDefaultPlatforms = loadedDefaults.platforms.length > 0 &&
-    arraysEqual(socialPlatforms, loadedDefaults.platforms)
   const [showAnalysisPrompt, setShowAnalysisPrompt] = useState(false)
   const [showSocialPrompt, setShowSocialPrompt] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -353,13 +337,6 @@ export default function ProjectDetail() {
     if (settingsApplied || !userSettings.settings) return
 
     const settings = userSettings.settings
-    // Store loaded defaults for "using default" comparison
-    setLoadedDefaults({
-      customPrompt: settings.defaultCustomPrompt || null,
-      socialPrompt: settings.defaultSocialPrompt || null,
-      platforms: settings.defaultSocialPlatforms || [],
-    })
-    // Apply defaults to form inputs
     if (settings.defaultCustomPrompt) {
       setCustomPrompt(settings.defaultCustomPrompt)
       setShowAnalysisPrompt(true)
@@ -1050,21 +1027,9 @@ export default function ProjectDetail() {
                       disabled={analyzing}
                       className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">
-                          Custom Analysis Instructions
-                        </span>
-                        {usingDefaultPrompt && (
-                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                            using default
-                          </span>
-                        )}
-                        {customPrompt && !usingDefaultPrompt && (
-                          <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
-                            custom
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-sm font-medium text-foreground">
+                        Custom Analysis Instructions
+                      </span>
                       {showAnalysisPrompt ? (
                         <ChevronUp className="w-4 h-4 text-muted-foreground" />
                       ) : (
@@ -1102,16 +1067,9 @@ export default function ProjectDetail() {
                     </div>
                   )}
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Generate Social Content
-                      </label>
-                      {usingDefaultPlatforms && socialPlatforms.length > 0 && (
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                          using default
-                        </span>
-                      )}
-                    </div>
+                    <label className="text-sm font-medium text-foreground block mb-2">
+                      Generate Social Content
+                    </label>
                     <p className="text-xs text-muted-foreground mb-3">
                       Choose platforms to generate titles and descriptions for.
                       Set defaults in <Link href="/settings" className="text-primary hover:underline">Preferences</Link>.
@@ -1152,21 +1110,9 @@ export default function ProjectDetail() {
                         disabled={analyzing}
                         className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50"
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground">
-                            Custom Social Content Instructions
-                          </span>
-                          {usingDefaultSocialPrompt && (
-                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                              using default
-                            </span>
-                          )}
-                          {customSocialPrompt && !usingDefaultSocialPrompt && (
-                            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
-                              custom
-                            </span>
-                          )}
-                        </div>
+                        <span className="text-sm font-medium text-foreground">
+                          Custom Social Content Instructions
+                        </span>
                         {showSocialPrompt ? (
                           <ChevronUp className="w-4 h-4 text-muted-foreground" />
                         ) : (
