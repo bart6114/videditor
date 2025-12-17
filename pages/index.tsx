@@ -485,6 +485,19 @@ export default function Home() {
             <MonkeyLogo size="sm" showText={false} />
             <span className="text-sm font-semibold text-foreground/80">VidEditor.ai</span>
           </div>
+          <a
+            href="https://www.producthunt.com/products/videditor-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-videditor-ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block mb-4"
+          >
+            <img
+              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1051261&theme=dark&t=1765974184548"
+              alt="VidEditor.ai - Turn long videos into shorts | Product Hunt"
+              width={250}
+              height={54}
+            />
+          </a>
           <p className="text-sm text-muted-foreground/60 mb-2">&copy; 2025 VidEditor.ai. All rights reserved.</p>
           <div className="flex items-center justify-center gap-3">
             <Link href="/roadmap" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
