@@ -513,11 +513,12 @@ export default function Home() {
               rel="noopener noreferrer"
               className="opacity-80 hover:opacity-100 transition-opacity"
             >
-              <img
+              <Image
                 src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1051261&theme=dark&t=1765974184548"
                 alt="VidEditor.ai - Turn long videos into shorts | Product Hunt"
                 width={200}
                 height={43}
+                unoptimized
               />
             </a>
           </div>
