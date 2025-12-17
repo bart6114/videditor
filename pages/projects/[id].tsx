@@ -1755,7 +1755,10 @@ export default function ProjectDetail() {
                           <td className="py-3 pr-4 hidden md:table-cell">
                             <div className="flex items-center gap-1 text-sm text-foreground">
                               <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                              {formatDuration(short.endTime - short.startTime)}
+                              {formatDuration(
+                                (short.metadata as { totalDuration?: number } | null)?.totalDuration
+                                ?? (short.endTime - short.startTime)
+                              )}
                             </div>
                           </td>
                           {/* Timestamps - hidden on tablet and below */}
