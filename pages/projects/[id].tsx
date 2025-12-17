@@ -1162,10 +1162,13 @@ export default function ProjectDetail() {
                       </Button>
 
                       {/* Manual editor button */}
-                      <Link href={`/editor/${id}`}>
+                      <Link
+                        href={`/editor/${id}`}
+                        className={!transcription || !!activeJob || isProcessingShorts ? 'pointer-events-none' : ''}
+                      >
                         <Button
                           variant="outline"
-                          disabled={!transcription || isProcessingShorts}
+                          disabled={!transcription || !!activeJob || isProcessingShorts}
                           className="h-full"
                         >
                           <Pencil className="w-4 h-4 mr-2" />
