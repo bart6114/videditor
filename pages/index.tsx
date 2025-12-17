@@ -480,37 +480,46 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="relative container mx-auto px-4 py-12 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <MonkeyLogo size="sm" showText={false} />
-            <span className="text-sm font-semibold text-foreground/80">VidEditor.ai</span>
-          </div>
-          <a
-            href="https://www.producthunt.com/products/videditor-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-videditor-ai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block mb-4"
-          >
-            <img
-              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1051261&theme=dark&t=1765974184548"
-              alt="VidEditor.ai - Turn long videos into shorts | Product Hunt"
-              width={250}
-              height={54}
-            />
-          </a>
-          <p className="text-sm text-muted-foreground/60 mb-2">&copy; 2025 VidEditor.ai. All rights reserved.</p>
-          <div className="flex items-center justify-center gap-3">
-            <Link href="/roadmap" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-              Roadmap
-            </Link>
-            <span className="text-muted-foreground/30">·</span>
-            <Link href="/privacy" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-              Privacy Policy
-            </Link>
-            <span className="text-muted-foreground/30">·</span>
-            <Link href="/terms" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-              Terms of Service
-            </Link>
+        <footer className="relative container mx-auto px-4 py-12">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 max-w-4xl mx-auto">
+            {/* Left: Logo & Copyright */}
+            <div className="flex flex-col items-center md:items-start gap-2">
+              <div className="flex items-center gap-2">
+                <MonkeyLogo size="sm" showText={false} />
+                <span className="text-sm font-semibold text-foreground/80">VidEditor.ai</span>
+              </div>
+              <p className="text-xs text-muted-foreground/50">&copy; 2025 VidEditor.ai</p>
+            </div>
+
+            {/* Center: Links */}
+            <div className="flex items-center gap-3">
+              <Link href="/roadmap" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                Roadmap
+              </Link>
+              <span className="text-muted-foreground/30">·</span>
+              <Link href="/privacy" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                Privacy
+              </Link>
+              <span className="text-muted-foreground/30">·</span>
+              <Link href="/terms" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                Terms
+              </Link>
+            </div>
+
+            {/* Right: Product Hunt */}
+            <a
+              href="https://www.producthunt.com/products/videditor-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-videditor-ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="opacity-80 hover:opacity-100 transition-opacity"
+            >
+              <img
+                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1051261&theme=dark&t=1765974184548"
+                alt="VidEditor.ai - Turn long videos into shorts | Product Hunt"
+                width={200}
+                height={43}
+              />
+            </a>
           </div>
         </footer>
       </main>
