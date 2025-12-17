@@ -1,6 +1,10 @@
 app = "videditor-jobs"
 primary_region = "ams"
 
+# Allow 5 minutes for graceful shutdown so running jobs can complete
+kill_signal = "SIGTERM"
+kill_timeout = 300
+
 [build]
   dockerfile = "Dockerfile.jobs"
 

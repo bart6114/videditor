@@ -322,7 +322,7 @@ class JobWorker:
             self.affinity_cleanup_task = None
 
         # Wait for active jobs to complete (with timeout)
-        max_wait_s = 30
+        max_wait_s = 300  # 5 minutes to allow long-running jobs to finish
         start_time = time.time()
 
         while len(self.active_jobs) > 0 and (time.time() - start_time) < max_wait_s:
