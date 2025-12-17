@@ -67,6 +67,7 @@ export function BulkScheduleDialog({
   const { enabled: youtubeSchedulingEnabled } = useYouTubeSchedulingEnabled()
   const { enabled: instagramSchedulingEnabled } = useInstagramSchedulingEnabled()
   const submittingRef = useRef(false)
+  const wasOpenRef = useRef(false)
 
   // Step management
   const [step, setStep] = useState<'input' | 'preview'>('input')
@@ -87,9 +88,12 @@ export function BulkScheduleDialog({
   const [perShortContent, setPerShortContent] = useState<Map<string, ShortPlatformContent>>(new Map())
   const [expandedShorts, setExpandedShorts] = useState<Set<string>>(new Set())
 
-  // Reset state when dialog opens/closes
+  // Reset state when dialog opens (only on open transition, not on dep changes)
   useEffect(() => {
-    if (open) {
+    const justOpened = open && !wasOpenRef.current
+    wasOpenRef.current = open
+
+    if (justOpened) {
       setStep('input')
       setPrompt(defaultSchedulingPrompt || '')
       setSchedule([])
@@ -125,7 +129,7 @@ export function BulkScheduleDialog({
           })
       }
     }
-  }, [open, organizationId, call, defaultSchedulingPrompt])
+  }, [open, organizationId, call, defaultSchedulingPrompt, youtubeSchedulingEnabled, instagramSchedulingEnabled])
 
   const handleClose = () => {
     onOpenChange(false)

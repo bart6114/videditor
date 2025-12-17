@@ -40,20 +40,20 @@ export default function AdminPage() {
       return;
     }
 
-    checkAdminStatus();
-  }, [isLoaded, user]);
-
-  async function checkAdminStatus() {
-    try {
-      const result = await call<{ isAdmin: boolean }>('/v1/admin/check');
-      setIsAdmin(result.isAdmin);
-    } catch (error) {
-      console.error('Failed to check admin status:', error);
-      setIsAdmin(false);
-    } finally {
-      setIsCheckingAdmin(false);
+    async function checkAdminStatus() {
+      try {
+        const result = await call<{ isAdmin: boolean }>('/v1/admin/check');
+        setIsAdmin(result.isAdmin);
+      } catch (error) {
+        console.error('Failed to check admin status:', error);
+        setIsAdmin(false);
+      } finally {
+        setIsCheckingAdmin(false);
+      }
     }
-  }
+
+    checkAdminStatus();
+  }, [isLoaded, user, router, call]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
