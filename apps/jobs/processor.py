@@ -29,6 +29,7 @@ from models import (
     Transcription,
     YouTubePublishPayload,
     InstagramPublishPayload,
+    SocialContentGenerationPayload,
 )
 from utils.storage import download_from_tigris, upload_to_tigris
 from utils.transcription import transcribe_video
@@ -140,6 +141,7 @@ class JobProcessor:
                     JobType.TRANSCRIPTION.value: "📝",
                     JobType.ANALYSIS.value: "🤖",
                     JobType.SHORT_PROCESSING.value: "✂️",
+                    JobType.SOCIAL_CONTENT_GENERATION.value: "💬",
                     JobType.YOUTUBE_PUBLISH.value: "📺",
                     JobType.INSTAGRAM_PUBLISH.value: "📸",
                 }.get(job.type, "⚙️")
@@ -155,6 +157,8 @@ class JobProcessor:
                     result_data = await self._handle_analysis(job, session)
                 elif job.type == JobType.SHORT_PROCESSING.value:
                     result_data = await self._handle_short_processing(job, session)
+                elif job.type == JobType.SOCIAL_CONTENT_GENERATION.value:
+                    result_data = await self._handle_social_content_generation(job, session)
                 elif job.type == JobType.YOUTUBE_PUBLISH.value:
                     result_data = await self._handle_youtube_publish(job, session)
                 elif job.type == JobType.INSTAGRAM_PUBLISH.value:
@@ -546,11 +550,14 @@ class JobProcessor:
         self, job: ProcessingJob, session: AsyncSession
     ) -> dict[str, Any]:
         """
-        Handle analysis job - AI-powered short suggestion and container creation.
+        Handle analysis job - AI-powered short suggestion, video processing, and content jobs.
 
-        This job analyzes the transcript with AI to get short suggestions,
-        creates "short containers" with pending status, and queues individual
-        short_processing jobs for each container.
+        This job:
+        1. Analyzes the transcript with AI to get short suggestions
+        2. Downloads the source video once (using cache for re-generates)
+        3. Extracts clips and thumbnails for all shorts
+        4. Creates Short records with video URLs already set
+        5. Queues lightweight social_content_generation jobs (if platforms specified)
 
         Args:
             job: Processing job
@@ -663,101 +670,218 @@ class JobProcessor:
             suggestions = suggestions[:shorts_count]
 
         self.logger.info(
-            "Received short suggestions from AI, creating containers",
+            "Received short suggestions from AI, processing clips",
             job_id=job.id,
             num_suggestions=len(suggestions),
         )
 
-        # Update progress to generating phase (now means "creating containers")
+        # Update progress to generating phase (frontend expects "generating")
         await self._update_job_progress(session, job.id, phase="generating", current=0, total=len(suggestions))
 
-        shorts_created = []
-        jobs_queued = []
+        # Download source video once (using cache for re-generates)
+        video_cache = get_video_cache()
+        using_cache = video_cache is not None and self.config.VIDEO_CACHE_ENABLED
+        temp_video_path: str | None = None
+        temp_files_to_clean: list[str] = []
 
-        # Create short containers and queue processing jobs
-        for idx, suggestion in enumerate(suggestions):
-            short_id = str(uuid.uuid4())
+        try:
+            if using_cache:
+                self.logger.info(
+                    "Getting source video from cache",
+                    job_id=job.id,
+                    project_id=job.project_id,
+                )
+                cache_path = await video_cache.get_or_download(
+                    project_id=str(job.project_id),
+                    video_key=project.source_object_key,
+                    download_fn=lambda dest: download_from_tigris(
+                        self.config, project.source_bucket, project.source_object_key, dest
+                    ),
+                )
+                temp_video_path = str(cache_path)
+            else:
+                # Fallback: download to temp file
+                temp_video_fd, temp_video_path = tempfile.mkstemp(
+                    suffix=".mp4", prefix=f"analysis-source-{job.id}-"
+                )
+                os.close(temp_video_fd)
+                temp_files_to_clean.append(temp_video_path)
+                self.logger.info("Downloading source video", job_id=job.id)
+                await download_from_tigris(
+                    self.config,
+                    project.source_bucket,
+                    project.source_object_key,
+                    temp_video_path,
+                )
 
-            # Determine initial task statuses
-            initial_tasks = {
-                "clip_extraction": ShortTaskStatus.PENDING.value,
-                "thumbnail_extraction": ShortTaskStatus.PENDING.value,
-                "social_content": ShortTaskStatus.SKIPPED.value if not social_platforms else ShortTaskStatus.PENDING.value,
-            }
+            shorts_created = []
+            jobs_queued = []
 
-            # Create short container with pending status
-            short = Short(
-                id=short_id,
-                project_id=job.project_id,
-                analysis_job_id=job.id,
-                transcription_slice=suggestion.transcription,
-                start_time=suggestion.start_time,
-                end_time=suggestion.end_time,
-                status=ShortStatus.PENDING.value,
-                tasks=initial_tasks,
-            )
-            session.add(short)
-            await session.flush()  # Get short ID before creating job
+            # Process each short: extract clip, thumbnail, create record, enqueue social content
+            for idx, suggestion in enumerate(suggestions):
+                short_id = str(uuid.uuid4())
 
-            # Extract context for social content generation
-            context_before, context_after = "", ""
-            if social_platforms and transcription.segments:
-                context_before, context_after = extract_context_window(
-                    words=transcription.segments,
+                # Create temp files for this short
+                temp_clip_fd, temp_clip_path = tempfile.mkstemp(
+                    suffix=".mp4", prefix=f"clip-{short_id}-"
+                )
+                os.close(temp_clip_fd)
+                temp_files_to_clean.append(temp_clip_path)
+
+                temp_thumb_fd, temp_thumb_path = tempfile.mkstemp(
+                    suffix=".jpg", prefix=f"thumb-{short_id}-"
+                )
+                os.close(temp_thumb_fd)
+                temp_files_to_clean.append(temp_thumb_path)
+
+                self.logger.info(
+                    f"✂️ Processing clip {idx + 1}/{len(suggestions)}",
+                    short_id=short_id,
                     start_time=suggestion.start_time,
                     end_time=suggestion.end_time,
                 )
 
-            # Queue short_processing job
-            processing_job = await self._enqueue_job(
-                session,
-                project_id=job.project_id,
-                short_id=short_id,
-                job_type=JobType.SHORT_PROCESSING,
-                payload={
-                    "shortId": short_id,
-                    "projectId": job.project_id,
-                    "sourceObjectKey": project.source_object_key,
-                    "sourceBucket": project.source_bucket,
-                    "organizationId": project.organization_id,
-                    "startTime": suggestion.start_time,
-                    "endTime": suggestion.end_time,
-                    "transcriptionSlice": suggestion.transcription,
-                    "socialPlatforms": social_platforms if social_platforms else None,
-                    "customSocialPrompt": custom_social_prompt if custom_social_prompt else None,
-                    "contextBefore": context_before if context_before else None,
-                    "contextAfter": context_after if context_after else None,
-                },
+                # Extract clip
+                await extract_clip(
+                    video_path=temp_video_path,
+                    output_path=temp_clip_path,
+                    start_time=suggestion.start_time,
+                    end_time=suggestion.end_time,
+                )
+
+                # Upload clip to Tigris
+                clip_object_key = f"{project.organization_id}/projects/{job.project_id}/shorts/{short_id}.mp4"
+                await upload_to_tigris(
+                    self.config,
+                    self.config.TIGRIS_BUCKET,
+                    clip_object_key,
+                    temp_clip_path,
+                    content_type="video/mp4",
+                )
+
+                # Extract thumbnail from clip
+                clip_duration = await get_video_duration(temp_clip_path)
+                clip_midpoint = clip_duration / 2
+                await extract_thumbnail(
+                    video_path=temp_clip_path,
+                    output_path=temp_thumb_path,
+                    timestamp=clip_midpoint,
+                    width=640,
+                    height=360,
+                )
+
+                # Upload thumbnail to Tigris
+                thumb_object_key = f"{project.organization_id}/projects/{job.project_id}/shorts/{short_id}-thumb.jpg"
+                await upload_to_tigris(
+                    self.config,
+                    self.config.TIGRIS_BUCKET,
+                    thumb_object_key,
+                    temp_thumb_path,
+                    content_type="image/jpeg",
+                )
+
+                # Determine task statuses - clip and thumbnail are already done!
+                initial_tasks = {
+                    "clip_extraction": ShortTaskStatus.DONE.value,
+                    "thumbnail_extraction": ShortTaskStatus.DONE.value,
+                    "social_content": ShortTaskStatus.SKIPPED.value if not social_platforms else ShortTaskStatus.PENDING.value,
+                }
+
+                # Determine short status - completed if no social content needed
+                short_status = ShortStatus.COMPLETED.value if not social_platforms else ShortStatus.PROCESSING.value
+
+                # Create short record with URLs already set
+                short = Short(
+                    id=short_id,
+                    project_id=job.project_id,
+                    analysis_job_id=job.id,
+                    transcription_slice=suggestion.transcription,
+                    start_time=suggestion.start_time,
+                    end_time=suggestion.end_time,
+                    output_object_key=clip_object_key,
+                    thumbnail_url=thumb_object_key,
+                    status=short_status,
+                    tasks=initial_tasks,
+                )
+                session.add(short)
+                await session.flush()
+
+                shorts_created.append(short_id)
+
+                # Queue social_content_generation job if platforms specified
+                if social_platforms:
+                    # Extract context for social content generation
+                    context_before, context_after = "", ""
+                    if transcription.segments:
+                        context_before, context_after = extract_context_window(
+                            words=transcription.segments,
+                            start_time=suggestion.start_time,
+                            end_time=suggestion.end_time,
+                        )
+
+                    social_job = await self._enqueue_job(
+                        session,
+                        project_id=job.project_id,
+                        short_id=short_id,
+                        job_type=JobType.SOCIAL_CONTENT_GENERATION,
+                        payload={
+                            "shortId": short_id,
+                            "projectId": job.project_id,
+                            "transcriptionSlice": suggestion.transcription,
+                            "socialPlatforms": social_platforms,
+                            "customSocialPrompt": custom_social_prompt if custom_social_prompt else None,
+                            "contextBefore": context_before if context_before else None,
+                            "contextAfter": context_after if context_after else None,
+                        },
+                    )
+                    jobs_queued.append(social_job.id)
+
+                self.logger.info(
+                    f"✅ Short {idx + 1}/{len(suggestions)} processed",
+                    short_id=short_id,
+                    clip_key=clip_object_key,
+                )
+
+                # Update progress after each clip for real-time feedback
+                await self._update_job_progress(
+                    session, job.id,
+                    phase="generating",
+                    current=idx + 1,
+                    total=len(suggestions)
+                )
+
+            # Commit all shorts at once (atomic - all or nothing)
+            await session.commit()
+
+            # Update progress after all clips are done (commits separately)
+            await self._update_job_progress(session, job.id, phase="completed", current=len(suggestions), total=len(suggestions))
+
+            # Update project status to completed
+            await session.execute(
+                update(Project)
+                .where(Project.id == job.project_id)
+                .values(
+                    status=ProjectStatus.COMPLETED.value,
+                    updated_at=datetime.now(timezone.utc),
+                )
             )
+            await session.commit()
 
-            shorts_created.append(short_id)
-            jobs_queued.append(processing_job.id)
+            return {
+                "message": "Analysis completed, clips processed" + (", social content jobs queued" if jobs_queued else ""),
+                "shortsCreated": len(shorts_created),
+                "jobsQueued": len(jobs_queued),
+                "shortIds": shorts_created,
+            }
 
-            self.logger.info(
-                f"📦 Created short container {idx + 1}/{len(suggestions)}",
-                short_id=short_id,
-                processing_job_id=processing_job.id,
-            )
-
-        await session.commit()
-
-        # Update project status to completed (shorts will process individually)
-        await session.execute(
-            update(Project)
-            .where(Project.id == job.project_id)
-            .values(
-                status=ProjectStatus.COMPLETED.value,
-                updated_at=datetime.now(timezone.utc),
-            )
-        )
-        await session.commit()
-
-        return {
-            "message": "Analysis completed, short processing jobs queued",
-            "shortsCreated": len(shorts_created),
-            "jobsQueued": len(jobs_queued),
-            "shortIds": shorts_created,
-        }
+        finally:
+            # Clean up temp files (but NOT cached source video)
+            for temp_path in temp_files_to_clean:
+                try:
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+                except Exception:
+                    pass
 
     async def _update_job_progress(
         self,
@@ -1669,3 +1793,114 @@ class JobProcessor:
                 )
                 await session.commit()
                 raise
+
+    async def _handle_social_content_generation(
+        self, job: ProcessingJob, session: AsyncSession
+    ) -> dict[str, Any]:
+        """
+        Handle social content generation job - AI-only, no video access needed.
+
+        This lightweight job generates platform-specific social media content
+        for a short that already has its video clip extracted.
+
+        Args:
+            job: Processing job
+            session: Database session
+
+        Returns:
+            Job result dictionary
+        """
+        payload = job.payload or {}
+        short_id = payload.get("shortId")
+        project_id = payload.get("projectId")
+        transcription_slice = payload.get("transcriptionSlice")
+        social_platforms = payload.get("socialPlatforms", [])
+        custom_social_prompt = payload.get("customSocialPrompt")
+        context_before = payload.get("contextBefore")
+        context_after = payload.get("contextAfter")
+
+        if not all([short_id, project_id, transcription_slice]):
+            raise ValueError("Missing required payload fields for social content generation")
+
+        if not social_platforms:
+            raise ValueError("No social platforms specified for content generation")
+
+        self.logger.info(
+            "💬 Generating social content",
+            job_id=job.id,
+            short_id=short_id,
+            platforms=social_platforms,
+        )
+
+        # Update short task status to processing
+        await self._update_short_task(
+            session, short_id, "social_content", ShortTaskStatus.PROCESSING.value
+        )
+
+        try:
+            # Fetch user ID for PostHog attribution
+            user_id = await self._get_user_id_for_project(session, project_id)
+
+            platforms_str = ",".join(social_platforms)
+            social_content_data = await generate_social_content(
+                api_key=self.config.OPENROUTER_API_KEY,
+                transcription=transcription_slice,
+                platforms=social_platforms,
+                model=self.config.OPENROUTER_SOCIAL_MODEL,
+                context_before=context_before,
+                context_after=context_after,
+                custom_prompt=custom_social_prompt,
+                trace_id=f"social_content:project={project_id}:short={short_id}:platforms={platforms_str}",
+                user_id=user_id,
+            )
+
+            await self._update_short_task(
+                session, short_id, "social_content", ShortTaskStatus.DONE.value
+            )
+
+            # Update short with social content and mark as completed
+            await session.execute(
+                update(Short)
+                .where(Short.id == short_id)
+                .values(
+                    status=ShortStatus.COMPLETED.value,
+                    social_content=social_content_data,
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
+            await session.commit()
+
+            self.logger.info(
+                "✅ Social content generated",
+                short_id=short_id,
+                platforms=list(social_content_data.keys()) if social_content_data else [],
+            )
+
+            return {
+                "message": "Social content generated successfully",
+                "shortId": short_id,
+                "socialContent": social_content_data,
+            }
+
+        except Exception as e:
+            self.logger.error(
+                "Social content generation failed",
+                short_id=short_id,
+                error=str(e),
+            )
+            await self._update_short_task(
+                session, short_id, "social_content", ShortTaskStatus.ERROR.value
+            )
+            # Mark short as completed with error on social content
+            # (clip and thumbnail are already done, so short is still usable)
+            await session.execute(
+                update(Short)
+                .where(Short.id == short_id)
+                .values(
+                    status=ShortStatus.COMPLETED.value,  # Still completed - video is ready
+                    error_message=f"Social content generation failed: {str(e)}",
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
+            await session.commit()
+            raise

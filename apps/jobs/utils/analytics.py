@@ -180,6 +180,11 @@ def track_deepgram_transcription(
         logger.warning("posthog_capture_failed", error=str(e))
 
 
+def is_posthog_enabled() -> bool:
+    """Check if PostHog is configured and enabled."""
+    return _ensure_posthog_initialized()
+
+
 def shutdown_posthog() -> None:
     """Flush pending events and shutdown PostHog client."""
     if _posthog_initialized:

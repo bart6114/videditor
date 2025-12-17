@@ -7,7 +7,7 @@ from typing import Any
 import structlog
 from openai import APIError, APITimeoutError, RateLimitError
 
-from utils.analytics import get_openrouter_client
+from utils.analytics import get_openrouter_client, is_posthog_enabled
 
 logger = structlog.get_logger()
 
@@ -417,21 +417,20 @@ Return ONLY the JSON array with EXACTLY {num_shorts} segment(s), no other text."
     # Uses PostHog-wrapped client if POSTHOG_API_KEY is configured
     client = get_openrouter_client(api_key=api_key, timeout=120.0)
 
+    # Build kwargs - only include PostHog params if PostHog is enabled
+    create_kwargs: dict[str, Any] = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+        "max_tokens": 4000,
+    }
+    if is_posthog_enabled():
+        create_kwargs["posthog_trace_id"] = trace_id
+        create_kwargs["posthog_distinct_id"] = user_id
+        create_kwargs["posthog_properties"] = {"$ai_span_name": "shorts_analysis"}
+
     try:
-        response = await client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            temperature=0.7,
-            max_tokens=4000,
-            posthog_trace_id=trace_id,
-            posthog_distinct_id=user_id,
-            posthog_properties={"$ai_span_name": "shorts_analysis"},
-        )
+        response = await client.chat.completions.create(**create_kwargs)
     except (APIError, APITimeoutError, RateLimitError) as e:
         logger.error("openrouter_api_error", error=str(e))
         raise
@@ -653,25 +652,24 @@ IMPORTANT:
     # Get OpenRouter client (PostHog-wrapped if configured)
     client = get_openrouter_client(api_key=api_key, timeout=60.0)
 
+    # Build kwargs - only include PostHog params if PostHog is enabled
+    create_kwargs: dict[str, Any] = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 1,
+        "max_tokens": 4800,
+        "response_format": response_format,
+    }
+    if is_posthog_enabled():
+        create_kwargs["posthog_trace_id"] = trace_id
+        create_kwargs["posthog_distinct_id"] = user_id
+        create_kwargs["posthog_properties"] = {"$ai_span_name": "social_content_generation"}
+
     last_error: Exception | None = None
 
     for attempt in range(max_retries):
         try:
-            response = await client.chat.completions.create(
-                model=model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-                temperature=1,
-                max_tokens=4800,
-                response_format=response_format,  # type: ignore[arg-type]
-                posthog_trace_id=trace_id,
-                posthog_distinct_id=user_id,
-                posthog_properties={"$ai_span_name": "social_content_generation"},
-            )
+            response = await client.chat.completions.create(**create_kwargs)
 
             logger.debug("openrouter_response_social_content", response=response.model_dump(), trace_id=trace_id)
 

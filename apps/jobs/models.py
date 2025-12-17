@@ -34,6 +34,7 @@ class JobType(str, Enum):
     TRANSCRIPTION = "transcription"
     ANALYSIS = "analysis"
     SHORT_PROCESSING = "short_processing"
+    SOCIAL_CONTENT_GENERATION = "social_content_generation"
     YOUTUBE_PUBLISH = "youtube_publish"
     INSTAGRAM_PUBLISH = "instagram_publish"
 
@@ -148,7 +149,7 @@ class ProcessingJob(Base):
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=True, index=True)
     short_id = Column(String(255), nullable=True)
-    type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'short_processing', 'youtube_publish', 'instagram_publish', name='job_type', create_type=False), nullable=False, index=True)
+    type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'short_processing', 'social_content_generation', 'youtube_publish', 'instagram_publish', name='job_type', create_type=False), nullable=False, index=True)
     status = Column(ENUM('queued', 'running', 'succeeded', 'failed', 'canceled', name='job_status', create_type=False), nullable=False, default="queued", index=True)
     payload = Column(JSONB, nullable=True)
     result = Column(JSONB, nullable=True)
@@ -381,6 +382,18 @@ class InstagramPublishResult(BaseModel):
     mediaId: str
     url: str
     scheduledPostId: str
+
+
+class SocialContentGenerationPayload(BaseModel):
+    """Payload for social content generation job (lightweight, no video needed)."""
+
+    shortId: str
+    projectId: str
+    transcriptionSlice: str
+    socialPlatforms: list[str]
+    customSocialPrompt: Optional[str] = None
+    contextBefore: Optional[str] = None
+    contextAfter: Optional[str] = None
 
 
 # Social Content Models for Structured Outputs
