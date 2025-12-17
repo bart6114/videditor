@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
+import type ReactPlayerType from 'react-player'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -93,6 +94,8 @@ export function ShortsSidePanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(true)
+  const playerRef = useRef<ReactPlayerType>(null)
 
   // Social content editing state
   const [isEditingSocialContent, setIsEditingSocialContent] = useState(false)
@@ -124,6 +127,9 @@ export function ShortsSidePanel({
 
   // Fetch presigned URL when selected short changes
   useEffect(() => {
+    // Pause current video before switching
+    setIsPlaying(false)
+
     // Reset edit state when short changes
     setIsEditingSocialContent(false)
     setEditedSocialContent(null)
@@ -153,6 +159,8 @@ export function ShortsSidePanel({
         )
 
         setVideoUrl(data.downloadUrl)
+        // Auto-play new video once URL is loaded
+        setIsPlaying(true)
       } catch (err) {
         console.error('Error fetching video URL:', err)
         setError(err instanceof Error ? err.message : 'Failed to load video')
@@ -526,6 +534,7 @@ export function ShortsSidePanel({
         e.preventDefault()
         handleNext()
       } else if (e.key === 'Escape') {
+        setIsPlaying(false)
         onClose()
       }
     }
@@ -534,6 +543,13 @@ export function ShortsSidePanel({
     return () => window.removeEventListener('keydown', handleKeyDown)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedShort, hasPrevious, hasNext, currentIndex])
+
+  // Ensure video is paused when component unmounts
+  useEffect(() => {
+    return () => {
+      setIsPlaying(false)
+    }
+  }, [])
 
   const duration = selectedShort
     ? selectedShort.endTime - selectedShort.startTime
@@ -549,7 +565,7 @@ export function ShortsSidePanel({
         className={`fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300 ${
           selectedShort ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
-        onClick={onClose}
+        onClick={() => { setIsPlaying(false); onClose(); }}
       />
 
       {/* Side Panel */}
@@ -620,7 +636,7 @@ export function ShortsSidePanel({
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={onClose}
+                onClick={() => { setIsPlaying(false); onClose(); }}
                 className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
               >
                 <X className="w-5 h-5" />
@@ -652,9 +668,12 @@ export function ShortsSidePanel({
 
                   {videoUrl && !error && (
                     <ReactPlayer
+                      ref={playerRef}
                       url={videoUrl}
                       controls
-                      playing
+                      playing={isPlaying}
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
                       width="100%"
                       height="100%"
                       config={{
