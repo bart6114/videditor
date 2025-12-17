@@ -107,12 +107,24 @@ function renderShortStatusBadge(
     )
   }
 
-  // PROCESSING
+  // PROCESSING - show granular task status
   if (short.status === 'processing') {
+    let label = 'Processing'
+
+    if (short.tasks) {
+      if (short.tasks.clip_extraction === 'processing') {
+        label = 'Extracting clip...'
+      } else if (short.tasks.thumbnail_extraction === 'processing') {
+        label = 'Generating thumbnail...'
+      } else if (short.tasks.social_content === 'processing') {
+        label = 'Generating social content...'
+      }
+    }
+
     return (
       <Badge variant="secondary" className="text-xs">
         <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-        Processing
+        {label}
       </Badge>
     )
   }

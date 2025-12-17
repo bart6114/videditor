@@ -2,7 +2,7 @@ import Head from 'next/head'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
-import { Sparkles, Upload, Download, ArrowRight } from 'lucide-react'
+import { Sparkles, Upload, Download, ArrowRight, Calendar } from 'lucide-react'
 import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 import { Button } from '@/components/ui/button'
 import { MonkeyLogo } from '@/components/MonkeyLogo'
@@ -211,6 +211,14 @@ export default function Home() {
                 <p className="text-xl font-medium bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent pt-2">
                   AI augments your workflow. You stay in control of your voice.
                 </p>
+                <div className="pt-6 mt-6 border-t border-border/30">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">
+                    <span className="mr-1.5">🎯</span>What&apos;s not our focus:
+                  </p>
+                  <p className="text-sm text-muted-foreground/70">
+                    Timeline editing · Color grading · Audio mixing · Aspect ratio conversion
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -224,7 +232,10 @@ export default function Home() {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground">The Process</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Upload, process, export. That&apos;s it.
+              Start with an edited 9:16 video*. Get shorts ready to post.
+            </p>
+            <p className="text-sm text-muted-foreground/60 mt-2">
+              *9:16 works best on most short-format platforms, but any aspect ratio works
             </p>
           </div>
 
@@ -297,7 +308,7 @@ export default function Home() {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground">Schedule & Publish</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Publish your shorts directly to social platforms.
+              Publish your shorts directly to social platforms, or schedule them using natural language.
             </p>
           </div>
 
@@ -305,16 +316,16 @@ export default function Home() {
             {/* YouTube */}
             <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-red-500/30 transition-all duration-300 card-tilt p-8 text-center">
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(255, 0, 0, 0.1), transparent 70%)' }} />
-              <div className="relative">
+              <div className="relative flex flex-col h-full">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 flex items-center justify-center mb-5 border border-red-500/20">
                   <SiYoutube size={28} color="#FF0000" />
                 </div>
                 <h3 className="text-xl font-bold mb-3 text-foreground">YouTube</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
-                  Publish YouTube Shorts directly. Currently available to selected beta users.
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4 flex-grow">
+                  Publish YouTube Shorts directly. Available to all users.
                 </p>
-                <span className="inline-block px-3 py-1 text-xs font-medium rounded-full border bg-purple-500/20 text-purple-400 border-purple-500/30">
-                  beta
+                <span className="inline-block self-center px-3 py-1 text-xs font-medium rounded-full border bg-green-500/20 text-green-400 border-green-500/30">
+                  open beta
                 </span>
               </div>
             </div>
@@ -322,16 +333,16 @@ export default function Home() {
             {/* Instagram */}
             <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-pink-500/30 transition-all duration-300 card-tilt p-8 text-center">
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(228, 64, 95, 0.1), transparent 70%)' }} />
-              <div className="relative">
+              <div className="relative flex flex-col h-full">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/10 to-orange-500/10 flex items-center justify-center mb-5 border border-pink-500/20">
                   <SiInstagram size={28} color="#E4405F" />
                 </div>
                 <h3 className="text-xl font-bold mb-3 text-foreground">Instagram</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4 flex-grow">
                   Publish Reels directly. Currently available to selected beta users.
                 </p>
-                <span className="inline-block px-3 py-1 text-xs font-medium rounded-full border bg-purple-500/20 text-purple-400 border-purple-500/30">
-                  beta
+                <span className="inline-block self-center px-3 py-1 text-xs font-medium rounded-full border bg-purple-500/20 text-purple-400 border-purple-500/30">
+                  closed beta
                 </span>
               </div>
             </div>
@@ -339,20 +350,41 @@ export default function Home() {
             {/* TikTok */}
             <Link href="/roadmap" className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-foreground/30 transition-all duration-300 card-tilt p-8 text-center block">
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.05), transparent 70%)' }} />
-              <div className="relative">
+              <div className="relative flex flex-col h-full">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-foreground/10 flex items-center justify-center mb-5 border border-foreground/20">
                   <SiTiktok size={28} className="text-foreground" />
                 </div>
                 <h3 className="text-xl font-bold mb-3 text-foreground">TikTok</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4 flex-grow">
                   Coming after YouTube and Instagram are live.
                 </p>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border bg-amber-500/20 text-amber-400 border-amber-500/30">
+                <span className="inline-flex self-center items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border bg-amber-500/20 text-amber-400 border-amber-500/30">
                   roadmap
                   <ArrowRight className="w-3 h-3" />
                 </span>
               </div>
             </Link>
+          </div>
+
+          {/* AI Scheduling Card */}
+          <div className="mt-6 max-w-4xl mx-auto">
+            <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 p-8">
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(139, 92, 246, 0.1), transparent 70%)' }} />
+              <div className="relative flex flex-col md:flex-row md:items-center gap-6">
+                <div className="w-14 h-14 shrink-0 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <Calendar size={28} className="text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold mb-2 text-foreground">AI-Powered Scheduling</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed mb-3">
+                    Describe your schedule in plain English and let AI handle the rest.
+                  </p>
+                  <div className="inline-block px-4 py-2 rounded-lg bg-muted/50 border border-border/50 text-sm text-muted-foreground italic">
+                    &ldquo;Publish these shorts across the next five days, prefer mornings between 7 and 9am&rdquo;
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

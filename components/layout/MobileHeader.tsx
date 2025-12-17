@@ -2,6 +2,7 @@ import { Menu } from 'lucide-react';
 import { MonkeyLogo } from '@/components/MonkeyLogo';
 import { useUser } from '@clerk/nextjs';
 import Image from 'next/image';
+import { InboxDropdown } from '@/components/inbox';
 
 interface MobileHeaderProps {
   title?: string;
@@ -33,8 +34,9 @@ export default function MobileHeader({ title, onMenuClick }: MobileHeaderProps) 
         )}
       </div>
 
-      {/* Right - User Avatar placeholder for symmetry */}
-      <div className="min-h-[44px] min-w-[44px] flex items-center justify-center">
+      {/* Right - Inbox & User Avatar */}
+      <div className="flex items-center gap-2">
+        <InboxDropdown />
         {user?.imageUrl ? (
           <Image
             src={user.imageUrl}

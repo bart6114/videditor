@@ -141,6 +141,7 @@ def track_deepgram_transcription(
     latency_ms: float,
     success: bool,
     error: str | None = None,
+    user_id: str | None = None,
 ) -> None:
     """
     Track Deepgram transcription call in PostHog.
@@ -153,13 +154,17 @@ def track_deepgram_transcription(
         latency_ms: API call latency in milliseconds
         success: Whether the transcription succeeded
         error: Error message if failed
+        user_id: User ID (Clerk ID) for attribution. Falls back to anonymous if not provided.
     """
     if not _ensure_posthog_initialized():
         return
 
+    # Use user_id if provided, otherwise fall back to anonymous identifier
+    distinct_id = user_id or "videditor-jobs-anonymous"
+
     try:
         posthog.capture(
-            distinct_id="videditor-jobs",
+            distinct_id=distinct_id,
             event="deepgram_transcription",
             properties={
                 "trace_id": trace_id,

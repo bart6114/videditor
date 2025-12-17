@@ -92,14 +92,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const shorts = await getShortsByIds(db, shortIds, authResult.organizationId);
   const shortsMap = new Map(shorts.map((s) => [s.id, s]));
 
-  // Verify social accounts belong to organization
-  const socialAccountsValid = new Map<string, boolean>();
+  // Verify social accounts belong to organization and store for platform lookup
+  const socialAccountsMap = new Map<string, { valid: boolean; platform?: 'youtube' | 'tiktok' | 'instagram' }>();
   for (const accountId of socialAccountIds) {
     const account = await getSocialAccountById(db, accountId);
-    socialAccountsValid.set(
-      accountId,
-      !!account && account.organizationId === authResult.organizationId
-    );
+    const valid = !!account && account.organizationId === authResult.organizationId;
+    socialAccountsMap.set(accountId, {
+      valid,
+      platform: account?.platform,
+    });
   }
 
   // Process each schedule
@@ -125,7 +126,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Validate social account
-    if (!socialAccountsValid.get(item.socialAccountId)) {
+    const socialAccountInfo = socialAccountsMap.get(item.socialAccountId);
+    if (!socialAccountInfo?.valid || !socialAccountInfo.platform) {
       errors.push({ shortId: item.shortId, error: 'Invalid social account' });
       continue;
     }
@@ -147,6 +149,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         organizationId: authResult.organizationId,
         shortId: item.shortId,
         socialAccountId: item.socialAccountId,
+        platform: socialAccountInfo.platform,
         scheduledFor: scheduledDate,
         title: item.title.trim().slice(0, 100),
         description: item.description?.trim(),

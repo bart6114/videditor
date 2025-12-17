@@ -7,8 +7,15 @@ from typing import Any
 
 import httpx
 from google.oauth2.credentials import Credentials
+from google.auth.exceptions import RefreshError
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+
+
+class YouTubeTokenExpiredError(Exception):
+    """Raised when YouTube refresh token has expired or been revoked."""
+    pass
+
 
 # YouTube API configuration
 YOUTUBE_API_SERVICE_NAME = "youtube"
@@ -49,6 +56,13 @@ async def refresh_access_token(refresh_token: str) -> dict[str, Any]:
 
         if response.status_code != 200:
             error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+            error_code = error_data.get("error", "")
+
+            if error_code == "invalid_grant":
+                raise YouTubeTokenExpiredError(
+                    "YouTube connection expired. Please reconnect your YouTube account."
+                )
+
             error_msg = error_data.get("error_description", error_data.get("error", response.text))
             raise Exception(f"Failed to refresh token: {error_msg}")
 
@@ -66,6 +80,7 @@ async def refresh_access_token(refresh_token: str) -> dict[str, Any]:
 
 async def upload_to_youtube(
     access_token: str,
+    refresh_token: str,
     video_path: str,
     title: str,
     description: str = "",
@@ -78,6 +93,7 @@ async def upload_to_youtube(
 
     Args:
         access_token: Valid YouTube access token
+        refresh_token: YouTube refresh token for automatic token refresh
         video_path: Path to the video file
         title: Video title (max 100 chars)
         description: Video description (max 5000 chars)
@@ -99,6 +115,7 @@ async def upload_to_youtube(
         None,
         _upload_video_sync,
         access_token,
+        refresh_token,
         video_path,
         title,
         description,
@@ -111,6 +128,7 @@ async def upload_to_youtube(
 
 def _upload_video_sync(
     access_token: str,
+    refresh_token: str,
     video_path: str,
     title: str,
     description: str,
@@ -123,8 +141,14 @@ def _upload_video_sync(
 
     This runs in a thread executor since googleapiclient is synchronous.
     """
-    # Create credentials from access token
-    credentials = Credentials(token=access_token)
+    # Create credentials with all required fields for automatic token refresh
+    credentials = Credentials(
+        token=access_token,
+        refresh_token=refresh_token,
+        token_uri=GOOGLE_TOKEN_URL,
+        client_id=YOUTUBE_CLIENT_ID,
+        client_secret=YOUTUBE_CLIENT_SECRET,
+    )
 
     # Build the YouTube API client
     youtube = build(
@@ -169,9 +193,16 @@ def _upload_video_sync(
         media_body=media,
     )
 
-    response = None
-    while response is None:
-        status, response = request.next_chunk()
+    try:
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+    except RefreshError as e:
+        if "invalid_grant" in str(e):
+            raise YouTubeTokenExpiredError(
+                "YouTube connection expired. Please reconnect your YouTube account."
+            )
+        raise
 
     video_id = response["id"]
     video_url = f"https://youtube.com/shorts/{video_id}"

@@ -151,66 +151,88 @@ def parse_timestamp(timestamp: str) -> float:
 
 
 def _format_time(seconds: float) -> str:
-    """Convert seconds to HH:MM:SS format."""
+    """Convert seconds to HH:MM:SS format (integer seconds only)."""
     h = int(seconds // 3600)
     m = int((seconds % 3600) // 60)
     s = int(seconds % 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
+def _format_time_precise(seconds: float) -> str:
+    """Convert seconds to HH:MM:SS,mmm format with millisecond precision."""
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    ms = int((seconds % 1) * 1000)
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+
 def format_transcript_for_ai(words: list[dict[str, Any]]) -> str:
     """
-    Format word-level transcript data into sentences for AI analysis.
+    Format word-level transcript data into segments for AI analysis.
 
-    Groups words into sentences using punctuation (.!?) and formats them
-    with timestamps and speaker labels for AI short detection.
+    Uses speaker-first segmentation strategy:
+    1. Speaker changes - Always break when speaker changes
+    2. Time gaps > 0.8s - Natural pauses indicate thought boundaries
+    3. Max duration ~20s - Force break at next small pause if segment too long
 
     Args:
         words: List of word objects with start, end, text, speaker
 
     Returns:
-        Formatted transcript string with timestamps and speakers
+        Formatted transcript string with precise timestamps and speakers
     """
     if not words:
         return ""
 
+    segments: list[list[dict[str, Any]]] = []
+    current_segment: list[dict[str, Any]] = []
+
+    for i, word in enumerate(words):
+        current_segment.append(word)
+        should_break = False
+
+        if i + 1 < len(words):
+            next_word = words[i + 1]
+            curr_speaker = word.get("speaker")
+            next_speaker = next_word.get("speaker")
+            gap = next_word["start"] - word["end"]
+
+            # Priority 1: Speaker change (always break)
+            if curr_speaker is not None and next_speaker is not None and curr_speaker != next_speaker:
+                should_break = True
+
+            # Priority 2: Significant pause (>0.8s)
+            elif gap > 0.8:
+                should_break = True
+
+            # Priority 3: Segment too long (>20s), break at any pause >0.3s
+            elif current_segment:
+                duration = word["end"] - current_segment[0]["start"]
+                if duration > 20 and gap > 0.3:
+                    should_break = True
+
+        if should_break and current_segment:
+            segments.append(current_segment)
+            current_segment = []
+
+    # Don't forget remaining words
+    if current_segment:
+        segments.append(current_segment)
+
+    # Format segments with millisecond precision
     lines = []
-    current_sentence: list[dict[str, Any]] = []
-    sentence_end_punctuation = {".": True, "!": True, "?": True}
+    for segment in segments:
+        start_time = segment[0]["start"]
+        end_time = segment[-1]["end"]
+        segment_text = " ".join(w["text"] for w in segment)
+        speaker = segment[0].get("speaker")
 
-    for word in words:
-        current_sentence.append(word)
-        text = word["text"].strip()
-
-        # Check if this word ends a sentence
-        if text and text[-1] in sentence_end_punctuation:
-            # Build the sentence line
-            if current_sentence:
-                start_time = current_sentence[0]["start"]
-                end_time = current_sentence[-1]["end"]
-                sentence_text = " ".join(w["text"] for w in current_sentence)
-                speaker = current_sentence[0].get("speaker")
-
-                timestamp = f"{_format_time(start_time)} - {_format_time(end_time)}"
-                if speaker is not None:
-                    lines.append(f"{timestamp} [Speaker {speaker}]: {sentence_text}")
-                else:
-                    lines.append(f"{timestamp}: {sentence_text}")
-
-                current_sentence = []
-
-    # Handle any remaining words without sentence-ending punctuation
-    if current_sentence:
-        start_time = current_sentence[0]["start"]
-        end_time = current_sentence[-1]["end"]
-        sentence_text = " ".join(w["text"] for w in current_sentence)
-        speaker = current_sentence[0].get("speaker")
-
-        timestamp = f"{_format_time(start_time)} - {_format_time(end_time)}"
+        timestamp = f"{_format_time_precise(start_time)} - {_format_time_precise(end_time)}"
         if speaker is not None:
-            lines.append(f"{timestamp} [Speaker {speaker}]: {sentence_text}")
+            lines.append(f"{timestamp} [Speaker {speaker}]: {segment_text}")
         else:
-            lines.append(f"{timestamp}: {sentence_text}")
+            lines.append(f"{timestamp}: {segment_text}")
 
     return "\n".join(lines)
 
@@ -268,6 +290,7 @@ async def analyze_transcript_for_shorts(
     existing_shorts: list[dict[str, Any]] | None = None,
     model: str = "openai/gpt-4o",
     trace_id: str | None = None,
+    user_id: str | None = None,
 ) -> list[ShortSuggestion]:
     """
     Analyze transcript using OpenRouter GPT-4o to identify viral short opportunities.
@@ -280,6 +303,9 @@ async def analyze_transcript_for_shorts(
         max_length: Maximum allowed length in seconds (default: 60)
         custom_prompt: Optional custom instructions to include in prompt
         existing_shorts: Optional list of existing shorts to avoid overlapping with
+        model: OpenRouter model to use (default: "openai/gpt-4o")
+        trace_id: Optional trace ID for analytics
+        user_id: Optional user ID (Clerk ID) for PostHog attribution
 
     Returns:
         List of ShortSuggestion objects with suggested clips
@@ -325,7 +351,12 @@ Select completely different moments from the video that do not cover the same to
     # Build prompt based on user's example
     # Calculate minimum as 80% of preferred length (scales proportionally)
     min_length = max(15, int(preferred_length * 0.8))
-    prompt = f"""You are analyzing a video transcript to find the best moments for creating {num_shorts} short-form videos.
+    prompt = f"""You are analyzing a video transcript to find the best moments for creating EXACTLY {num_shorts} short-form video(s).
+
+COUNT REQUIREMENT (CRITICAL):
+- You MUST return EXACTLY {num_shorts} segment(s), no more, no less
+- If you find more good candidates, select only the {num_shorts} BEST ones
+- Returning more or fewer segments than requested is NOT acceptable
 
 DURATION REQUIREMENTS (CRITICAL):
 - TARGET: {preferred_length}-{max_length} seconds per segment
@@ -359,7 +390,7 @@ Flow & Naturalness Guidelines:
 Transcript with timestamps:
 {transcript}
 
-Please identify the {num_shorts} best segments. Each segment MUST:
+You MUST return EXACTLY {num_shorts} segment(s). Select only the {num_shorts} BEST segments from the transcript. Each segment MUST:
 - Be {preferred_length}-{max_length} seconds long (absolute minimum: {min_length} seconds)
 - Include complete thoughts WITH their supporting context, examples, and elaboration
 - Capture the FULL explanation, not just the headline point
@@ -380,7 +411,7 @@ Return your response as a JSON array with this exact format:
   }}
 ]
 
-Return ONLY the JSON array, no other text."""
+Return ONLY the JSON array with EXACTLY {num_shorts} segment(s), no other text."""
 
     # Call OpenRouter API using OpenAI SDK
     # Uses PostHog-wrapped client if POSTHOG_API_KEY is configured
@@ -398,6 +429,8 @@ Return ONLY the JSON array, no other text."""
             temperature=0.7,
             max_tokens=4000,
             posthog_trace_id=trace_id,
+            posthog_distinct_id=user_id,
+            posthog_properties={"$ai_span_name": "shorts_analysis"},
         )
     except (APIError, APITimeoutError, RateLimitError) as e:
         logger.error("openrouter_api_error", error=str(e))
@@ -514,6 +547,7 @@ async def generate_social_content(
     context_after: str | None = None,
     custom_prompt: str | None = None,
     trace_id: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate social media content for a short video clip using structured outputs.
@@ -526,6 +560,8 @@ async def generate_social_content(
         context_before: Optional context from before the segment (~2000 chars)
         context_after: Optional context from after the segment (~2000 chars)
         custom_prompt: Optional custom instructions for content generation style/tone
+        trace_id: Optional trace ID for analytics
+        user_id: Optional user ID (Clerk ID) for PostHog attribution
 
     Returns:
         Dictionary with content for each platform, e.g.:
@@ -633,6 +669,8 @@ IMPORTANT:
                 max_tokens=4800,
                 response_format=response_format,  # type: ignore[arg-type]
                 posthog_trace_id=trace_id,
+                posthog_distinct_id=user_id,
+                posthog_properties={"$ai_span_name": "social_content_generation"},
             )
 
             logger.debug("openrouter_response_social_content", response=response.model_dump(), trace_id=trace_id)

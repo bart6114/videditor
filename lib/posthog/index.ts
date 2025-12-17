@@ -41,6 +41,8 @@ export interface AiGenerationProperties {
   error?: string;
   /** Trace ID for grouping related calls */
   traceId?: string;
+  /** Span name for display in PostHog UI */
+  spanName?: string;
 }
 
 /**
@@ -69,6 +71,7 @@ export function captureAiGeneration(
       $ai_is_error: !properties.success,
       $ai_error: properties.error,
       $ai_trace_id: properties.traceId,
+      $ai_span_name: properties.spanName,
     },
   });
 }

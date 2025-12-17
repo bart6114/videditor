@@ -44,10 +44,11 @@ export function useFeatureFlag(flagName: string): FeatureFlagState {
 }
 
 /**
- * Convenience hook for the YouTube scheduling feature flag.
+ * YouTube scheduling is now enabled for everyone.
+ * Previously gated by PostHog feature flag 'youtube-scheduling'.
  */
 export function useYouTubeSchedulingEnabled(): FeatureFlagState {
-  return useFeatureFlag('youtube-scheduling');
+  return { enabled: true, loading: false };
 }
 
 /**

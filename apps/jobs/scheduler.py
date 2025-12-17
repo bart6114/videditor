@@ -15,6 +15,7 @@ from models import (
     ProcessingJob,
     ScheduledPost,
     ScheduledPostStatus,
+    SocialPlatform,
 )
 
 
@@ -80,19 +81,32 @@ class Scheduler:
                         )
                     )
 
-                    # Create youtube_publish job
+                    # Determine job type based on platform
+                    if post.platform == SocialPlatform.INSTAGRAM.value:
+                        job_type = JobType.INSTAGRAM_PUBLISH.value
+                        payload = {
+                            "scheduledPostId": post.id,
+                            "shortId": post.short_id,
+                            "socialAccountId": post.social_account_id,  # May be None
+                            "caption": post.description or post.title,
+                        }
+                    else:
+                        # Default to YouTube
+                        job_type = JobType.YOUTUBE_PUBLISH.value
+                        payload = {
+                            "scheduledPostId": post.id,
+                            "shortId": post.short_id,
+                            "socialAccountId": post.social_account_id,  # May be None
+                            "title": post.title,
+                            "description": post.description,
+                        }
+
                     job_id = str(uuid.uuid4())
                     job = ProcessingJob(
                         id=job_id,
-                        type=JobType.YOUTUBE_PUBLISH.value,
+                        type=job_type,
                         status=JobStatus.QUEUED.value,
-                        payload={
-                            "scheduledPostId": post.id,
-                            "shortId": post.short_id,
-                            "socialAccountId": post.social_account_id,
-                            "title": post.title,
-                            "description": post.description,
-                        },
+                        payload=payload,
                     )
                     session.add(job)
 
@@ -100,6 +114,7 @@ class Scheduler:
                         "🚀 Enqueued publish job",
                         scheduled_post_id=post.id,
                         job_id=job_id,
+                        platform=post.platform,
                         title=post.title[:50] if post.title else None,
                     )
 

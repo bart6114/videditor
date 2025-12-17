@@ -31,7 +31,7 @@ async def refresh_access_token(current_token: str) -> dict[str, Any]:
     Raises:
         Exception: If token refresh fails
     """
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
         response = await client.get(
             f"{INSTAGRAM_GRAPH_API_BASE}/refresh_access_token",
             params={
@@ -81,7 +81,7 @@ async def create_media_container(
     Raises:
         Exception: If container creation fails
     """
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(20.0)) as client:
         response = await client.post(
             f"{INSTAGRAM_GRAPH_API_BASE}/{user_id}/media",
             data={
@@ -119,7 +119,7 @@ async def check_container_status(
     Raises:
         Exception: If status check fails
     """
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
         response = await client.get(
             f"{INSTAGRAM_GRAPH_API_BASE}/{container_id}",
             params={
@@ -159,7 +159,7 @@ async def publish_container(
     Raises:
         Exception: If publishing fails
     """
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
         response = await client.post(
             f"{INSTAGRAM_GRAPH_API_BASE}/{user_id}/media_publish",
             data={

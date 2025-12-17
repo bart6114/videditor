@@ -205,6 +205,7 @@ fly secrets set -a videditor-app POSTHOG_API_KEY="phc_..." POSTHOG_HOST="https:/
 ## TODOs / Follow-ups
 
 - Add sane defaults for available preferences
+- Look at YouTube tags for publishing (very low prio)
 
 ## First-Time Fly.io Deployment
 

@@ -24,6 +24,7 @@ from models import (
     ShortStatus,
     ShortTaskStatus,
     SocialAccount,
+    SocialPlatform,
     Transcription,
     YouTubePublishPayload,
     InstagramPublishPayload,
@@ -33,6 +34,7 @@ from utils.transcription import transcribe_video
 from utils.ffmpeg import extract_clip, extract_thumbnail, get_video_duration
 from utils.ai import analyze_transcript_for_shorts, extract_context_window, generate_social_content
 from utils.cache import get_video_cache
+from utils.inbox import notifications
 
 
 class JobProcessor:
@@ -49,6 +51,23 @@ class JobProcessor:
         self.config = config
         self.logger = logger
         self.active_jobs: set[str] = set()
+
+    async def _get_user_id_for_project(
+        self, session: AsyncSession, project_id: str
+    ) -> str | None:
+        """
+        Fetch the user ID (Clerk ID) for a project.
+
+        Args:
+            session: Database session
+            project_id: Project ID
+
+        Returns:
+            User ID (created_by_id) or None if not found
+        """
+        stmt = select(Project.created_by_id).where(Project.id == project_id).limit(1)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def process_job(self, job_id: str) -> None:
         """
@@ -129,6 +148,7 @@ class JobProcessor:
         except Exception as error:
             self.logger.error("Job failed", job_id=job_id, error=str(error), exc_info=True)
             async with session_factory() as session:
+                # Update job status to failed
                 await session.execute(
                     update(ProcessingJob)
                     .where(ProcessingJob.id == job_id)
@@ -138,6 +158,34 @@ class JobProcessor:
                         updated_at=datetime.now(timezone.utc),
                     )
                 )
+
+                # Try to send failure notification to user
+                try:
+                    # Fetch job and project info for notification
+                    stmt = select(ProcessingJob).where(ProcessingJob.id == job_id).limit(1)
+                    result = await session.execute(stmt)
+                    failed_job = result.scalar_one_or_none()
+
+                    if failed_job and failed_job.project_id:
+                        # Get project info
+                        proj_stmt = select(Project).where(Project.id == failed_job.project_id).limit(1)
+                        proj_result = await session.execute(proj_stmt)
+                        project = proj_result.scalar_one_or_none()
+
+                        if project and project.created_by_id:
+                            await notifications.job_failed(
+                                session=session,
+                                user_id=project.created_by_id,
+                                project_id=project.id,
+                                project_title=project.title,
+                                error_message=str(error),
+                            )
+                except Exception as notif_err:
+                    self.logger.warning(
+                        "Failed to create failure notification",
+                        error=str(notif_err),
+                    )
+
                 await session.commit()
         finally:
             self.active_jobs.discard(job_id)
@@ -382,6 +430,9 @@ class JobProcessor:
                 model=self.config.DEEPGRAM_MODEL,
             )
 
+            # Fetch user ID for PostHog attribution
+            user_id = await self._get_user_id_for_project(session, job.project_id)
+
             # Create progress callback to update job progress
             async def update_transcription_progress(current: int, total: int) -> None:
                 await self._update_job_progress(
@@ -395,8 +446,9 @@ class JobProcessor:
                 audio_bitrate=self.config.DEEPGRAM_AUDIO_BITRATE,
                 max_concurrent=self.config.DEEPGRAM_MAX_CONCURRENT,
                 progress_callback=update_transcription_progress,
-                trace_id=f"{job.project_id}_transcription_{job.id}",
+                trace_id=f"transcription:project={job.project_id}:job={job.id}",
                 model=self.config.DEEPGRAM_MODEL,
+                user_id=user_id,
             )
 
             # Save transcription to database
@@ -559,8 +611,19 @@ class JobProcessor:
             custom_prompt=custom_prompt,
             existing_shorts=existing_shorts,
             model=self.config.OPENROUTER_ANALYSIS_MODEL,
-            trace_id=f"{job.project_id}_analysis_{job.id}",
+            trace_id=f"shorts_analysis:project={job.project_id}:count={shorts_count}:job={job.id}",
+            user_id=project.created_by_id,
         )
+
+        # Enforce requested count - AI may return more suggestions than requested
+        if len(suggestions) > shorts_count:
+            self.logger.warning(
+                "AI returned more suggestions than requested, truncating",
+                job_id=job.id,
+                requested=shorts_count,
+                received=len(suggestions),
+            )
+            suggestions = suggestions[:shorts_count]
 
         self.logger.info(
             "Received short suggestions from AI, creating containers",
@@ -603,7 +666,7 @@ class JobProcessor:
             context_before, context_after = "", ""
             if social_platforms and transcription.segments:
                 context_before, context_after = extract_context_window(
-                    segments=transcription.segments,
+                    words=transcription.segments,
                     start_time=suggestion.start_time,
                     end_time=suggestion.end_time,
                 )
@@ -887,6 +950,9 @@ class JobProcessor:
             if social_platforms:
                 await self._update_short_task(session, short_id, "social_content", ShortTaskStatus.PROCESSING.value)
                 try:
+                    # Fetch user ID for PostHog attribution
+                    user_id = await self._get_user_id_for_project(session, project_id)
+                    platforms_str = ",".join(social_platforms) if social_platforms else "none"
                     social_content_data = await generate_social_content(
                         api_key=self.config.OPENROUTER_API_KEY,
                         transcription=transcription_slice,
@@ -895,7 +961,8 @@ class JobProcessor:
                         context_before=context_before,
                         context_after=context_after,
                         custom_prompt=custom_social_prompt,
-                        trace_id=f"{project_id}_social_{short_id}",
+                        trace_id=f"social_content:project={project_id}:short={short_id}:platforms={platforms_str}",
+                        user_id=user_id,
                     )
                     await self._update_short_task(session, short_id, "social_content", ShortTaskStatus.DONE.value)
                     result_data["socialContent"] = social_content_data
@@ -1007,7 +1074,8 @@ class JobProcessor:
             Job result dictionary
         """
         # Import here to avoid circular import and lazy load
-        from utils.youtube import refresh_access_token, upload_to_youtube
+        from utils.youtube import refresh_access_token, upload_to_youtube, YouTubeTokenExpiredError
+        from sqlalchemy import delete
 
         payload_data = job.payload or {}
         try:
@@ -1042,13 +1110,46 @@ class JobProcessor:
         current_retry = scheduled_post.retry_count or 0
 
         try:
-            # Get social account
-            stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
-            result = await session.execute(stmt)
-            social_account = result.scalar_one_or_none()
+            # Get social account - try by ID first, then by org+platform if ID is None
+            social_account = None
+            if social_account_id:
+                stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
+                result = await session.execute(stmt)
+                social_account = result.scalar_one_or_none()
+
+            # If account not found (disconnected), try to find by org+platform
+            if not social_account:
+                stmt = (
+                    select(SocialAccount)
+                    .where(SocialAccount.organization_id == scheduled_post.organization_id)
+                    .where(SocialAccount.platform == SocialPlatform.YOUTUBE.value)
+                    .limit(1)
+                )
+                result = await session.execute(stmt)
+                social_account = result.scalar_one_or_none()
 
             if not social_account:
-                raise ValueError(f"Social account not found: {social_account_id}")
+                # No account available - fail with clear message and notification
+                error_msg = "No YouTube account connected. Please reconnect your account and try again."
+                await session.execute(
+                    update(ScheduledPost)
+                    .where(ScheduledPost.id == scheduled_post_id)
+                    .values(
+                        status=ScheduledPostStatus.FAILED.value,
+                        error_message=error_msg,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                # Send notification to user
+                if scheduled_post.scheduled_by_id:
+                    await notifications.scheduled_post_failed_no_account(
+                        session=session,
+                        user_id=scheduled_post.scheduled_by_id,
+                        short_title=title,
+                        platform="YouTube",
+                    )
+                await session.commit()
+                raise ValueError(error_msg)
 
             # Get short
             stmt = select(Short).where(Short.id == short_id).limit(1)
@@ -1094,6 +1195,7 @@ class JobProcessor:
                 # Upload to YouTube
                 result = await upload_to_youtube(
                     access_token=access_token,
+                    refresh_token=social_account.refresh_token,
                     video_path=temp_video_path,
                     title=title,
                     description=description,
@@ -1123,6 +1225,22 @@ class JobProcessor:
                     url=video_url,
                 )
 
+                # Send inbox notification to user who scheduled the post
+                if scheduled_post.scheduled_by_id:
+                    try:
+                        await notifications.video_published_to_youtube(
+                            session=session,
+                            user_id=scheduled_post.scheduled_by_id,
+                            project_title=title,
+                            youtube_url=video_url,
+                        )
+                        await session.commit()
+                    except Exception as notif_err:
+                        self.logger.warning(
+                            "Failed to create inbox notification",
+                            error=str(notif_err),
+                        )
+
                 return {
                     "message": "Video published successfully",
                     "videoId": video_id,
@@ -1134,6 +1252,33 @@ class JobProcessor:
                 # Clean up temp file
                 if os.path.exists(temp_video_path):
                     os.unlink(temp_video_path)
+
+        except YouTubeTokenExpiredError as e:
+            # Token expired - delete social account so user sees they need to reconnect
+            error_message = str(e)
+            self.logger.warning(
+                "YouTube token expired - deleting social account",
+                job_id=job.id,
+                social_account_id=social_account_id,
+            )
+
+            # Delete the social account
+            await session.execute(
+                delete(SocialAccount).where(SocialAccount.id == social_account_id)
+            )
+
+            # Mark scheduled post as failed with clear message
+            await session.execute(
+                update(ScheduledPost)
+                .where(ScheduledPost.id == scheduled_post_id)
+                .values(
+                    status=ScheduledPostStatus.FAILED.value,
+                    error_message="YouTube connection expired. Please reconnect your account and try again.",
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
+            await session.commit()
+            raise
 
         except Exception as e:
             error_message = str(e)
@@ -1239,13 +1384,46 @@ class JobProcessor:
         current_retry = scheduled_post.retry_count or 0
 
         try:
-            # Get social account
-            stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
-            result = await session.execute(stmt)
-            social_account = result.scalar_one_or_none()
+            # Get social account - try by ID first, then by org+platform if ID is None
+            social_account = None
+            if social_account_id:
+                stmt = select(SocialAccount).where(SocialAccount.id == social_account_id).limit(1)
+                result = await session.execute(stmt)
+                social_account = result.scalar_one_or_none()
+
+            # If account not found (disconnected), try to find by org+platform
+            if not social_account:
+                stmt = (
+                    select(SocialAccount)
+                    .where(SocialAccount.organization_id == scheduled_post.organization_id)
+                    .where(SocialAccount.platform == SocialPlatform.INSTAGRAM.value)
+                    .limit(1)
+                )
+                result = await session.execute(stmt)
+                social_account = result.scalar_one_or_none()
 
             if not social_account:
-                raise ValueError(f"Social account not found: {social_account_id}")
+                # No account available - fail with clear message and notification
+                error_msg = "No Instagram account connected. Please reconnect your account and try again."
+                await session.execute(
+                    update(ScheduledPost)
+                    .where(ScheduledPost.id == scheduled_post_id)
+                    .values(
+                        status=ScheduledPostStatus.FAILED.value,
+                        error_message=error_msg,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                # Send notification to user
+                if scheduled_post.scheduled_by_id:
+                    await notifications.scheduled_post_failed_no_account(
+                        session=session,
+                        user_id=scheduled_post.scheduled_by_id,
+                        short_title=caption[:50],  # Use first 50 chars of caption
+                        platform="Instagram",
+                    )
+                await session.commit()
+                raise ValueError(error_msg)
 
             # Get short
             stmt = select(Short).where(Short.id == short_id).limit(1)
@@ -1317,6 +1495,22 @@ class JobProcessor:
                 media_id=media_id,
                 url=media_url,
             )
+
+            # Send inbox notification to user who scheduled the post
+            if scheduled_post.scheduled_by_id:
+                try:
+                    await notifications.video_published_to_instagram(
+                        session=session,
+                        user_id=scheduled_post.scheduled_by_id,
+                        project_title=scheduled_post.title,
+                        instagram_url=media_url,
+                    )
+                    await session.commit()
+                except Exception as notif_err:
+                    self.logger.warning(
+                        "Failed to create inbox notification",
+                        error=str(notif_err),
+                    )
 
             return {
                 "message": "Reel published successfully",

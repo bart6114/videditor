@@ -96,6 +96,7 @@ export async function getScheduledPostsByShort(
 /**
  * Get scheduled posts for all shorts in a project
  * Returns posts grouped by shortId for easy frontend consumption
+ * Platform comes from scheduledPosts directly (account may be disconnected)
  */
 export async function getScheduledPostsByProject(
   db: DB,
@@ -111,13 +112,13 @@ export async function getScheduledPostsByProject(
     .select({
       post: scheduledPosts,
       socialAccount: {
-        platform: socialAccounts.platform,
+        platform: scheduledPosts.platform,
         channelTitle: socialAccounts.channelTitle,
       },
     })
     .from(scheduledPosts)
     .innerJoin(shorts, eq(scheduledPosts.shortId, shorts.id))
-    .innerJoin(socialAccounts, eq(scheduledPosts.socialAccountId, socialAccounts.id))
+    .leftJoin(socialAccounts, eq(scheduledPosts.socialAccountId, socialAccounts.id))
     .where(
       and(
         eq(shorts.projectId, projectId),
@@ -131,6 +132,7 @@ export async function getScheduledPostsByProject(
 
 /**
  * Get scheduled posts for calendar view (with short and project info)
+ * Platform comes from scheduledPosts directly (account may be disconnected)
  */
 export async function getScheduledPostsForCalendar(
   db: DB,
@@ -158,14 +160,14 @@ export async function getScheduledPostsForCalendar(
         title: projects.title,
       },
       socialAccount: {
-        platform: socialAccounts.platform,
+        platform: scheduledPosts.platform,
         channelTitle: socialAccounts.channelTitle,
       },
     })
     .from(scheduledPosts)
     .innerJoin(shorts, eq(scheduledPosts.shortId, shorts.id))
     .innerJoin(projects, eq(shorts.projectId, projects.id))
-    .innerJoin(socialAccounts, eq(scheduledPosts.socialAccountId, socialAccounts.id))
+    .leftJoin(socialAccounts, eq(scheduledPosts.socialAccountId, socialAccounts.id))
     .where(
       and(
         eq(scheduledPosts.organizationId, organizationId),
