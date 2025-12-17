@@ -57,6 +57,12 @@ class JobRunnerConfig(BaseSettings):
     VIDEO_CACHE_TTL_SECONDS: int = Field(default=3600, ge=60)  # 1 hour default
     VIDEO_CACHE_ENABLED: bool = True
 
+    # Job affinity (routes jobs for same project to same machine for cache hits)
+    FLY_MACHINE_ID: Optional[str] = None  # Auto-set by Fly.io, falls back to local-{pid}
+    JOB_AFFINITY_ENABLED: bool = False  # Enable in production via FLY_SECRETS
+    JOB_AFFINITY_TTL_HOURS: int = Field(default=24, ge=1, le=168)  # 1 hour to 7 days
+    JOB_AFFINITY_CLEANUP_INTERVAL_HOURS: int = Field(default=6, ge=1)  # Cleanup frequency
+
     # YouTube OAuth (for YouTube publishing)
     YOUTUBE_CLIENT_ID: Optional[str] = None
     YOUTUBE_CLIENT_SECRET: Optional[str] = None

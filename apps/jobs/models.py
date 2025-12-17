@@ -124,6 +124,22 @@ class Organization(Base):
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 
+class ProjectMachineAffinity(Base):
+    """Tracks which machine last processed each project for job routing optimization."""
+
+    __tablename__ = "project_machine_affinity"
+
+    project_id = Column(String(255), primary_key=True)
+    machine_id = Column(String(255), nullable=False, index=True)
+    last_processed_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    job_count = Column(BigInteger, nullable=False, default=1)
+
+    __table_args__ = (
+        Index("idx_project_machine_affinity_machine_id", "machine_id"),
+        Index("idx_project_machine_affinity_last_processed_at", "last_processed_at"),
+    )
+
+
 class ProcessingJob(Base):
     """Processing job database model."""
 
@@ -140,6 +156,9 @@ class ProcessingJob(Base):
     error_message = Column(Text, nullable=True)
     started_at = Column(TIMESTAMP(timezone=True), nullable=True)
     completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    # Job affinity fields for cache optimization
+    preferred_machine_id = Column(String(255), nullable=True, index=True)
+    claimed_by_machine_id = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -149,6 +168,7 @@ class ProcessingJob(Base):
         Index("idx_processing_jobs_project_id", "project_id"),
         Index("idx_processing_jobs_status", "status"),
         Index("idx_processing_jobs_type", "type"),
+        Index("idx_processing_jobs_preferred_machine_id", "preferred_machine_id"),
     )
 
 

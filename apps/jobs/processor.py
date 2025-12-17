@@ -17,6 +17,7 @@ from models import (
     JobType,
     ProcessingJob,
     Project,
+    ProjectMachineAffinity,
     ProjectStatus,
     ScheduledPost,
     ScheduledPostStatus,
@@ -51,6 +52,10 @@ class JobProcessor:
         self.config = config
         self.logger = logger
         self.active_jobs: set[str] = set()
+        # Machine ID for job affinity (Fly.io sets FLY_MACHINE_ID, fallback for local dev)
+        self.machine_id = config.FLY_MACHINE_ID or os.environ.get(
+            "FLY_MACHINE_ID", f"local-{os.getpid()}"
+        )
 
     async def _get_user_id_for_project(
         self, session: AsyncSession, project_id: str
@@ -68,6 +73,33 @@ class JobProcessor:
         stmt = select(Project.created_by_id).where(Project.id == project_id).limit(1)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def _record_affinity(self, session: AsyncSession, project_id: str) -> None:
+        """
+        Record or update machine affinity for a project.
+
+        This enables job routing optimization by tracking which machine
+        last processed a project, allowing future jobs for the same project
+        to be routed to machines that have the video cached.
+
+        Args:
+            session: Database session
+            project_id: Project ID to record affinity for
+        """
+        if not self.config.JOB_AFFINITY_ENABLED:
+            return
+
+        await session.execute(
+            text("""
+                INSERT INTO project_machine_affinity (project_id, machine_id, last_processed_at, job_count)
+                VALUES (:project_id, :machine_id, NOW(), 1)
+                ON CONFLICT (project_id) DO UPDATE SET
+                    machine_id = :machine_id,
+                    last_processed_at = NOW(),
+                    job_count = project_machine_affinity.job_count + 1
+            """),
+            {"project_id": project_id, "machine_id": self.machine_id},
+        )
 
     async def process_job(self, job_id: str) -> None:
         """
@@ -141,6 +173,11 @@ class JobProcessor:
                         result=result_data,
                     )
                 )
+
+                # Record affinity for job routing optimization
+                if job.project_id:
+                    await self._record_affinity(session, job.project_id)
+
                 await session.commit()
 
                 self.logger.info(f"✅ {job.type} job completed successfully", job_id=job_id, type=job.type)
@@ -1083,6 +1120,9 @@ class JobProcessor:
         """
         Enqueue a new job.
 
+        If the project has a machine affinity (a machine that recently processed it),
+        sets preferred_machine_id to route the job to that machine for cache optimization.
+
         Args:
             session: Database session
             project_id: Project ID
@@ -1093,6 +1133,17 @@ class JobProcessor:
         Returns:
             Created job
         """
+        # Look up preferred machine from affinity table
+        preferred_machine_id = None
+        if project_id and self.config.JOB_AFFINITY_ENABLED:
+            stmt = (
+                select(ProjectMachineAffinity.machine_id)
+                .where(ProjectMachineAffinity.project_id == project_id)
+                .limit(1)
+            )
+            result = await session.execute(stmt)
+            preferred_machine_id = result.scalar_one_or_none()
+
         new_job = ProcessingJob(
             id=str(uuid.uuid4()),
             project_id=project_id,
@@ -1100,6 +1151,7 @@ class JobProcessor:
             type=job_type.value,
             status=JobStatus.QUEUED.value,
             payload=payload,
+            preferred_machine_id=preferred_machine_id,
         )
         session.add(new_job)
         return new_job

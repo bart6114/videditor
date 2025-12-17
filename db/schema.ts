@@ -263,6 +263,9 @@ export const processingJobs = pgTable(
     errorMessage: text('error_message'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
+    // Job affinity fields for cache optimization
+    preferredMachineId: varchar('preferred_machine_id', { length: 255 }),
+    claimedByMachineId: varchar('claimed_by_machine_id', { length: 255 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -270,8 +273,32 @@ export const processingJobs = pgTable(
     projectIdIdx: index('idx_processing_jobs_project_id').on(table.projectId),
     jobStatusIdx: index('idx_processing_jobs_status').on(table.status),
     jobTypeIdx: index('idx_processing_jobs_type').on(table.type),
+    preferredMachineIdIdx: index('idx_processing_jobs_preferred_machine_id').on(table.preferredMachineId),
   })
 );
+
+// ============================================================================
+// PROJECT MACHINE AFFINITY (Job routing optimization for video cache)
+// ============================================================================
+
+export const projectMachineAffinity = pgTable(
+  'project_machine_affinity',
+  {
+    projectId: varchar('project_id', { length: 255 })
+      .primaryKey()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    machineId: varchar('machine_id', { length: 255 }).notNull(),
+    lastProcessedAt: timestamp('last_processed_at', { withTimezone: true }).defaultNow().notNull(),
+    jobCount: integer('job_count').default(1).notNull(),
+  },
+  (table) => ({
+    machineIdIdx: index('idx_project_machine_affinity_machine_id').on(table.machineId),
+    lastProcessedAtIdx: index('idx_project_machine_affinity_last_processed_at').on(table.lastProcessedAt),
+  })
+);
+
+export type ProjectMachineAffinity = typeof projectMachineAffinity.$inferSelect;
+export type NewProjectMachineAffinity = typeof projectMachineAffinity.$inferInsert;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
