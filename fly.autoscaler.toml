@@ -1,0 +1,16 @@
+app = "videditor-jobs-autoscaler"
+primary_region = "ams"
+
+[build]
+image = "flyio/fly-autoscaler:0.3"
+
+[env]
+FAS_PROMETHEUS_ADDRESS = "https://api.fly.io/prometheus/videditor"
+FAS_PROMETHEUS_METRIC_NAME = "active_jobs"
+FAS_PROMETHEUS_QUERY = "sum(videditor_jobs_active{app='videditor-jobs'})"
+FAS_APP_NAME = "videditor-jobs"
+FAS_CREATED_MACHINE_COUNT = "max(1, min(5, ceil(active_jobs / 3)))"
+
+[metrics]
+port = 9090
+path = "/metrics"

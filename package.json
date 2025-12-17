@@ -19,6 +19,7 @@
     "db:drop": "drizzle-kit drop",
     "deploy:app": "fly deploy --config fly.app.toml",
     "deploy:jobs": "fly deploy --config fly.jobs.toml",
+    "deploy:autoscaler": "fly deploy --config fly.autoscaler.toml --ha=false",
     "stripe:listen": "stripe listen --forward-to localhost:3000/api/v1/webhooks/stripe"
   },
   "dependencies": {
