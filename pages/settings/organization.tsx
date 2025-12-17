@@ -589,15 +589,22 @@ export default function OrganizationSettings() {
                   </div>
                 </div>
 
-                {/* Placeholder for TikTok */}
-                <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50 opacity-60">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                      <span className="text-lg">🎵</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">TikTok</p>
-                      <p className="text-sm text-muted-foreground">Coming soon</p>
+                {/* TikTok Connection */}
+                <div className="relative">
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center">
+                    <span className="px-3 py-1 bg-muted rounded-full text-sm font-medium text-muted-foreground">
+                      Coming Soon
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                        <span className="text-lg">🎵</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">TikTok</p>
+                        <p className="text-sm text-muted-foreground">Not connected</p>
+                      </div>
                     </div>
                   </div>
                 </div>

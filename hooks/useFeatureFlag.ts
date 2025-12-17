@@ -63,8 +63,8 @@ export function useInstagramSchedulingEnabled(): FeatureFlagState {
  * Used for calendar access and navigation.
  */
 export function useAnySchedulingEnabled(): FeatureFlagState {
-  const youtube = useFeatureFlag('youtube-scheduling');
-  const instagram = useFeatureFlag('instagram-scheduling');
+  const youtube = useYouTubeSchedulingEnabled();
+  const instagram = useInstagramSchedulingEnabled();
   return {
     enabled: youtube.enabled || instagram.enabled,
     loading: youtube.loading || instagram.loading,

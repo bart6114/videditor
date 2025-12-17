@@ -89,7 +89,7 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
         >
           {/* Header with close button */}
           <div className="flex h-14 items-center justify-between px-4 border-b border-border/50">
-            <MonkeyLogo size="md" linkTo="/" showText={false} />
+            <MonkeyLogo size="md" linkTo="/projects" showText={false} />
             <DialogPrimitive.Close className="rounded-md p-2 hover:bg-secondary transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
               <X className="h-5 w-5" />
               <span className="sr-only">Close menu</span>

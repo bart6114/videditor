@@ -30,7 +30,7 @@ export default function MobileHeader({ title, onMenuClick }: MobileHeaderProps) 
             {title}
           </h1>
         ) : (
-          <MonkeyLogo size="sm" linkTo="/" showText={false} />
+          <MonkeyLogo size="sm" linkTo="/projects" showText={false} />
         )}
       </div>
 

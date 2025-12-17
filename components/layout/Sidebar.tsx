@@ -57,7 +57,7 @@ export default function Sidebar() {
     <div className="flex h-full w-64 flex-col bg-card/50 backdrop-blur-sm border-r border-border" data-tour="sidebar">
       {/* Logo/Brand */}
       <div className="flex h-16 items-center justify-center border-b border-border/50">
-        <MonkeyLogo size="lg" linkTo="/" showText={false} />
+        <MonkeyLogo size="lg" linkTo="/projects" showText={false} />
       </div>
 
       {/* Navigation */}
