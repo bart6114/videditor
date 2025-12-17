@@ -2,7 +2,7 @@ import Head from 'next/head'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
-import { Sparkles, Upload, Download, ArrowRight } from 'lucide-react'
+import { Sparkles, Upload, Download, ArrowRight, Calendar } from 'lucide-react'
 import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 import { Button } from '@/components/ui/button'
 import { MonkeyLogo } from '@/components/MonkeyLogo'
@@ -308,7 +308,7 @@ export default function Home() {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-foreground">Schedule & Publish</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Publish your shorts directly to social platforms.
+              Publish your shorts directly to social platforms, or schedule them using natural language.
             </p>
           </div>
 
@@ -364,6 +364,27 @@ export default function Home() {
                 </span>
               </div>
             </Link>
+          </div>
+
+          {/* AI Scheduling Card */}
+          <div className="mt-6 max-w-4xl mx-auto">
+            <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 p-8">
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'radial-gradient(circle at center, rgba(139, 92, 246, 0.1), transparent 70%)' }} />
+              <div className="relative flex flex-col md:flex-row md:items-center gap-6">
+                <div className="w-14 h-14 shrink-0 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <Calendar size={28} className="text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold mb-2 text-foreground">AI-Powered Scheduling</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed mb-3">
+                    Describe your schedule in plain English and let AI handle the rest.
+                  </p>
+                  <div className="inline-block px-4 py-2 rounded-lg bg-muted/50 border border-border/50 text-sm text-muted-foreground italic">
+                    &ldquo;Publish these shorts across the next five days, prefer mornings between 7 and 9am&rdquo;
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
