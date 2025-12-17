@@ -547,6 +547,7 @@ export default function ProjectDetail() {
           status: activeAnalysisJob.status,
           progress: activeAnalysisJob.progress?.phase !== 'transcribing' ? activeAnalysisJob.progress as { phase: 'analyzing' | 'generating'; current: number; total: number } : undefined,
         })
+        setLastAnalysisJobId(activeAnalysisJob.id) // Restore job ID for batch tracking
         setIsGeneratingShorts(true) // Resume showing progress
       } else {
         setActiveJob(null)
@@ -1501,10 +1502,10 @@ export default function ProjectDetail() {
                       ) : activeJob.progress?.phase === 'generating' ? (
                         <>
                           <p className="font-medium text-foreground mb-1">
-                            Creating short containers...
+                            Processing clips...
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Queueing {activeJob.progress.total} shorts for processing
+                            {activeJob.progress.current} of {activeJob.progress.total} shorts created
                           </p>
                         </>
                       ) : (
