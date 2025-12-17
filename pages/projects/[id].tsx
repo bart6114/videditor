@@ -45,6 +45,8 @@ import {
 } from 'lucide-react'
 import type { Project, Short, Transcription } from '@server/db/schema'
 import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortTasks } from '@shared/index'
+import { useUserSettings } from '@/hooks/useUserSettings'
+import { useProjectData } from '@/hooks/useProjectData'
 import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
@@ -215,15 +217,14 @@ export default function ProjectDetail() {
   const { call } = useApi()
   const { getToken } = useAuth()
   const { shouldShowTour, startTour } = useOnboarding()
+  const userSettings = useUserSettings()
+  const projectData = useProjectData(id as string | undefined)
 
-  const [project, setProject] = useState<Project | null>(null)
-  const [shorts, setShorts] = useState<Short[]>([])
-  const [transcription, setTranscription] = useState<Transcription | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Destructure commonly used values from projectData
+  const { project, shorts, transcription, loading, activeJob, transcriptionJob, scheduledPostsByShort, lastAnalysisJobId } = projectData
+
+  // Local UI state (not managed by hook)
   const [analyzing, setAnalyzing] = useState(false)
-  const [isGeneratingShorts, setIsGeneratingShorts] = useState(false)
-  const [activeJob, setActiveJob] = useState<{ id: string; status: string; progress?: { phase: 'analyzing' | 'generating'; current: number; total: number } } | null>(null)
-  const [lastAnalysisJobId, setLastAnalysisJobId] = useState<string | null>(null)
   const [shortsCount, setShortsCount] = useState(3)
   const [preferredLength, setPreferredLength] = useState(45)
   const [maxLength, setMaxLength] = useState(60)
@@ -231,56 +232,56 @@ export default function ProjectDetail() {
   const [customSocialPrompt, setCustomSocialPrompt] = useState('')
   const [avoidExistingOverlap, setAvoidExistingOverlap] = useState(false)
   const [socialPlatforms, setSocialPlatforms] = useState<SocialPlatform[]>([])
-  const [defaultPromptLoaded, setDefaultPromptLoaded] = useState(false)
-  const [usingDefaultPrompt, setUsingDefaultPrompt] = useState(false)
-  const [usingDefaultSocialPrompt, setUsingDefaultSocialPrompt] = useState(false)
-  const [usingDefaultPlatforms, setUsingDefaultPlatforms] = useState(false)
+  const [settingsApplied, setSettingsApplied] = useState(false) // Track if defaults have been applied to form
+  // Store loaded defaults to compute "using default" flags
+  const [loadedDefaults, setLoadedDefaults] = useState<{
+    customPrompt: string | null
+    socialPrompt: string | null
+    platforms: SocialPlatform[]
+  }>({ customPrompt: null, socialPrompt: null, platforms: [] })
+
+  // Computed "using default" flags - compare current values with loaded defaults
+  const arraysEqual = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((v, i) => v === b[i])
+  const usingDefaultPrompt = loadedDefaults.customPrompt !== null &&
+    customPrompt === loadedDefaults.customPrompt
+  const usingDefaultSocialPrompt = loadedDefaults.socialPrompt !== null &&
+    customSocialPrompt === loadedDefaults.socialPrompt
+  const usingDefaultPlatforms = loadedDefaults.platforms.length > 0 &&
+    arraysEqual(socialPlatforms, loadedDefaults.platforms)
   const [showAnalysisPrompt, setShowAnalysisPrompt] = useState(false)
   const [showSocialPrompt, setShowSocialPrompt] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [selectedShort, setSelectedShort] = useState<Short | null>(null)
   const [transcriptionPanelOpen, setTranscriptionPanelOpen] = useState(false)
-  const [downloadingAll, setDownloadingAll] = useState(false)
-  const [downloadingMetadata, setDownloadingMetadata] = useState(false)
-  const [downloadingShortId, setDownloadingShortId] = useState<string | null>(null)
+  // Consolidated download state
+  type DownloadState =
+    | { type: 'idle' }
+    | { type: 'all' }
+    | { type: 'metadata' }
+    | { type: 'short'; shortId: string }
+  const [downloadState, setDownloadState] = useState<DownloadState>({ type: 'idle' })
   const [videoPlayerLoaded, setVideoPlayerLoaded] = useState(false)
-  const [deleteShortDialogOpen, setDeleteShortDialogOpen] = useState(false)
-  const [shortToDelete, setShortToDelete] = useState<Short | null>(null)
-  const [deletingShort, setDeletingShort] = useState(false)
-  const [deleteProjectDialogOpen, setDeleteProjectDialogOpen] = useState(false)
-  const [deletingProject, setDeletingProject] = useState(false)
-  const [bulkScheduleDialogOpen, setBulkScheduleDialogOpen] = useState(false)
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [savingTitle, setSavingTitle] = useState(false)
-  const [userCredits, setUserCredits] = useState<number | null>(null)
+  // Consolidated dialog state
+  type DialogState =
+    | { type: 'none' }
+    | { type: 'deleteShort'; short: Short; deleting: boolean }
+    | { type: 'deleteProject'; deleting: boolean }
+    | { type: 'bulkSchedule' }
+  const [dialog, setDialog] = useState<DialogState>({ type: 'none' })
+  const [bulkDeleting, setBulkDeleting] = useState(false) // For bulk delete via window.confirm
+  // Consolidated title edit state
+  type TitleEditState =
+    | { type: 'viewing' }
+    | { type: 'editing'; value: string; saving: boolean }
+  const [titleEdit, setTitleEdit] = useState<TitleEditState>({ type: 'viewing' })
   const [showInsufficientCredits, setShowInsufficientCredits] = useState(false)
-  const [defaultSchedulingPrompt, setDefaultSchedulingPrompt] = useState<string | null>(null)
 
-  // Transcription job tracking for error/retry handling
-  const [transcriptionJob, setTranscriptionJob] = useState<{
-    id: string;
-    status: string;
-    errorMessage?: string | null;
-    progress?: { phase: string; current: number; total: number };
-  } | null>(null)
+  // Local UI state for retry button feedback
   const [retryingTranscription, setRetryingTranscription] = useState(false)
 
   // Multi-select state for shorts
   const [selectedShortIds, setSelectedShortIds] = useState<Set<string>>(new Set())
-
-  // Scheduled posts state for displaying publishing status on shorts
-  const [scheduledPostsByShort, setScheduledPostsByShort] = useState<Record<string, {
-    id: string
-    status: string
-    scheduledFor: Date
-    title: string
-    platformPostId: string | null
-    platformUrl: string | null
-    errorMessage: string | null
-    platform: string
-    channelTitle: string | null
-  }[]>>({})
 
   // Helper functions for selection
   const toggleShortSelection = (shortId: string) => {
@@ -326,100 +327,7 @@ export default function ProjectDetail() {
     }
   }, [shouldShowTour, startTour])
 
-  // Initial load
-  useEffect(() => {
-    if (id) {
-      loadProjectData()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
-
-  // Poll for updates while generating shorts OR while shorts are pending/processing OR while transcription is in progress
-  useEffect(() => {
-    // Check if there are pending/processing shorts
-    const hasPendingShorts = shorts.some(s => s.status === 'pending' || s.status === 'processing')
-    // Check if transcription is in progress
-    const isTranscribing = transcriptionJob && ['queued', 'running'].includes(transcriptionJob.status)
-
-    if (!isGeneratingShorts && !hasPendingShorts && !isTranscribing) return
-    if (!id) return
-
-    const interval = setInterval(async () => {
-      // Fetch both project data and jobs in parallel
-      try {
-        const [projectData, jobsData] = await Promise.all([
-          call<{
-            project: Project
-            transcription: Transcription | null
-            shorts: Short[]
-          }>(`/v1/projects/${id}`),
-          call<{ jobs: Array<{ id: string; type: string; status: string; errorMessage?: string | null; createdAt?: string; progress?: { phase: 'transcribing' | 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
-        ])
-
-        // Update project/shorts data (preserve URLs)
-        setProject((prev) => {
-          const newProject = projectData.project as Project & { videoUrl?: string; thumbnailUrl?: string }
-          if (prev) {
-            if ((prev as any).videoUrl) {
-              ;(newProject as any).videoUrl = (prev as any).videoUrl
-            }
-            if ((prev as any).thumbnailUrl) {
-              ;(newProject as any).thumbnailUrl = (prev as any).thumbnailUrl
-            }
-          }
-          return newProject
-        })
-        setTranscription(projectData.transcription)
-        setShorts(projectData.shorts || [])
-
-        // Update transcription job status
-        const transcriptionJobs = jobsData.jobs.filter(j => j.type === 'transcription')
-        if (transcriptionJobs.length > 0) {
-          const sortedJobs = [...transcriptionJobs].sort((a, b) =>
-            new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-          )
-          const latestJob = sortedJobs[0]
-          setTranscriptionJob({
-            id: latestJob.id,
-            status: latestJob.status,
-            errorMessage: latestJob.errorMessage,
-            progress: latestJob.progress,
-          })
-        }
-
-        // Find active analysis job (only analysis jobs have 'analyzing' or 'generating' phases)
-        const analysisJob = jobsData.jobs.find(
-          (j) => j.type === 'analysis' && ['queued', 'running'].includes(j.status)
-        )
-        if (analysisJob) {
-          setActiveJob({
-            id: analysisJob.id,
-            status: analysisJob.status,
-            progress: analysisJob.progress?.phase !== 'transcribing' ? analysisJob.progress as { phase: 'analyzing' | 'generating'; current: number; total: number } : undefined,
-          })
-        } else {
-          setActiveJob(null)
-        }
-
-        // Stop polling when job completes AND no pending shorts in current batch
-        const currentBatchShorts = lastAnalysisJobId
-          ? (projectData.shorts || []).filter(s => s.analysisJobId === lastAnalysisJobId)
-          : (projectData.shorts || [])
-        const stillHasPendingShorts = currentBatchShorts.some(
-          s => s.status === 'pending' || s.status === 'processing'
-        )
-        if (!analysisJob && !stillHasPendingShorts) {
-          setIsGeneratingShorts(false)
-          setLastAnalysisJobId(null)
-        }
-      } catch (error) {
-        console.error('Error polling for updates:', error)
-      }
-    }, 3000)
-
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGeneratingShorts, id, call, shorts, transcriptionJob, lastAnalysisJobId])
+  // Note: Initial load and polling are handled by useProjectData hook
 
   // Keyboard shortcut for select all (Ctrl/Cmd+A)
   useEffect(() => {
@@ -440,161 +348,51 @@ export default function ProjectDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shorts.length, selectedShortIds.size])
 
-  // Load user's default settings and credits
+  // Apply user's default settings to form inputs when loaded
   useEffect(() => {
-    if (defaultPromptLoaded) return
+    if (settingsApplied || !userSettings.settings) return
 
-    async function loadDefaultSettings() {
-      try {
-        const [settingsData, creditsData] = await Promise.all([
-          call<{ settings: { defaultCustomPrompt: string | null; defaultSocialPrompt: string | null; defaultSocialPlatforms: SocialPlatform[]; defaultAvoidOverlap: boolean; defaultPreferredLength: number; defaultMaxLength: number; defaultSchedulingPrompt: string | null } }>('/v1/user/settings'),
-          call<{ credits: number }>('/v1/billing/credits'),
-        ])
-
-        if (settingsData.settings.defaultCustomPrompt) {
-          setCustomPrompt(settingsData.settings.defaultCustomPrompt)
-          setUsingDefaultPrompt(true)
-          setShowAnalysisPrompt(true) // Auto-expand if user has a default
-        }
-        if (settingsData.settings.defaultSocialPrompt) {
-          setCustomSocialPrompt(settingsData.settings.defaultSocialPrompt)
-          setUsingDefaultSocialPrompt(true)
-          setShowSocialPrompt(true) // Auto-expand if user has a default
-        }
-        if (settingsData.settings.defaultSocialPlatforms?.length > 0) {
-          setSocialPlatforms(settingsData.settings.defaultSocialPlatforms)
-          setUsingDefaultPlatforms(true)
-        }
-        if (settingsData.settings.defaultAvoidOverlap !== undefined) {
-          setAvoidExistingOverlap(settingsData.settings.defaultAvoidOverlap)
-        }
-        if (settingsData.settings.defaultPreferredLength) {
-          setPreferredLength(settingsData.settings.defaultPreferredLength)
-        }
-        if (settingsData.settings.defaultMaxLength) {
-          setMaxLength(settingsData.settings.defaultMaxLength)
-        }
-        if (settingsData.settings.defaultSchedulingPrompt) {
-          setDefaultSchedulingPrompt(settingsData.settings.defaultSchedulingPrompt)
-        }
-
-        setUserCredits(creditsData.credits)
-      } catch (error) {
-        // Silently ignore - user just won't have defaults prefilled
-      } finally {
-        setDefaultPromptLoaded(true)
-      }
+    const settings = userSettings.settings
+    // Store loaded defaults for "using default" comparison
+    setLoadedDefaults({
+      customPrompt: settings.defaultCustomPrompt || null,
+      socialPrompt: settings.defaultSocialPrompt || null,
+      platforms: settings.defaultSocialPlatforms || [],
+    })
+    // Apply defaults to form inputs
+    if (settings.defaultCustomPrompt) {
+      setCustomPrompt(settings.defaultCustomPrompt)
+      setShowAnalysisPrompt(true)
     }
-    loadDefaultSettings()
-  }, [call, defaultPromptLoaded])
-
-  async function loadProjectData() {
-    if (!id || typeof id !== 'string') return
-
-    try {
-      // Fetch project data and jobs in parallel
-      const [data, jobsData] = await Promise.all([
-        call<{
-          project: Project
-          transcription: Transcription | null
-          shorts: Short[]
-        }>(`/v1/projects/${id}`),
-        call<{ jobs: Array<{ id: string; type: string; status: string; errorMessage?: string | null; createdAt?: string; progress?: { phase: 'transcribing' | 'analyzing' | 'generating'; current: number; total: number } }> }>(`/v1/projects/${id}/jobs`),
-      ])
-
-      // Preserve existing URLs to prevent video player restart during polling
-      setProject((prev) => {
-        const newProject = data.project as Project & { videoUrl?: string; thumbnailUrl?: string }
-        if (prev) {
-          // Keep existing URLs if already loaded
-          if ((prev as any).videoUrl) {
-            ;(newProject as any).videoUrl = (prev as any).videoUrl
-          }
-          if ((prev as any).thumbnailUrl) {
-            ;(newProject as any).thumbnailUrl = (prev as any).thumbnailUrl
-          }
-        }
-        return newProject
-      })
-      setTranscription(data.transcription)
-      setShorts(data.shorts || [])
-
-      // Find the most recent transcription job
-      const transcriptionJobs = jobsData.jobs.filter(j => j.type === 'transcription')
-      if (transcriptionJobs.length > 0) {
-        // Sort by createdAt descending to get the most recent
-        const sortedJobs = [...transcriptionJobs].sort((a, b) =>
-          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-        )
-        const latestJob = sortedJobs[0]
-        setTranscriptionJob({
-          id: latestJob.id,
-          status: latestJob.status,
-          errorMessage: latestJob.errorMessage,
-          progress: latestJob.progress,
-        })
-      } else {
-        setTranscriptionJob(null)
-      }
-
-      // Check for active analysis job (e.g., user refreshed page mid-generation)
-      const activeAnalysisJob = jobsData.jobs.find(
-        (j) => j.type === 'analysis' && ['queued', 'running'].includes(j.status)
-      )
-      if (activeAnalysisJob) {
-        setActiveJob({
-          id: activeAnalysisJob.id,
-          status: activeAnalysisJob.status,
-          progress: activeAnalysisJob.progress?.phase !== 'transcribing' ? activeAnalysisJob.progress as { phase: 'analyzing' | 'generating'; current: number; total: number } : undefined,
-        })
-        setLastAnalysisJobId(activeAnalysisJob.id) // Restore job ID for batch tracking
-        setIsGeneratingShorts(true) // Resume showing progress
-      } else {
-        setActiveJob(null)
-      }
-      // Fetch scheduled posts for all shorts in the project
-      try {
-        const scheduledData = await call<{ posts: Record<string, {
-          id: string
-          status: string
-          scheduledFor: string
-          title: string
-          platformPostId: string | null
-          platformUrl: string | null
-          errorMessage: string | null
-          platform: string
-          channelTitle: string | null
-        }[]> }>(`/v1/projects/${id}/scheduled-posts`)
-        // Convert scheduledFor strings to Dates
-        const postsWithDates: Record<string, typeof scheduledPostsByShort[string]> = {}
-        for (const [shortId, posts] of Object.entries(scheduledData.posts)) {
-          postsWithDates[shortId] = posts.map(p => ({
-            ...p,
-            scheduledFor: new Date(p.scheduledFor)
-          }))
-        }
-        setScheduledPostsByShort(postsWithDates)
-      } catch (err) {
-        // Non-critical - don't block project loading
-        console.error('Error loading scheduled posts:', err)
-      }
-    } catch (error) {
-      console.error('Error loading project:', error)
-    } finally {
-      setLoading(false)
+    if (settings.defaultSocialPrompt) {
+      setCustomSocialPrompt(settings.defaultSocialPrompt)
+      setShowSocialPrompt(true)
     }
-  }
+    if (settings.defaultSocialPlatforms?.length > 0) {
+      setSocialPlatforms(settings.defaultSocialPlatforms)
+    }
+    if (settings.defaultAvoidOverlap !== undefined) {
+      setAvoidExistingOverlap(settings.defaultAvoidOverlap)
+    }
+    if (settings.defaultPreferredLength) {
+      setPreferredLength(settings.defaultPreferredLength)
+    }
+    if (settings.defaultMaxLength) {
+      setMaxLength(settings.defaultMaxLength)
+    }
+    setSettingsApplied(true)
+  }, [userSettings.settings, settingsApplied])
 
   async function handleAnalyze() {
     // Check credits before proceeding
-    if (userCredits !== null && userCredits < shortsCount) {
+    if (userSettings.credits !== null && userSettings.credits < shortsCount) {
       setShowInsufficientCredits(true)
       return
     }
     setShowInsufficientCredits(false)
 
     setAnalyzing(true)
-    setIsGeneratingShorts(true)
+    projectData.setIsGeneratingShorts(true)
 
     try {
       const jobData = await call<{ job: { id: string; status: string } }>(`/v1/projects/${id}/jobs`, {
@@ -614,30 +412,20 @@ export default function ProjectDetail() {
       })
 
       // Set the active job immediately and track its ID for progress display
-      setActiveJob({ id: jobData.job.id, status: jobData.job.status })
-      setLastAnalysisJobId(jobData.job.id)
+      projectData.setActiveJob({ id: jobData.job.id, status: jobData.job.status })
+      projectData.setLastAnalysisJobId(jobData.job.id)
 
       // Refresh credits after successful job creation
-      try {
-        const creditsData = await call<{ credits: number }>('/v1/billing/credits')
-        setUserCredits(creditsData.credits)
-      } catch {
-        // Silently ignore credit refresh errors
-      }
+      userSettings.refreshCredits()
     } catch (error) {
       console.error('Error analyzing:', error)
 
       // Refresh credits to show current balance
-      try {
-        const creditsData = await call<{ credits: number }>('/v1/billing/credits')
-        setUserCredits(creditsData.credits)
-      } catch {
-        // Silently ignore credit refresh errors
-      }
+      userSettings.refreshCredits()
 
       alert(error instanceof Error ? error.message : 'Failed to generate shorts')
-      setIsGeneratingShorts(false)
-      setActiveJob(null)
+      projectData.setIsGeneratingShorts(false)
+      projectData.setActiveJob(null)
     } finally {
       setAnalyzing(false)
     }
@@ -661,7 +449,7 @@ export default function ProjectDetail() {
       })
 
       // Reload project data to get fresh state (new job will be queued)
-      await loadProjectData()
+      await projectData.refresh()
     } catch (error) {
       console.error('Error retrying transcription:', error)
       alert(error instanceof Error ? error.message : 'Failed to retry transcription')
@@ -671,7 +459,7 @@ export default function ProjectDetail() {
   }
 
   async function handleDownloadShort(short: Short) {
-    setDownloadingShortId(short.id)
+    setDownloadState({ type: 'short', shortId: short.id })
     try {
       const data = await call<{ downloadUrl: string; filename: string }>(
         `/v1/projects/${id}/shorts/${short.id}/download`
@@ -688,7 +476,7 @@ export default function ProjectDetail() {
       console.error('Error downloading short:', error)
       alert(error instanceof Error ? error.message : 'Failed to download short')
     } finally {
-      setDownloadingShortId(null)
+      setDownloadState({ type: 'idle' })
     }
   }
 
@@ -713,7 +501,7 @@ export default function ProjectDetail() {
       return
     }
 
-    setDownloadingAll(true)
+    setDownloadState({ type: 'all' })
     try {
       const token = await getToken()
       const url = hasSelections
@@ -755,7 +543,7 @@ export default function ProjectDetail() {
       console.error('Error downloading shorts:', error)
       alert(error instanceof Error ? error.message : 'Failed to download shorts')
     } finally {
-      setDownloadingAll(false)
+      setDownloadState({ type: 'idle' })
     }
   }
 
@@ -775,7 +563,7 @@ export default function ProjectDetail() {
       return
     }
 
-    setDownloadingMetadata(true)
+    setDownloadState({ type: 'metadata' })
     try {
       const url = hasSelections
         ? `/v1/projects/${id}/metadata?shortIds=${Array.from(selectedShortIds).join(',')}`
@@ -807,7 +595,7 @@ export default function ProjectDetail() {
       console.error('Error downloading metadata:', error)
       alert(error instanceof Error ? error.message : 'Failed to download metadata')
     } finally {
-      setDownloadingMetadata(false)
+      setDownloadState({ type: 'idle' })
     }
   }
 
@@ -816,29 +604,26 @@ export default function ProjectDetail() {
   }
 
   async function handleDeleteShort() {
-    if (!shortToDelete) return
+    if (dialog.type !== 'deleteShort') return
 
-    setDeletingShort(true)
+    setDialog({ ...dialog, deleting: true })
     try {
-      await call(`/v1/projects/${id}/shorts/${shortToDelete.id}`, {
+      await call(`/v1/projects/${id}/shorts/${dialog.short.id}`, {
         method: 'DELETE',
       })
 
       // Close dialog and refresh project data
-      setDeleteShortDialogOpen(false)
-      setShortToDelete(null)
-      await loadProjectData()
+      setDialog({ type: 'none' })
+      await projectData.refresh()
     } catch (error) {
       console.error('Error deleting short:', error)
-    } finally {
-      setDeletingShort(false)
+      setDialog({ ...dialog, deleting: false })
     }
   }
 
   function openDeleteShortDialog(short: Short, e: React.MouseEvent) {
     e.stopPropagation() // Prevent card click
-    setShortToDelete(short)
-    setDeleteShortDialogOpen(true)
+    setDialog({ type: 'deleteShort', short, deleting: false })
   }
 
   async function handleDeleteSelected() {
@@ -850,7 +635,7 @@ export default function ProjectDetail() {
 
     if (!confirmed) return
 
-    setDeletingShort(true)
+    setBulkDeleting(true)
     try {
       await call(`/v1/projects/${id}/shorts/bulk-delete`, {
         method: 'DELETE',
@@ -859,46 +644,45 @@ export default function ProjectDetail() {
 
       // Clear selection and refresh project data
       clearSelection()
-      await loadProjectData()
+      await projectData.refresh()
     } catch (error) {
       console.error('Error deleting shorts:', error)
       alert(error instanceof Error ? error.message : 'Failed to delete shorts')
     } finally {
-      setDeletingShort(false)
+      setBulkDeleting(false)
     }
   }
 
   function startEditingTitle() {
-    setNewTitle(project?.title || '')
-    setEditingTitle(true)
+    setTitleEdit({ type: 'editing', value: project?.title || '', saving: false })
   }
 
   async function handleSaveTitle() {
-    if (!project || !newTitle.trim()) return
+    if (titleEdit.type !== 'editing' || !project || !titleEdit.value.trim()) return
 
-    setSavingTitle(true)
+    setTitleEdit({ ...titleEdit, saving: true })
     try {
       await call(`/v1/projects/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ title: newTitle.trim() }),
+        body: JSON.stringify({ title: titleEdit.value.trim() }),
       })
 
-      await loadProjectData()
-      setEditingTitle(false)
+      await projectData.refresh()
+      setTitleEdit({ type: 'viewing' })
     } catch (error) {
       console.error('Error updating title:', error)
-    } finally {
-      setSavingTitle(false)
+      setTitleEdit({ ...titleEdit, saving: false })
     }
   }
 
   function cancelEditingTitle() {
-    setEditingTitle(false)
-    setNewTitle('')
+    setTitleEdit({ type: 'viewing' })
   }
 
   async function handleDeleteProject() {
-    setDeletingProject(true)
+    if (dialog.type !== 'deleteProject') return
+
+    setDialog({ ...dialog, deleting: true })
     try {
       await call(`/v1/projects/${id}`, {
         method: 'DELETE',
@@ -906,7 +690,7 @@ export default function ProjectDetail() {
       router.push('/projects')
     } catch (error) {
       console.error('Error deleting project:', error)
-      setDeletingProject(false)
+      setDialog({ ...dialog, deleting: false })
     }
   }
 
@@ -968,11 +752,11 @@ export default function ProjectDetail() {
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    {editingTitle ? (
+                    {titleEdit.type === 'editing' ? (
                       <div className="flex items-center gap-2 mb-2">
                         <Input
-                          value={newTitle}
-                          onChange={(e) => setNewTitle(e.target.value)}
+                          value={titleEdit.value}
+                          onChange={(e) => setTitleEdit({ ...titleEdit, value: e.target.value })}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleSaveTitle()
                             if (e.key === 'Escape') cancelEditingTitle()
@@ -983,9 +767,9 @@ export default function ProjectDetail() {
                         <Button
                           size="sm"
                           onClick={handleSaveTitle}
-                          disabled={savingTitle || !newTitle.trim()}
+                          disabled={titleEdit.saving || !titleEdit.value.trim()}
                         >
-                          {savingTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                          {titleEdit.saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
                         </Button>
                         <Button size="sm" variant="ghost" onClick={cancelEditingTitle}>
                           Cancel
@@ -1006,7 +790,7 @@ export default function ProjectDetail() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => setDeleteProjectDialogOpen(true)}
+                          onClick={() => setDialog({ type: 'deleteProject', deleting: false })}
                           className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                           title="Delete project"
                         >
@@ -1292,10 +1076,7 @@ export default function ProjectDetail() {
                         <textarea
                           placeholder="e.g., Focus on educational content, prefer clips with strong hooks..."
                           value={customPrompt}
-                          onChange={(e) => {
-                            setCustomPrompt(e.target.value)
-                            setUsingDefaultPrompt(false)
-                          }}
+                          onChange={(e) => setCustomPrompt(e.target.value)}
                           disabled={analyzing}
                           rows={3}
                           className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
@@ -1343,14 +1124,11 @@ export default function ProjectDetail() {
                           <button
                             key={platform}
                             type="button"
-                            onClick={() => {
-                              setSocialPlatforms((prev) =>
-                                prev.includes(platform)
-                                  ? prev.filter((p) => p !== platform)
-                                  : [...prev, platform]
-                              )
-                              setUsingDefaultPlatforms(false)
-                            }}
+                            onClick={() => setSocialPlatforms((prev) =>
+                              prev.includes(platform)
+                                ? prev.filter((p) => p !== platform)
+                                : [...prev, platform]
+                            )}
                             disabled={analyzing}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200 ${
                               isSelected
@@ -1400,10 +1178,7 @@ export default function ProjectDetail() {
                           <textarea
                             placeholder="e.g., Use a casual and friendly tone, include relevant emojis, always end with a CTA like 'Follow for more tips!'..."
                             value={customSocialPrompt}
-                            onChange={(e) => {
-                              setCustomSocialPrompt(e.target.value)
-                              setUsingDefaultSocialPrompt(false)
-                            }}
+                            onChange={(e) => setCustomSocialPrompt(e.target.value)}
                             disabled={analyzing}
                             rows={3}
                             className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
@@ -1419,7 +1194,7 @@ export default function ProjectDetail() {
                     <div className="flex gap-2">
                       <Button
                         onClick={handleAnalyze}
-                        disabled={analyzing || !!activeJob || !transcription || userCredits === null || isProcessingShorts}
+                        disabled={analyzing || !!activeJob || !transcription || userSettings.credits === null || isProcessingShorts}
                         className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         {analyzing ? (
@@ -1458,18 +1233,18 @@ export default function ProjectDetail() {
                       <span className="text-muted-foreground">
                         Cost: {shortsCount} credit{shortsCount !== 1 ? 's' : ''}
                       </span>
-                      {userCredits !== null && (
-                        <span className={userCredits < shortsCount ? 'text-destructive' : 'text-muted-foreground'}>
-                          Balance: {userCredits} credit{userCredits !== 1 ? 's' : ''}
+                      {userSettings.credits !== null && (
+                        <span className={userSettings.credits < shortsCount ? 'text-destructive' : 'text-muted-foreground'}>
+                          Balance: {userSettings.credits} credit{userSettings.credits !== 1 ? 's' : ''}
                         </span>
                       )}
                     </div>
 
                     {/* Insufficient credits warning - shown after failed generation attempt */}
-                    {showInsufficientCredits && userCredits !== null && (
+                    {showInsufficientCredits && userSettings.credits !== null && (
                       <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                         <p className="text-sm text-destructive">
-                          Insufficient credits. You need {shortsCount - userCredits} more credit{shortsCount - userCredits !== 1 ? 's' : ''}.{' '}
+                          Insufficient credits. You need {shortsCount - userSettings.credits} more credit{shortsCount - userSettings.credits !== 1 ? 's' : ''}.{' '}
                           <Link href="/settings/billing" className="underline font-medium hover:text-destructive/80">
                             Add credits
                           </Link>
@@ -1601,12 +1376,12 @@ export default function ProjectDetail() {
                       <Button
                         size="sm"
                         onClick={handleDeleteSelected}
-                        disabled={deletingShort}
+                        disabled={bulkDeleting}
                         variant="destructive"
                         title="Delete Selected Shorts"
                         className="min-h-[44px] sm:min-h-0"
                       >
-                        {deletingShort ? (
+                        {bulkDeleting ? (
                           <>
                             <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
                             <span className="hidden sm:inline">Deleting...</span>
@@ -1621,7 +1396,7 @@ export default function ProjectDetail() {
                     )}
                     <Button
                       size="sm"
-                      onClick={() => setBulkScheduleDialogOpen(true)}
+                      onClick={() => setDialog({ type: 'bulkSchedule' })}
                       variant="outline"
                       disabled={hasSelections ? selectedShortIds.size === 0 : shorts.filter((s) => s.status === 'completed' && s.outputObjectKey).length === 0}
                       title={hasSelections ? "Schedule Selected Shorts" : "Schedule All Shorts"}
@@ -1639,12 +1414,12 @@ export default function ProjectDetail() {
                     <Button
                       size="sm"
                       onClick={handleDownloadMetadata}
-                      disabled={downloadingMetadata || (hasSelections ? selectedShortIds.size === 0 : shorts.filter((s) => s.status === 'completed').length === 0)}
+                      disabled={downloadState.type === 'metadata' || (hasSelections ? selectedShortIds.size === 0 : shorts.filter((s) => s.status === 'completed').length === 0)}
                       variant="outline"
                       title={hasSelections ? "Download Selected Metadata" : "Download All Metadata"}
                       className="min-h-[44px] sm:min-h-0"
                     >
-                      {downloadingMetadata ? (
+                      {downloadState.type === 'metadata' ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>
@@ -1661,10 +1436,10 @@ export default function ProjectDetail() {
                     <Button
                       size="sm"
                       onClick={handleDownloadAll}
-                      disabled={downloadingAll || (hasSelections ? selectedShortIds.size === 0 : shorts.some((s) => s.status !== 'completed'))}
+                      disabled={downloadState.type === 'all' || (hasSelections ? selectedShortIds.size === 0 : shorts.some((s) => s.status !== 'completed'))}
                       className="bg-primary hover:bg-primary/90 text-primary-foreground min-h-[44px] sm:min-h-0 flex-1 sm:flex-initial"
                     >
-                      {downloadingAll ? (
+                      {downloadState.type === 'all' ? (
                         <>
                           <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
                           <span className="hidden sm:inline">Downloading...</span>
@@ -1789,10 +1564,10 @@ export default function ProjectDetail() {
                                     e.stopPropagation()
                                     handleDownloadShort(short)
                                   }}
-                                  disabled={downloadingShortId === short.id}
+                                  disabled={downloadState.type === 'short' && downloadState.shortId === short.id}
                                   className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 p-2 md:px-3"
                                 >
-                                  {downloadingShortId === short.id ? (
+                                  {downloadState.type === 'short' && downloadState.shortId === short.id ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                   ) : (
                                     <>
@@ -1833,7 +1608,7 @@ export default function ProjectDetail() {
           onClose={() => setSelectedShort(null)}
           onNavigate={(short) => setSelectedShort(short)}
           onShortUpdate={(updated) => {
-            setShorts(prev => prev.map(s => s.id === updated.id ? updated : s))
+            projectData.updateShorts(shorts.map(s => s.id === updated.id ? updated : s))
             setSelectedShort(updated)
           }}
         />
@@ -1846,14 +1621,14 @@ export default function ProjectDetail() {
         />
 
         {/* Delete Short Confirmation Dialog */}
-        <Dialog open={deleteShortDialogOpen} onOpenChange={setDeleteShortDialogOpen}>
+        <Dialog open={dialog.type === 'deleteShort'} onOpenChange={(open) => !open && setDialog({ type: 'none' })}>
           <DialogContent className="font-sans">
             <DialogHeader>
               <DialogTitle className="text-foreground">Delete Short</DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 <span className="block mb-3">Are you sure you want to delete this short?</span>
                 <div className="p-3 bg-muted rounded-md border border-border">
-                  <p className="text-sm text-foreground line-clamp-3">{shortToDelete?.transcriptionSlice}</p>
+                  <p className="text-sm text-foreground line-clamp-3">{dialog.type === 'deleteShort' ? dialog.short.transcriptionSlice : ''}</p>
                 </div>
                 <span className="block mt-3 font-semibold text-destructive">
                   This action cannot be undone.
@@ -1863,17 +1638,17 @@ export default function ProjectDetail() {
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setDeleteShortDialogOpen(false)}
-                disabled={deletingShort}
+                onClick={() => setDialog({ type: 'none' })}
+                disabled={dialog.type === 'deleteShort' && dialog.deleting}
               >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
                 onClick={handleDeleteShort}
-                disabled={deletingShort}
+                disabled={dialog.type === 'deleteShort' && dialog.deleting}
               >
-                {deletingShort ? (
+                {dialog.type === 'deleteShort' && dialog.deleting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Deleting...
@@ -1890,7 +1665,7 @@ export default function ProjectDetail() {
         </Dialog>
 
         {/* Delete Project Confirmation Dialog */}
-        <Dialog open={deleteProjectDialogOpen} onOpenChange={setDeleteProjectDialogOpen}>
+        <Dialog open={dialog.type === 'deleteProject'} onOpenChange={(open) => !open && setDialog({ type: 'none' })}>
           <DialogContent className="font-sans">
             <DialogHeader>
               <DialogTitle className="text-foreground">Delete Project</DialogTitle>
@@ -1911,17 +1686,17 @@ export default function ProjectDetail() {
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setDeleteProjectDialogOpen(false)}
-                disabled={deletingProject}
+                onClick={() => setDialog({ type: 'none' })}
+                disabled={dialog.type === 'deleteProject' && dialog.deleting}
               >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
                 onClick={handleDeleteProject}
-                disabled={deletingProject}
+                disabled={dialog.type === 'deleteProject' && dialog.deleting}
               >
-                {deletingProject ? (
+                {dialog.type === 'deleteProject' && dialog.deleting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Deleting...
@@ -1939,15 +1714,15 @@ export default function ProjectDetail() {
 
         {/* Bulk Schedule Dialog */}
         <BulkScheduleDialog
-          open={bulkScheduleDialogOpen}
-          onOpenChange={setBulkScheduleDialogOpen}
+          open={dialog.type === 'bulkSchedule'}
+          onOpenChange={(open) => !open && setDialog({ type: 'none' })}
           shorts={shorts.filter((s) => (hasSelections ? selectedShortIds.has(s.id) : true) && s.status === 'completed' && s.outputObjectKey)}
           organizationId={project?.organizationId || ''}
           onSuccess={() => {
             clearSelection()
-            loadProjectData()
+            projectData.refresh()
           }}
-          defaultSchedulingPrompt={defaultSchedulingPrompt}
+          defaultSchedulingPrompt={userSettings.settings?.defaultSchedulingPrompt || null}
         />
       </WorkspaceLayout>
     </>
