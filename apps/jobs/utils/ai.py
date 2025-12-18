@@ -88,6 +88,42 @@ def build_response_format(platforms: list[str]) -> dict[str, Any]:
     }
 
 
+def build_analysis_response_format() -> dict[str, Any]:
+    """
+    Build response_format for shorts analysis.
+
+    Note: Strict mode requires top-level object, so we wrap the array in {"segments": [...]}.
+    """
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "short_suggestions",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "segments": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "segment_id": {"type": "string"},
+                                "start_time": {"type": "string"},
+                                "end_time": {"type": "string"},
+                                "transcription": {"type": "string"},
+                            },
+                            "required": ["segment_id", "start_time", "end_time", "transcription"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["segments"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
 class ShortSuggestion:
     """Represents a suggested short clip from AI analysis."""
 
@@ -401,17 +437,19 @@ For each segment, provide:
 1. The exact start and end timestamps
 2. The full transcription of the spoken words in that segment
 
-Return your response as a JSON array with this exact format:
-[
-  {{
-    "segment_id": "001",
-    "start_time": "00:01:23,456",
-    "end_time": "00:02:05,789",
-    "transcription": "The exact words spoken in this segment..."
-  }}
-]
+Return your response as a JSON object with this exact format:
+{{
+  "segments": [
+    {{
+      "segment_id": "001",
+      "start_time": "00:01:23,456",
+      "end_time": "00:02:05,789",
+      "transcription": "The exact words spoken in this segment..."
+    }}
+  ]
+}}
 
-Return ONLY the JSON array with EXACTLY {num_shorts} segment(s), no other text."""
+Return ONLY the JSON object with EXACTLY {num_shorts} segment(s) in the segments array, no other text."""
 
     # Call OpenRouter API using OpenAI SDK
     # Uses PostHog-wrapped client if POSTHOG_API_KEY is configured
@@ -423,6 +461,7 @@ Return ONLY the JSON array with EXACTLY {num_shorts} segment(s), no other text."
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
         "max_tokens": 4000,
+        "response_format": build_analysis_response_format(),
     }
     if is_posthog_enabled():
         create_kwargs["posthog_trace_id"] = trace_id
@@ -446,20 +485,11 @@ Return ONLY the JSON array with EXACTLY {num_shorts} segment(s), no other text."
         logger.error("invalid_openrouter_response", error=str(e), response=response.model_dump())
         raise ValueError("Invalid response format from OpenRouter") from e
 
-    # Parse JSON array from content
-    # Handle markdown code blocks if present
-    content = content.strip()
-    if content.startswith("```json"):
-        content = content[7:]
-    elif content.startswith("```"):
-        content = content[3:]
-    if content.endswith("```"):
-        content = content[:-3]
-    content = content.strip()
-
+    # Parse JSON from content - structured output guarantees valid JSON
     try:
-        segments_data = json.loads(content)
-    except json.JSONDecodeError as e:
+        data = json.loads(content)
+        segments_data = data["segments"]
+    except (json.JSONDecodeError, KeyError) as e:
         logger.error("failed_to_parse_json", error=str(e), content=content)
         raise ValueError("Failed to parse JSON response from AI") from e
 
