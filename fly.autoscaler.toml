@@ -9,7 +9,7 @@ FAS_PROMETHEUS_ADDRESS = "https://api.fly.io/prometheus/videditor"
 FAS_PROMETHEUS_METRIC_NAME = "jobs"
 FAS_PROMETHEUS_QUERY = "sum(videditor_jobs_running_and_queued{app='videditor-app'})"
 FAS_APP_NAME = "videditor-jobs"
-FAS_STARTED_MACHINE_COUNT = "ceil(jobs / 3)"
+FAS_STARTED_MACHINE_COUNT = "max(1, ceil(jobs / 3))"
 
 [metrics]
 port = 9090
