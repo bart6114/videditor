@@ -16,7 +16,7 @@ type UseInboxReturn = InboxState & {
   deleteMessage: (messageId: string) => Promise<void>;
 };
 
-const POLL_INTERVAL = 5000; // Poll every 5 seconds for unread count
+const POLL_INTERVAL = 30000; // Poll every 30 seconds for unread count
 
 export function useInbox(): UseInboxReturn {
   const { call } = useApi();
