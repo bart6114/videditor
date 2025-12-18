@@ -47,6 +47,7 @@ import type { Project, Short, Transcription } from '@server/db/schema'
 import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortTasks } from '@shared/index'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { useProjectData } from '@/hooks/useProjectData'
+import { formatTimeAgoShort } from '@/lib/utils'
 import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
@@ -1426,6 +1427,7 @@ export default function ProjectDetail() {
                         <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Duration</th>
                         <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Timestamps</th>
                         <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground">Status</th>
+                        <th className="pb-3 pr-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Created</th>
                         <th className="pb-3 text-sm font-medium text-muted-foreground">Actions</th>
                       </tr>
                     </thead>
@@ -1501,6 +1503,12 @@ export default function ProjectDetail() {
                               short as Short & { tasks?: ShortTasks },
                               scheduledPostsByShort[short.id]
                             )}
+                          </td>
+                          {/* Created */}
+                          <td className="py-3 pr-4 hidden lg:table-cell">
+                            <span className="text-sm text-muted-foreground">
+                              {formatTimeAgoShort(short.createdAt)}
+                            </span>
                           </td>
                           {/* Actions */}
                           <td className="py-3">
