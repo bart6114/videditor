@@ -640,7 +640,7 @@ export default function CalendarPage() {
                           }`}
                         >
                           <Link
-                            href={`/projects/${post.project.id}`}
+                            href={`/projects/${post.project.id}?shortId=${post.short.id}`}
                             onClick={(e) => e.stopPropagation()}
                             className="block hover:opacity-80"
                           >

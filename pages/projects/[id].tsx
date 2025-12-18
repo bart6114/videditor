@@ -214,7 +214,7 @@ function renderShortStatusBadge(
 
 export default function ProjectDetail() {
   const router = useRouter()
-  const { id } = router.query
+  const { id, shortId } = router.query
   const { call } = useApi()
   const { getToken } = useAuth()
   const { shouldShowTour, startTour } = useOnboarding()
@@ -332,6 +332,20 @@ export default function ProjectDetail() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shorts.length, selectedShortIds.size])
+
+  // Auto-select short from URL query parameter (e.g., from calendar navigation)
+  useEffect(() => {
+    if (!id || typeof id !== 'string') return
+    if (shortId && typeof shortId === 'string' && shorts.length > 0) {
+      const short = shorts.find(s => s.id === shortId)
+      if (short && !selectedShort) {
+        setSelectedShort(short)
+        // Clear the query param to avoid re-selecting on refresh
+        router.replace(`/projects/${id}`, undefined, { shallow: true })
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, shortId, shorts])
 
   // Apply user's default settings to form inputs when loaded
   useEffect(() => {
