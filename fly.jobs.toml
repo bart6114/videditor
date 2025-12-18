@@ -16,7 +16,7 @@ kill_timeout = 300
   internal_port = 8081
   auto_stop_machines = "off"
   auto_start_machines = false
-  min_machines_running = 1
+  min_machines_running = 0
 
 [[vm]]
   size = "performance-1x"

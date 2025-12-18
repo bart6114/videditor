@@ -24,3 +24,7 @@ primary_region = "ams"
   size = "shared-cpu-1x"
   memory = "1gb"
   swap_size_mb = 512
+
+[metrics]
+  port = 3000
+  path = "/api/v1/metrics"

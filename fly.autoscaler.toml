@@ -6,10 +6,10 @@ image = "flyio/fly-autoscaler:0.3"
 
 [env]
 FAS_PROMETHEUS_ADDRESS = "https://api.fly.io/prometheus/videditor"
-FAS_PROMETHEUS_METRIC_NAME = "active_jobs"
-FAS_PROMETHEUS_QUERY = "sum(videditor_jobs_active{app='videditor-jobs'})"
+FAS_PROMETHEUS_METRIC_NAME = "jobs"
+FAS_PROMETHEUS_QUERY = "sum(videditor_jobs_running_and_queued{app='videditor-app'})"
 FAS_APP_NAME = "videditor-jobs"
-FAS_STARTED_MACHINE_COUNT = "min(5, floor(active_jobs / 3) + 1)"
+FAS_STARTED_MACHINE_COUNT = "ceil(jobs / 3)"
 
 [metrics]
 port = 9090
