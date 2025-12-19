@@ -926,11 +926,11 @@ class JobProcessor:
         Returns:
             Job result dictionary
         """
-        if not job.short_id:
-            raise ValueError("Short processing job requires shortId")
+        if not job.media_asset_id:
+            raise ValueError("Short processing job requires media_asset_id")
 
         payload = job.payload or {}
-        short_id = payload.get("shortId")
+        short_id = payload.get("shortId") or payload.get("mediaAssetId")
         project_id = payload.get("projectId")
         source_object_key = payload.get("sourceObjectKey")
         source_bucket = payload.get("sourceBucket")
