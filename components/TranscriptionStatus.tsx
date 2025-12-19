@@ -38,7 +38,43 @@ export function TranscriptionStatus({
   compact = false,
   showRetranscribe = false,
 }: TranscriptionStatusProps) {
-  // Ready state - has transcription
+  // Check for active processing FIRST (retrying or queued/running job)
+  // This must come before the transcription check so re-transcribe shows progress
+  const isProcessing = isRetrying || (transcriptionJob && ['queued', 'running'].includes(transcriptionJob.status))
+
+  // Processing state - job is running (takes priority over existing transcription)
+  if (isProcessing) {
+    const progress = transcriptionJob?.progress
+    const isQueued = isRetrying || transcriptionJob?.status === 'queued'
+    const hasProgress = progress?.phase === 'transcribing' && typeof progress.current === 'number' && typeof progress.total === 'number' && progress.total > 0
+
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+        <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground">
+            Transcribing...
+            {!isQueued && hasProgress && (
+              <span className="ml-2 text-primary">
+                {Math.round((progress.current! / progress.total!) * 100)}%
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">
+            {isQueued
+              ? 'Waiting in queue...'
+              : hasProgress && progress.total! > 1
+                ? `Processing ${progress.current}/${progress.total} segments`
+                : 'Processing audio'}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Ready state - has transcription (and no active processing)
   if (transcription) {
     return (
       <div className="space-y-2">
@@ -67,38 +103,6 @@ export function TranscriptionStatus({
             Re-transcribe
           </Button>
         )}
-      </div>
-    )
-  }
-
-  // Processing state - job is running
-  if (isRetrying || (transcriptionJob && ['queued', 'running'].includes(transcriptionJob.status))) {
-    const progress = transcriptionJob?.progress
-    const isQueued = isRetrying || transcriptionJob?.status === 'queued'
-    const hasProgress = progress?.phase === 'transcribing' && typeof progress.current === 'number' && typeof progress.total === 'number' && progress.total > 0
-
-    return (
-      <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
-        <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
-          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground">
-            Transcribing...
-            {!isQueued && hasProgress && (
-              <span className="ml-2 text-primary">
-                {Math.round((progress.current! / progress.total!) * 100)}%
-              </span>
-            )}
-          </p>
-          <p className="text-xs text-muted-foreground truncate">
-            {isQueued
-              ? 'Waiting in queue...'
-              : hasProgress && progress.total! > 1
-                ? `Processing ${progress.current}/${progress.total} segments`
-                : 'Processing audio'}
-          </p>
-        </div>
       </div>
     )
   }

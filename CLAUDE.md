@@ -229,6 +229,35 @@ Project-level status was removed because it was legacy from when 1 project = 1 v
 - `ProjectStatus` import failing → The type was removed from `@shared/index` and `apps/jobs/models.py`
 - UI showing stale processing state → Status is now tracked per-asset, not per-project
 
+### Removed `shorts` table (Dec 2024)
+The legacy `shorts` table has been removed. All shorts are now stored as `media_assets` with `assetType = 'short_form'`.
+
+**Key changes:**
+- `shorts` table removed from `db/schema.ts`
+- `Short` and `NewShort` types are now aliases for `MediaAsset` and `NewMediaAsset`
+- All shorts-related queries now use `media_assets` table with `assetType = 'short_form'` filter
+- `db/queries/shorts.ts` file deleted
+- `lib/transforms/mediaAssetToShort.ts` file deleted
+
+**Field mappings (legacy → current):**
+- `short.outputObjectKey` → `asset.sourceObjectKey`
+- `short.transcriptionSlice` → `asset.metadata.transcriptionSlice` (cast to `ShortFormMetadata`)
+- `short.startTime` → `asset.metadata.startTime`
+- `short.endTime` → `asset.metadata.endTime`
+- `short.analysisJobId` → `asset.metadata.analysisJobId`
+
+**Status value changes:**
+- `'pending'` → `'ready'` or `'uploading'` (depending on context)
+- `'processing'` → `'processing'` (unchanged)
+- `'completed'` → `'completed'` (unchanged)
+- `'error'` → `'error'` (unchanged)
+
+**If you see errors about:**
+- `shorts` table not existing → Use `media_assets` table with `assetType = 'short_form'`
+- `short.transcriptionSlice` not existing → Extract from `metadata as ShortFormMetadata`
+- `short.outputObjectKey` not existing → Use `asset.sourceObjectKey`
+- `getShortFilename` not found → Use `getAssetFilename` from `lib/api/shorts.ts`
+
 ### Before Production Deployment: Unified Media Assets Migration
 
 The codebase has been refactored to use `media_assets` table instead of project-level source fields and the legacy `shorts` table. Before deploying to production:

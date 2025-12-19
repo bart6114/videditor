@@ -52,7 +52,7 @@ import {
 } from 'lucide-react'
 import type { MediaAsset } from '@/types/projects'
 import type { Project, Short, Transcription } from '@server/db/schema'
-import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortTasks } from '@shared/index'
+import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortTasks, type ShortFormMetadata } from '@shared/index'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { useProjectData } from '@/hooks/useProjectData'
 import { formatTimeAgoShort } from '@/lib/utils'
@@ -92,6 +92,11 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, '0')}`
 }
 
+/** Extract ShortFormMetadata from a short's metadata field */
+function getShortMeta(short: Short): ShortFormMetadata | null {
+  return short.metadata as ShortFormMetadata | null
+}
+
 type ScheduledPost = {
   id: string
   status: string
@@ -108,12 +113,12 @@ function renderShortStatusBadge(
   short: Short & { tasks?: ShortTasks },
   scheduledPosts?: ScheduledPost[]
 ): React.ReactNode {
-  // PENDING
-  if (short.status === 'pending') {
+  // QUEUED (uploading or ready for processing)
+  if (short.status === 'uploading' || short.status === 'ready') {
     return (
       <Badge variant="secondary" className="text-xs">
         <Clock className="w-3 h-3 mr-1" />
-        Queued
+        {short.status === 'uploading' ? 'Uploading' : 'Queued'}
       </Badge>
     )
   }
@@ -288,6 +293,7 @@ export default function ProjectDetail() {
   type DialogState =
     | { type: 'none' }
     | { type: 'deleteShort'; short: Short; deleting: boolean }
+    | { type: 'deleteAsset'; asset: MediaAsset; deleting: boolean }
     | { type: 'deleteProject'; deleting: boolean }
     | { type: 'bulkSchedule' }
   const [dialog, setDialog] = useState<DialogState>({ type: 'none' })
@@ -650,6 +656,31 @@ export default function ProjectDetail() {
     setDialog({ type: 'deleteShort', short, deleting: false })
   }
 
+  async function handleDeleteAsset() {
+    if (dialog.type !== 'deleteAsset') return
+
+    setDialog({ ...dialog, deleting: true })
+    try {
+      await call(`/v1/projects/${id}/assets/${dialog.asset.id}`, {
+        method: 'DELETE',
+      })
+
+      // Close dialog, clear selection, and refresh project data
+      setDialog({ type: 'none' })
+      if (selectedAssetId === dialog.asset.id) {
+        setSelectedAssetId(null)
+      }
+      await projectData.refresh()
+    } catch (error) {
+      console.error('Error deleting asset:', error)
+      setDialog({ ...dialog, deleting: false })
+    }
+  }
+
+  function openDeleteAssetDialog(asset: MediaAsset) {
+    setDialog({ type: 'deleteAsset', asset, deleting: false })
+  }
+
   async function handleDeleteSelected() {
     if (selectedShortIds.size === 0) return
 
@@ -729,7 +760,7 @@ export default function ProjectDetail() {
       ? (project.metadata as Record<string, unknown>)
       : {}) ?? {}
   const playbackUrl = (project as any).videoUrl || null
-  const isProcessingShorts = shorts.some(s => s.status === 'pending' || s.status === 'processing')
+  const isProcessingShorts = shorts.some(s => s.status === 'uploading' || s.status === 'ready' || s.status === 'processing')
 
   return (
     <>
@@ -779,6 +810,7 @@ export default function ProjectDetail() {
                       isSelected={selectedAssetId === asset.id}
                       onSelect={() => setSelectedAssetId(selectedAssetId === asset.id ? null : asset.id)}
                       onPlayVideo={() => setPlayingAsset(asset)}
+                      onDelete={() => openDeleteAssetDialog(asset)}
                     />
                   ))}
                 </div>
@@ -886,7 +918,7 @@ export default function ProjectDetail() {
                       size="sm"
                       onClick={() => setDialog({ type: 'bulkSchedule' })}
                       variant="outline"
-                      disabled={hasSelections ? selectedShortIds.size === 0 : shorts.filter((s) => s.status === 'completed' && s.outputObjectKey).length === 0}
+                      disabled={hasSelections ? selectedShortIds.size === 0 : shorts.filter((s) => s.status === 'completed' && s.sourceObjectKey).length === 0}
                       title={hasSelections ? "Schedule Selected Shorts" : "Schedule All Shorts"}
                       className="min-h-[44px] sm:min-h-0"
                       data-tour="schedule-button"
@@ -895,7 +927,7 @@ export default function ProjectDetail() {
                       <span className="hidden sm:inline">
                         {hasSelections
                           ? `Schedule (${selectedShortIds.size})`
-                          : `Schedule All (${shorts.filter((s) => s.status === 'completed' && s.outputObjectKey).length})`
+                          : `Schedule All (${shorts.filter((s) => s.status === 'completed' && s.sourceObjectKey).length})`
                         }
                       </span>
                     </Button>
@@ -1016,7 +1048,7 @@ export default function ProjectDetail() {
                           {/* Transcript */}
                           <td className="py-3 pr-4">
                             <span className="text-sm text-foreground line-clamp-2 max-w-[300px]">
-                              {short.transcriptionSlice}
+                              {getShortMeta(short)?.transcriptionSlice || short.title}
                             </span>
                           </td>
                           {/* Duration - hidden on mobile */}
@@ -1024,15 +1056,15 @@ export default function ProjectDetail() {
                             <div className="flex items-center gap-1 text-sm text-foreground">
                               <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                               {formatDuration(
-                                (short.metadata as { totalDuration?: number } | null)?.totalDuration
-                                ?? (short.endTime - short.startTime)
+                                getShortMeta(short)?.totalDuration
+                                ?? ((getShortMeta(short)?.endTime ?? 0) - (getShortMeta(short)?.startTime ?? 0))
                               )}
                             </div>
                           </td>
                           {/* Timestamps - hidden on tablet and below */}
                           <td className="py-3 pr-4 hidden lg:table-cell">
                             <span className="text-sm text-muted-foreground whitespace-nowrap">
-                              {formatDuration(short.startTime)} - {formatDuration(short.endTime)}
+                              {formatDuration(getShortMeta(short)?.startTime ?? 0)} - {formatDuration(getShortMeta(short)?.endTime ?? 0)}
                             </span>
                           </td>
                           {/* Status */}
@@ -1124,7 +1156,7 @@ export default function ProjectDetail() {
               <DialogDescription className="text-muted-foreground">
                 <span className="block mb-3">Are you sure you want to delete this short?</span>
                 <div className="p-3 bg-muted rounded-md border border-border">
-                  <p className="text-sm text-foreground line-clamp-3">{dialog.type === 'deleteShort' ? dialog.short.transcriptionSlice : ''}</p>
+                  <p className="text-sm text-foreground line-clamp-3">{dialog.type === 'deleteShort' ? (getShortMeta(dialog.short)?.transcriptionSlice || dialog.short.title) : ''}</p>
                 </div>
                 <span className="block mt-3 font-semibold text-destructive">
                   This action cannot be undone.
@@ -1153,6 +1185,50 @@ export default function ProjectDetail() {
                   <>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete Short
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Asset Confirmation Dialog */}
+        <Dialog open={dialog.type === 'deleteAsset'} onOpenChange={(open) => !open && setDialog({ type: 'none' })}>
+          <DialogContent className="font-sans">
+            <DialogHeader>
+              <DialogTitle className="text-foreground">Delete Video</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                <span className="block mb-3">Are you sure you want to delete this video?</span>
+                <div className="p-3 bg-muted rounded-md border border-border">
+                  <p className="text-sm text-foreground line-clamp-3">{dialog.type === 'deleteAsset' ? dialog.asset.title : ''}</p>
+                </div>
+                <span className="block mt-3 font-semibold text-destructive">
+                  This will also delete all associated transcriptions and shorts. This action cannot be undone.
+                </span>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDialog({ type: 'none' })}
+                disabled={dialog.type === 'deleteAsset' && dialog.deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteAsset}
+                disabled={dialog.type === 'deleteAsset' && dialog.deleting}
+              >
+                {dialog.type === 'deleteAsset' && dialog.deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Video
                   </>
                 )}
               </Button>
@@ -1212,7 +1288,7 @@ export default function ProjectDetail() {
         <BulkScheduleDialog
           open={dialog.type === 'bulkSchedule'}
           onOpenChange={(open) => !open && setDialog({ type: 'none' })}
-          shorts={shorts.filter((s) => (hasSelections ? selectedShortIds.has(s.id) : true) && s.status === 'completed' && s.outputObjectKey)}
+          shorts={shorts.filter((s) => (hasSelections ? selectedShortIds.has(s.id) : true) && s.status === 'completed' && s.sourceObjectKey)}
           organizationId={project?.organizationId || ''}
           onSuccess={() => {
             clearSelection()

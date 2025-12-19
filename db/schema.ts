@@ -279,37 +279,8 @@ export const transcriptions = pgTable(
   })
 );
 
-export const shorts = pgTable(
-  'shorts',
-  {
-    id: varchar('id', { length: 255 }).primaryKey(),
-    projectId: varchar('project_id', { length: 255 })
-      .notNull()
-      .references(() => projects.id, { onDelete: 'cascade' }),
-    analysisJobId: varchar('analysis_job_id', { length: 255 })
-      .references((): AnyPgColumn => processingJobs.id, { onDelete: 'set null' }),
-    transcriptionSlice: text('transcription_slice').notNull(),
-    startTime: doublePrecision('start_time').notNull(),
-    endTime: doublePrecision('end_time').notNull(),
-    outputObjectKey: text('output_object_key'),
-    thumbnailUrl: text('thumbnail_url'),
-    status: shortStatusEnum('status').notNull().default('pending'),
-    errorMessage: text('error_message'),
-    metadata: jsonb('metadata'),
-    socialContent: jsonb('social_content'), // Generated social media content per platform
-    tasks: jsonb('tasks').$type<{
-      clip_extraction: 'pending' | 'processing' | 'done' | 'error';
-      thumbnail_extraction: 'pending' | 'processing' | 'done' | 'error';
-      social_content: 'pending' | 'processing' | 'done' | 'error' | 'skipped';
-    }>(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    projectIdIdx: index('idx_shorts_project_id').on(table.projectId),
-    statusIdx: index('idx_shorts_status').on(table.status),
-  })
-);
+// NOTE: The shorts table has been removed. All short-form video data is now in media_assets.
+// The Short type is preserved for backward compatibility but points to MediaAsset.
 
 export const processingJobs = pgTable(
   'processing_jobs',
@@ -317,7 +288,7 @@ export const processingJobs = pgTable(
     id: varchar('id', { length: 255 }).primaryKey(),
     projectId: varchar('project_id', { length: 255 })
       .references(() => projects.id, { onDelete: 'cascade' }),
-    shortId: varchar('short_id', { length: 255 }).references((): AnyPgColumn => shorts.id, { onDelete: 'cascade' }),
+    shortId: varchar('short_id', { length: 255 }), // Legacy column, kept for backward compat (was FK to shorts table)
     // Links to media asset for unified asset processing (nullable during migration)
     mediaAssetId: varchar('media_asset_id', { length: 255 })
       .references(() => mediaAssets.id, { onDelete: 'cascade' }),
@@ -376,8 +347,9 @@ export type NewProject = typeof projects.$inferInsert;
 export type Transcription = typeof transcriptions.$inferSelect;
 export type NewTranscription = typeof transcriptions.$inferInsert;
 
-export type Short = typeof shorts.$inferSelect;
-export type NewShort = typeof shorts.$inferInsert;
+// Short types are now aliases to MediaAsset (shorts table was removed)
+export type Short = MediaAsset;
+export type NewShort = NewMediaAsset;
 
 export type ProcessingJob = typeof processingJobs.$inferSelect;
 export type NewProcessingJob = typeof processingJobs.$inferInsert;
@@ -460,8 +432,7 @@ export const scheduledPosts = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
     shortId: varchar('short_id', { length: 255 })
-      .notNull()
-      .references(() => shorts.id, { onDelete: 'cascade' }),
+      .notNull(), // Legacy column, kept for backward compat (was FK to shorts table)
     // Links to short_form media asset (nullable during migration, will replace shortId)
     mediaAssetId: varchar('media_asset_id', { length: 255 })
       .references(() => mediaAssets.id, { onDelete: 'cascade' }),

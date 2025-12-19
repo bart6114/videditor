@@ -5,7 +5,6 @@ import { getProjectWithRelations, deleteProject, updateProject } from '@server/d
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { createTigrisClient, createPresignedDownload, deleteFromTigris } from '@/lib/tigris';
-import { mediaAssetToShort } from '@/lib/transforms/mediaAssetToShort';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!['GET', 'DELETE', 'PATCH'].includes(req.method || '')) {
@@ -38,16 +37,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       if (asset.thumbnailUrl) {
         deletePromises.push(deleteFromTigris(tigrisClient, asset.thumbnailUrl));
-      }
-    }
-
-    // Delete all legacy shorts' videos and thumbnails (for backward compat during migration)
-    for (const short of result.shorts) {
-      if (short.outputObjectKey) {
-        deletePromises.push(deleteFromTigris(tigrisClient, short.outputObjectKey));
-      }
-      if (short.thumbnailUrl) {
-        deletePromises.push(deleteFromTigris(tigrisClient, short.thumbnailUrl));
       }
     }
 
@@ -124,19 +113,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
   );
 
-  // Filter short form assets for convenience arrays
-  const shortFormAssetsWithUrls = mediaAssetsWithUrls.filter(a => a.assetType === 'short_form');
-
-  // Derive shorts from shortFormAssets for backward compatibility
-  // This replaces the deprecated shorts table query
-  const shorts = shortFormAssetsWithUrls.map(asset => mediaAssetToShort(asset));
+  // Filter by asset type for convenience arrays
+  const longFormAssets = mediaAssetsWithUrls.filter(a => a.assetType === 'long_form');
+  const shortFormAssets = mediaAssetsWithUrls.filter(a => a.assetType === 'short_form');
 
   return success(res, {
     ...result,
     project: result.project,
     mediaAssets: mediaAssetsWithUrls,
-    longFormAssets: mediaAssetsWithUrls.filter(a => a.assetType === 'long_form'),
-    shortFormAssets: shortFormAssetsWithUrls,
-    shorts,
+    longFormAssets,
+    shortFormAssets,
+    // shorts is an alias for shortFormAssets for backward compatibility
+    shorts: shortFormAssets,
   });
 }

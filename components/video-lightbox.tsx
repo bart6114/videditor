@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, Loader2, Copy, Check } from 'lucide-react'
 import { useApi } from '@/lib/api/client'
 import type { Short } from '@server/db/schema'
-import type { SocialContent, SocialPlatform } from '@shared/index'
+import type { SocialContent, SocialPlatform, ShortFormMetadata } from '@shared/index'
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
   youtube: 'YouTube',
@@ -90,7 +90,7 @@ export function VideoLightbox({
 
       try {
         // Check if short is completed and has an output
-        if (selectedShort.status !== 'completed' || !selectedShort.outputObjectKey) {
+        if (selectedShort.status !== 'completed' || !selectedShort.sourceObjectKey) {
           throw new Error('Short video is not ready yet')
         }
 
@@ -142,9 +142,11 @@ export function VideoLightbox({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedShort, hasPrevious, hasNext, currentIndex])
 
-  const duration = selectedShort
-    ? selectedShort.endTime - selectedShort.startTime
+  const shortMetadata = selectedShort?.metadata as ShortFormMetadata | null
+  const duration = shortMetadata
+    ? (shortMetadata.endTime ?? 0) - (shortMetadata.startTime ?? 0)
     : 0
+  const transcriptionSlice = shortMetadata?.transcriptionSlice || selectedShort?.title || ''
 
   return (
     <Dialog open={!!selectedShort} onOpenChange={(open) => !open && onClose()}>
@@ -153,9 +155,9 @@ export function VideoLightbox({
           <>
             <DialogHeader className="p-6 pb-4">
               <DialogTitle className="line-clamp-1">
-                {selectedShort.transcriptionSlice.length > 60
-                  ? selectedShort.transcriptionSlice.slice(0, 60) + '...'
-                  : selectedShort.transcriptionSlice}
+                {transcriptionSlice.length > 60
+                  ? transcriptionSlice.slice(0, 60) + '...'
+                  : transcriptionSlice}
               </DialogTitle>
             </DialogHeader>
 

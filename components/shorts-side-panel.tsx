@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/dialog'
 import { useApi } from '@/lib/api/client'
 import type { Short } from '@server/db/schema'
-import type { SocialContent, SocialPlatform } from '@shared/index'
-import { getShortFilename } from '@/lib/api/shorts'
+import type { SocialContent, SocialPlatform, ShortFormMetadata } from '@shared/index'
+import { getAssetFilename } from '@/lib/api/shorts'
 import { useYouTubeSchedulingEnabled, useInstagramSchedulingEnabled, useAnySchedulingEnabled } from '@/hooks/useFeatureFlag'
 import { toast } from 'sonner'
 
@@ -149,7 +149,7 @@ export function ShortsSidePanel({
 
       try {
         // Check if short is completed and has an output
-        if (selectedShort.status !== 'completed' || !selectedShort.outputObjectKey) {
+        if (selectedShort.status !== 'completed' || !selectedShort.sourceObjectKey) {
           throw new Error('Short video is not ready yet')
         }
 
@@ -192,7 +192,7 @@ export function ShortsSidePanel({
     setDownloading(true)
     try {
       // Generate filename using utility function
-      const filename = getShortFilename(selectedShort)
+      const filename = getAssetFilename(selectedShort)
 
       // Trigger browser download
       const a = document.createElement('a')
@@ -214,17 +214,20 @@ export function ShortsSidePanel({
 
     try {
       // Generate filename using utility function
-      const videoFilename = getShortFilename(selectedShort)
+      const videoFilename = getAssetFilename(selectedShort)
       // Replace extension with .json
       const metadataFilename = videoFilename.replace(/\.[^/.]+$/, '.json')
 
       // Create metadata object with relevant short information
+      const shortMeta = selectedShort.metadata as ShortFormMetadata | null
+      const startTime = shortMeta?.startTime ?? 0
+      const endTime = shortMeta?.endTime ?? 0
       const metadata = {
         id: selectedShort.id,
-        transcriptionSlice: selectedShort.transcriptionSlice,
-        startTime: selectedShort.startTime,
-        endTime: selectedShort.endTime,
-        duration: selectedShort.endTime - selectedShort.startTime,
+        transcriptionSlice: shortMeta?.transcriptionSlice,
+        startTime,
+        endTime,
+        duration: endTime - startTime,
         socialContent: selectedShort.socialContent,
         status: selectedShort.status,
         createdAt: selectedShort.createdAt,
@@ -256,7 +259,8 @@ export function ShortsSidePanel({
 
     // Prefill content from social content if available
     const socialContent = selectedShort?.socialContent as SocialContent | null
-    const fallbackTitle = selectedShort?.transcriptionSlice?.slice(0, 100) || ''
+    const shortMeta = selectedShort?.metadata as ShortFormMetadata | null
+    const fallbackTitle = shortMeta?.transcriptionSlice?.slice(0, 100) || ''
 
     // YouTube content
     if (socialContent?.youtube && 'title' in socialContent.youtube) {
@@ -551,8 +555,9 @@ export function ShortsSidePanel({
     }
   }, [])
 
-  const duration = selectedShort
-    ? selectedShort.endTime - selectedShort.startTime
+  const shortMetadata = selectedShort?.metadata as ShortFormMetadata | null
+  const duration = shortMetadata
+    ? (shortMetadata.endTime ?? 0) - (shortMetadata.startTime ?? 0)
     : 0
 
   // Don't render anything if no short is selected
@@ -579,7 +584,7 @@ export function ShortsSidePanel({
           <div className="flex items-start justify-between p-4 md:p-6 border-b border-border">
             <div className="flex-1 pr-2 md:pr-4">
               <h2 className="text-base md:text-lg font-semibold text-foreground line-clamp-2">
-                {selectedShort.transcriptionSlice}
+                {shortMetadata?.transcriptionSlice || selectedShort.title}
               </h2>
               <div className="flex items-center gap-3 md:gap-4 mt-2 text-xs md:text-sm text-muted-foreground">
                 <span>Duration: {Math.floor(duration)}s</span>

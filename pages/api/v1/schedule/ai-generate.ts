@@ -1,9 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
-import { getShortsByIds } from '@server/db/queries/shorts';
+import { getAssetsByIds } from '@server/db/queries/assets';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { captureAiGeneration } from '@/lib/posthog';
+import type { ShortFormMetadata, SocialContent } from '@shared/index';
 
 interface AiGenerateRequest {
   shortIds: string[];
@@ -61,28 +62,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const db = getDb();
 
-  // Fetch shorts (verifies ownership via organization)
-  const shorts = await getShortsByIds(db, shortIds, authResult.organizationId);
+  // Fetch assets (verifies ownership via organization)
+  const assets = await getAssetsByIds(db, shortIds, authResult.organizationId);
 
-  if (shorts.length === 0) {
+  // Filter to only short_form assets
+  const shortFormAssets = assets.filter(a => a.assetType === 'short_form');
+
+  if (shortFormAssets.length === 0) {
     return failure(res, 404, 'No shorts found');
   }
 
-  // Filter to only completed shorts with videos
-  const validShorts = shorts.filter((s) => s.status === 'completed' && s.outputObjectKey);
+  // Filter to only completed assets with videos
+  const validAssets = shortFormAssets.filter((a) => a.status === 'completed' && a.sourceObjectKey);
 
-  if (validShorts.length === 0) {
+  if (validAssets.length === 0) {
     return failure(res, 400, 'No completed shorts with videos found');
   }
 
   // Prepare shorts info for AI
-  const shortsInfo = validShorts.map((s) => {
-    const duration = s.endTime && s.startTime ? Math.round(s.endTime - s.startTime) : 60;
-    const socialContent = s.socialContent as { youtube?: { title?: string } } | null;
-    const title = socialContent?.youtube?.title || s.transcriptionSlice?.slice(0, 50) || `Short ${s.id.slice(0, 8)}`;
+  const shortsInfo = validAssets.map((a) => {
+    const metadata = a.metadata as ShortFormMetadata | null;
+    const socialContent = a.socialContent as SocialContent | null;
+    const duration = metadata?.endTime && metadata?.startTime
+      ? Math.round(metadata.endTime - metadata.startTime)
+      : (a.durationSeconds ? Math.round(a.durationSeconds) : 60);
+    const title = socialContent?.youtube?.title
+      || metadata?.transcriptionSlice?.slice(0, 50)
+      || a.title
+      || `Short ${a.id.slice(0, 8)}`;
 
     return {
-      id: s.id,
+      id: a.id,
       title,
       duration,
     };
@@ -260,15 +270,15 @@ Generate a schedule for these shorts.`;
       return failure(res, 502, 'AI returned invalid JSON');
     }
 
-    // Validate all shortIds are from our valid shorts
-    const validShortIds = new Set(validShorts.map((s) => s.id));
-    const schedule = parsed.schedule.filter((item) => validShortIds.has(item.shortId));
+    // Validate all shortIds are from our valid assets
+    const validAssetIds = new Set(validAssets.map((a) => a.id));
+    const schedule = parsed.schedule.filter((item) => validAssetIds.has(item.shortId));
 
     // Validate all dates are parseable and in the future
-    const now = new Date();
+    const nowTime = new Date();
     const validSchedule = schedule.filter((item) => {
       const date = new Date(item.scheduledFor);
-      return !isNaN(date.getTime()) && date > now;
+      return !isNaN(date.getTime()) && date > nowTime;
     });
 
     if (validSchedule.length === 0) {

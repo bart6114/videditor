@@ -16,6 +16,7 @@ import {
 import { triggerAutoTopUpIfNeeded } from '@/lib/credits/auto-topup';
 
 const analysisPayloadSchema = z.object({
+  mediaAssetId: z.string().uuid(),
   shortsCount: z.number().int().min(1).max(15).optional(),
   preferredLength: z.number().int().min(15).max(120).optional(),
   maxLength: z.number().int().min(15).max(120).optional(),
@@ -110,6 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const job = await enqueueJob({
       projectId,
+      mediaAssetId: (parsed.data.payload as { mediaAssetId?: string })?.mediaAssetId,
       type: parsed.data.type as JobType,
       payload: parsed.data.payload ?? undefined,
     });

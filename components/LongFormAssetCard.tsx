@@ -1,12 +1,14 @@
 import Image from 'next/image'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Video,
   Clock,
   Loader2,
   AlertCircle,
   Play,
+  Trash2,
 } from 'lucide-react'
 import type { MediaAsset } from '@/types/projects'
 
@@ -15,6 +17,7 @@ interface LongFormAssetCardProps {
   isSelected: boolean
   onSelect: () => void
   onPlayVideo: () => void
+  onDelete?: () => void
 }
 
 function formatDuration(seconds: number): string {
@@ -71,10 +74,11 @@ export function LongFormAssetCard({
   isSelected,
   onSelect,
   onPlayVideo,
+  onDelete,
 }: LongFormAssetCardProps) {
   return (
     <Card
-      className={`bg-card border-border transition-all duration-200 cursor-pointer ${
+      className={`bg-card border-border transition-all duration-200 cursor-pointer group/card ${
         isSelected
           ? 'ring-2 ring-primary border-primary'
           : 'hover:border-primary/40'
@@ -82,7 +86,7 @@ export function LongFormAssetCard({
       onClick={onSelect}
     >
       <CardContent className="p-4">
-        <div className="flex gap-4">
+        <div className="flex gap-4 relative">
           {/* Thumbnail */}
           <div
             className="relative w-24 h-16 flex-shrink-0 rounded-lg bg-secondary overflow-hidden group"
@@ -137,6 +141,22 @@ export function LongFormAssetCard({
               </p>
             )}
           </div>
+
+          {/* Delete button */}
+          {onDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="absolute top-0 right-0 opacity-0 group-hover/card:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              title="Delete video"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

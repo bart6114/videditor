@@ -2,13 +2,14 @@ import { eq, and, gte, lte, inArray, sql } from 'drizzle-orm';
 import type { DB } from '../index';
 import {
   scheduledPosts,
-  shorts,
+  mediaAssets,
   socialAccounts,
   projects,
   type NewScheduledPost,
   type ScheduledPost,
 } from '../schema';
 import crypto from 'crypto';
+import type { ShortFormMetadata } from '@shared/index';
 
 // ============================================================================
 // Scheduled Post CRUD
@@ -80,7 +81,7 @@ export async function getScheduledPostsByOrganization(
 }
 
 /**
- * Get scheduled posts for a short
+ * Get scheduled posts for a short (by mediaAssetId)
  */
 export async function getScheduledPostsByShort(
   db: DB,
@@ -89,7 +90,7 @@ export async function getScheduledPostsByShort(
   return db
     .select()
     .from(scheduledPosts)
-    .where(eq(scheduledPosts.shortId, shortId))
+    .where(eq(scheduledPosts.mediaAssetId, shortId))
     .orderBy(scheduledPosts.scheduledFor);
 }
 
@@ -117,11 +118,11 @@ export async function getScheduledPostsByProject(
       },
     })
     .from(scheduledPosts)
-    .innerJoin(shorts, eq(scheduledPosts.shortId, shorts.id))
+    .innerJoin(mediaAssets, eq(scheduledPosts.mediaAssetId, mediaAssets.id))
     .leftJoin(socialAccounts, eq(scheduledPosts.socialAccountId, socialAccounts.id))
     .where(
       and(
-        eq(shorts.projectId, projectId),
+        eq(mediaAssets.projectId, projectId),
         eq(scheduledPosts.organizationId, organizationId)
       )
     )
@@ -147,14 +148,10 @@ export async function getScheduledPostsForCalendar(
     socialAccount: { platform: 'youtube' | 'tiktok' | 'instagram'; channelTitle: string | null };
   }[]
 > {
-  const results = await db
+  const rawResults = await db
     .select({
       post: scheduledPosts,
-      short: {
-        id: shorts.id,
-        thumbnailUrl: shorts.thumbnailUrl,
-        transcriptionSlice: shorts.transcriptionSlice,
-      },
+      asset: mediaAssets,
       project: {
         id: projects.id,
         title: projects.title,
@@ -165,8 +162,8 @@ export async function getScheduledPostsForCalendar(
       },
     })
     .from(scheduledPosts)
-    .innerJoin(shorts, eq(scheduledPosts.shortId, shorts.id))
-    .innerJoin(projects, eq(shorts.projectId, projects.id))
+    .innerJoin(mediaAssets, eq(scheduledPosts.mediaAssetId, mediaAssets.id))
+    .innerJoin(projects, eq(mediaAssets.projectId, projects.id))
     .leftJoin(socialAccounts, eq(scheduledPosts.socialAccountId, socialAccounts.id))
     .where(
       and(
@@ -177,7 +174,20 @@ export async function getScheduledPostsForCalendar(
     )
     .orderBy(scheduledPosts.scheduledFor);
 
-  return results;
+  // Map to expected format, extracting transcriptionSlice from metadata
+  return rawResults.map((r) => {
+    const metadata = r.asset.metadata as ShortFormMetadata | null;
+    return {
+      post: r.post,
+      short: {
+        id: r.asset.id,
+        thumbnailUrl: r.asset.thumbnailUrl,
+        transcriptionSlice: metadata?.transcriptionSlice || r.asset.title || '',
+      },
+      project: r.project,
+      socialAccount: r.socialAccount,
+    };
+  });
 }
 
 /**
@@ -279,7 +289,7 @@ export async function hasActiveScheduledPost(
     .from(scheduledPosts)
     .where(
       and(
-        eq(scheduledPosts.shortId, shortId),
+        eq(scheduledPosts.mediaAssetId, shortId),
         eq(scheduledPosts.socialAccountId, socialAccountId),
         inArray(scheduledPosts.status, ['scheduled', 'publishing'])
       )

@@ -1,11 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
-import { shorts, projects } from '@server/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { getAssetById } from '@server/db/queries/assets';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { createTigrisClient, createPresignedDownload } from '@/lib/tigris';
-import { getShortFilename } from '@/lib/api/shorts';
+import { getAssetFilename } from '@/lib/api/shorts';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -21,33 +20,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const shortId = req.query.shortId as string;
   const db = getDb();
 
-  // Fetch the project to verify ownership
-  const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+  // Fetch the asset (organization verified)
+  const asset = await getAssetById(db, shortId, authResult.organizationId);
 
-  if (!project || project.organizationId !== authResult.organizationId) {
-    return failure(res, 404, 'Project not found');
-  }
-
-  // Fetch the short
-  const [short] = await db
-    .select()
-    .from(shorts)
-    .where(and(eq(shorts.id, shortId), eq(shorts.projectId, projectId)))
-    .limit(1);
-
-  if (!short) {
+  if (!asset) {
     return failure(res, 404, 'Short not found');
   }
 
-  if (short.status !== 'completed' || !short.outputObjectKey) {
+  // Verify this is a short_form asset and belongs to the correct project
+  if (asset.assetType !== 'short_form' || asset.projectId !== projectId) {
+    return failure(res, 404, 'Short not found');
+  }
+
+  if (asset.status !== 'completed' || !asset.sourceObjectKey) {
     return failure(res, 400, 'Short is not ready for download');
   }
 
   // Generate presigned download URL
   try {
     const tigrisClient = createTigrisClient();
-    const filename = getShortFilename(short);
-    const downloadUrl = await createPresignedDownload(tigrisClient, short.outputObjectKey, 3600, filename);
+    const filename = getAssetFilename(asset);
+    const downloadUrl = await createPresignedDownload(tigrisClient, asset.sourceObjectKey, 3600, filename);
 
     // Return filename without extension for backward compatibility
     const basenameWithoutExt = filename.replace(/\.[^/.]+$/, '');

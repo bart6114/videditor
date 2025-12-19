@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
-import { getShortsByIds } from '@server/db/queries/shorts';
+import { getAssetsByIds } from '@server/db/queries/assets';
 import { getSocialAccountById } from '@server/db/queries/social-accounts';
 import { createScheduledPost } from '@server/db/queries/scheduled-posts';
 import { authenticate } from '@/lib/api/auth';
@@ -88,9 +88,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const shortIds = [...new Set(schedules.map((s) => s.shortId))];
   const socialAccountIds = [...new Set(schedules.map((s) => s.socialAccountId))];
 
-  // Fetch and validate shorts
-  const shorts = await getShortsByIds(db, shortIds, authResult.organizationId);
-  const shortsMap = new Map(shorts.map((s) => [s.id, s]));
+  // Fetch and validate assets (short_form only)
+  const assets = await getAssetsByIds(db, shortIds, authResult.organizationId);
+  const shortFormAssets = assets.filter(a => a.assetType === 'short_form');
+  const assetsMap = new Map(shortFormAssets.map((a) => [a.id, a]));
 
   // Verify social accounts belong to organization and store for platform lookup
   const socialAccountsMap = new Map<string, { valid: boolean; platform?: 'youtube' | 'tiktok' | 'instagram' }>();
@@ -108,19 +109,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const errors: ErrorItem[] = [];
 
   for (const item of schedules) {
-    // Validate short exists and is owned
-    const short = shortsMap.get(item.shortId);
-    if (!short) {
+    // Validate asset exists and is owned
+    const asset = assetsMap.get(item.shortId);
+    if (!asset) {
       errors.push({ shortId: item.shortId, error: 'Short not found' });
       continue;
     }
 
-    // Validate short is completed with video
-    if (short.status !== 'completed') {
+    // Validate asset is completed with video
+    if (asset.status !== 'completed') {
       errors.push({ shortId: item.shortId, error: 'Short is not completed' });
       continue;
     }
-    if (!short.outputObjectKey) {
+    if (!asset.sourceObjectKey) {
       errors.push({ shortId: item.shortId, error: 'Short has no video' });
       continue;
     }

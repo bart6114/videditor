@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { useApi } from '@/lib/api/client'
 import type { Short } from '@server/db/schema'
-import type { SocialContent } from '@shared/index'
+import type { SocialContent, ShortFormMetadata } from '@shared/index'
 import { toast } from 'sonner'
 import { useYouTubeSchedulingEnabled, useInstagramSchedulingEnabled } from '@/hooks/useFeatureFlag'
 
@@ -162,7 +162,8 @@ export function BulkScheduleDialog({
   const getDefaultContent = useCallback((shortId: string): ShortPlatformContent => {
     const short = shorts.find((s) => s.id === shortId)
     const socialContent = short?.socialContent as SocialContent | null
-    const fallbackTitle = short?.transcriptionSlice?.slice(0, 100) || `Short ${shortId.slice(0, 8)}`
+    const metadata = short?.metadata as ShortFormMetadata | null
+    const fallbackTitle = metadata?.transcriptionSlice?.slice(0, 100) || short?.title?.slice(0, 100) || `Short ${shortId.slice(0, 8)}`
 
     return {
       youtube: {
@@ -350,10 +351,11 @@ export function BulkScheduleDialog({
     if (!short) return { title: 'Unknown', thumbnail: null }
 
     const socialContent = short.socialContent as SocialContent | null
+    const metadata = short.metadata as ShortFormMetadata | null
     const title =
       socialContent?.youtube && 'title' in socialContent.youtube
         ? socialContent.youtube.title
-        : short.transcriptionSlice?.slice(0, 50) || `Short ${shortId.slice(0, 8)}`
+        : metadata?.transcriptionSlice?.slice(0, 50) || short.title?.slice(0, 50) || `Short ${shortId.slice(0, 8)}`
 
     return {
       title,

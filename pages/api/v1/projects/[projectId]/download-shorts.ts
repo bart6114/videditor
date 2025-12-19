@@ -3,12 +3,12 @@ import archiver from 'archiver';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 import { getDb } from '@server/db';
-import { shorts } from '@server/db/schema';
+import { mediaAssets } from '@server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { authenticate } from '@/lib/api/auth';
 import { failure } from '@/lib/api/responses';
 import { createTigrisClient } from '@/lib/tigris';
-import { getShortFilename } from '@/lib/api/shorts';
+import { getAssetFilename } from '@/lib/api/shorts';
 
 // Disable body parsing for streaming
 export const config = {
@@ -50,15 +50,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 404, 'Project not found');
   }
 
-  // Fetch shorts for this project (filtered by selection if provided)
+  // Fetch short-form assets for this project (filtered by selection if provided)
   const projectShorts = selectedShortIds
-    ? await db.select().from(shorts).where(
+    ? await db.select().from(mediaAssets).where(
         and(
-          eq(shorts.projectId, projectId),
-          inArray(shorts.id, selectedShortIds)
+          eq(mediaAssets.projectId, projectId),
+          eq(mediaAssets.assetType, 'short_form'),
+          inArray(mediaAssets.id, selectedShortIds)
         )
       )
-    : await db.select().from(shorts).where(eq(shorts.projectId, projectId));
+    : await db.select().from(mediaAssets).where(
+        and(
+          eq(mediaAssets.projectId, projectId),
+          eq(mediaAssets.assetType, 'short_form')
+        )
+      );
 
   if (projectShorts.length === 0) {
     return failure(res, 404, 'No shorts found for this project');
@@ -66,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Check if all shorts are completed
   const incompleteShorts = projectShorts.filter(
-    (short) => short.status !== 'completed' || !short.outputObjectKey
+    (asset) => asset.status !== 'completed' || !asset.sourceObjectKey
   );
 
   if (incompleteShorts.length > 0) {
@@ -108,20 +114,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   archive.pipe(res);
 
   // Add each short to the archive
-  for (const short of projectShorts) {
-    if (!short.outputObjectKey) continue;
+  for (const asset of projectShorts) {
+    if (!asset.sourceObjectKey) continue;
 
     try {
       // Get S3 object as stream
       const command = new GetObjectCommand({
         Bucket: process.env.TIGRIS_BUCKET!,
-        Key: short.outputObjectKey,
+        Key: asset.sourceObjectKey,
       });
 
       const s3Response = await tigrisClient.send(command);
 
       if (!s3Response.Body) {
-        console.error(`No body for short ${short.id}`);
+        console.error(`No body for short ${asset.id}`);
         continue;
       }
 
@@ -131,12 +137,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         : Readable.from(s3Response.Body as any);
 
       // Generate filename using shared utility function
-      const entryName = getShortFilename(short);
+      const entryName = getAssetFilename(asset);
 
       // Append stream to archive
       archive.append(readableStream, { name: entryName });
     } catch (error) {
-      console.error(`Failed to fetch short ${short.id}:`, error);
+      console.error(`Failed to fetch short ${asset.id}:`, error);
       // Continue with other shorts
     }
   }

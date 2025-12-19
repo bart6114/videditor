@@ -1,4 +1,5 @@
-import type { Short } from '@server/db/schema';
+import type { MediaAsset } from '@server/db/schema';
+import type { ShortFormMetadata } from '@shared/index';
 
 /**
  * Sanitize a filename by removing invalid characters and limiting length
@@ -12,14 +13,14 @@ function sanitizeFilename(filename: string): string {
 }
 
 /**
- * Generate a user-friendly filename for a short based on its transcription slice
- * This ensures consistent naming across download-shorts and metadata endpoints
+ * Generate a user-friendly filename for a media asset based on its metadata
  */
-export function getShortFilename(short: Pick<Short, 'id' | 'transcriptionSlice' | 'outputObjectKey'>): string {
-  const shortName = short.transcriptionSlice
-    ? short.transcriptionSlice.slice(0, 50).trim()
-    : `Short ${short.id}`;
+export function getAssetFilename(asset: Pick<MediaAsset, 'id' | 'title' | 'sourceObjectKey' | 'metadata'>): string {
+  const metadata = asset.metadata as ShortFormMetadata | null;
+  const shortName = metadata?.transcriptionSlice
+    ? metadata.transcriptionSlice.slice(0, 50).trim()
+    : asset.title?.slice(0, 50).trim() || `Short ${asset.id}`;
   const sanitizedTitle = sanitizeFilename(shortName);
-  const extension = short.outputObjectKey?.split('.').pop() || 'mp4';
+  const extension = asset.sourceObjectKey?.split('.').pop() || 'mp4';
   return `${sanitizedTitle}.${extension}`;
 }

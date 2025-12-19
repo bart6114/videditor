@@ -1,10 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
-import { shorts } from '@server/db/schema';
+import { mediaAssets } from '@server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
-import { getShortFilename } from '@/lib/api/shorts';
+import { getAssetFilename } from '@/lib/api/shorts';
+import type { ShortFormMetadata } from '@shared/index';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -31,28 +32,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 404, 'Project not found');
   }
 
-  // Fetch shorts for this project (filtered by selection if provided)
+  // Fetch short-form assets for this project (filtered by selection if provided)
   const projectShorts = selectedShortIds
-    ? await db.select().from(shorts).where(
+    ? await db.select().from(mediaAssets).where(
         and(
-          eq(shorts.projectId, projectId),
-          inArray(shorts.id, selectedShortIds)
+          eq(mediaAssets.projectId, projectId),
+          eq(mediaAssets.assetType, 'short_form'),
+          inArray(mediaAssets.id, selectedShortIds)
         )
       )
-    : await db.select().from(shorts).where(eq(shorts.projectId, projectId));
+    : await db.select().from(mediaAssets).where(
+        and(
+          eq(mediaAssets.projectId, projectId),
+          eq(mediaAssets.assetType, 'short_form')
+        )
+      );
 
   // Filter to only completed shorts and transform to requested format
   const metadata = projectShorts
-    .filter((short) => short.status === 'completed' && short.outputObjectKey)
-    .map((short) => ({
-      file: getShortFilename(short),
-      social: short.socialContent || {},
-      transcription: short.transcriptionSlice,
-      timestamps: {
-        start: short.startTime,
-        end: short.endTime,
-      },
-    }));
+    .filter((asset) => asset.status === 'completed' && asset.sourceObjectKey)
+    .map((asset) => {
+      const shortMeta = asset.metadata as ShortFormMetadata | null;
+      return {
+        file: getAssetFilename(asset),
+        social: asset.socialContent || {},
+        transcription: shortMeta?.transcriptionSlice || asset.title,
+        timestamps: {
+          start: shortMeta?.startTime ?? 0,
+          end: shortMeta?.endTime ?? 0,
+        },
+      };
+    });
 
   return success(res, { shorts: metadata });
 }

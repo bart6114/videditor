@@ -231,7 +231,7 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
     // Determine if we should poll
     const isTranscribing = transcriptionJob?.status === 'queued' || transcriptionJob?.status === 'running'
     const hasPendingShorts = shorts.some(
-      (s) => s.status === 'pending' || s.status === 'processing'
+      (s) => s.status === 'uploading' || s.status === 'ready' || s.status === 'processing'
     )
     const shouldPoll = isGeneratingShorts || hasPendingShorts || isTranscribing
 
@@ -286,12 +286,10 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
         const analysisJob = extractActiveAnalysisJob(jobsData.jobs)
         setActiveJob(analysisJob)
 
-        // Stop polling when job completes AND no pending shorts in current batch
-        const currentBatchShorts = lastAnalysisJobId
-          ? (projectData.shorts || []).filter((s) => s.analysisJobId === lastAnalysisJobId)
-          : []
-        const stillHasPendingShorts = currentBatchShorts.some(
-          (s) => s.status === 'pending' || s.status === 'processing'
+        // Stop polling when job completes AND no pending shorts
+        const allShorts = projectData.shorts || []
+        const stillHasPendingShorts = allShorts.some(
+          (s) => s.status === 'uploading' || s.status === 'ready' || s.status === 'processing'
         )
 
         if (!analysisJob && !stillHasPendingShorts) {

@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
-import { deleteShorts, getShortsByIds } from '@server/db/queries/shorts';
+import { getAssetsByIds, deleteAsset } from '@server/db/queries/assets';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { createTigrisClient, deleteFromTigris } from '@/lib/tigris';
@@ -23,10 +23,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const db = getDb();
 
-  // Fetch the shorts to get object keys (also verifies ownership via organization)
-  const shortsToDelete = await getShortsByIds(db, shortIds, authResult.organizationId);
+  // Fetch the assets (also verifies ownership via organization)
+  const assets = await getAssetsByIds(db, shortIds, authResult.organizationId);
 
-  if (shortsToDelete.length === 0) {
+  // Filter to only short_form assets
+  const assetsToDelete = assets.filter(asset => asset.assetType === 'short_form');
+
+  if (assetsToDelete.length === 0) {
     return failure(res, 404, 'No shorts found or you do not have permission');
   }
 
@@ -34,12 +37,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const deletePromises: Promise<void>[] = [];
 
   // Collect all object keys to delete from S3
-  for (const short of shortsToDelete) {
-    if (short.outputObjectKey) {
-      deletePromises.push(deleteFromTigris(tigrisClient, short.outputObjectKey));
+  for (const asset of assetsToDelete) {
+    if (asset.sourceObjectKey) {
+      deletePromises.push(deleteFromTigris(tigrisClient, asset.sourceObjectKey));
     }
-    if (short.thumbnailUrl) {
-      deletePromises.push(deleteFromTigris(tigrisClient, short.thumbnailUrl));
+    if (asset.thumbnailUrl) {
+      deletePromises.push(deleteFromTigris(tigrisClient, asset.thumbnailUrl));
     }
   }
 
@@ -47,10 +50,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   await Promise.allSettled(deletePromises);
 
   // Delete from database (cascade handles processing_jobs)
-  const deleted = await deleteShorts(db, shortIds, authResult.organizationId);
+  const deletedIds: string[] = [];
+  for (const asset of assetsToDelete) {
+    const deleted = await deleteAsset(db, asset.id, authResult.organizationId);
+    if (deleted) {
+      deletedIds.push(deleted.id);
+    }
+  }
 
   return success(res, {
-    deleted: deleted.length,
-    shortIds: deleted.map((s) => s.id),
+    deleted: deletedIds.length,
+    shortIds: deletedIds,
   });
 }

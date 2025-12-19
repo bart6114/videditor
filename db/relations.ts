@@ -4,9 +4,9 @@ import {
   organizations,
   projects,
   transcriptions,
-  shorts,
   processingJobs,
   creditTransactions,
+  mediaAssets,
 } from './schema';
 
 /**
@@ -36,7 +36,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     references: [users.id],
   }),
   transcription: one(transcriptions),
-  shorts: many(shorts),
+  mediaAssets: many(mediaAssets),
   processingJobs: many(processingJobs),
 }));
 
@@ -47,10 +47,14 @@ export const transcriptionsRelations = relations(transcriptions, ({ one }) => ({
   }),
 }));
 
-export const shortsRelations = relations(shorts, ({ one }) => ({
+export const mediaAssetsRelations = relations(mediaAssets, ({ one }) => ({
   project: one(projects, {
-    fields: [shorts.projectId],
+    fields: [mediaAssets.projectId],
     references: [projects.id],
+  }),
+  sourceAsset: one(mediaAssets, {
+    fields: [mediaAssets.sourceAssetId],
+    references: [mediaAssets.id],
   }),
 }));
 

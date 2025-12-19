@@ -1,6 +1,6 @@
-import { eq, and, desc, count, sql } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import type { DB } from '../index';
-import { projects, transcriptions, shorts, processingJobs, mediaAssets, type NewProject, type Project } from '../schema';
+import { projects, transcriptions, processingJobs, mediaAssets, type NewProject, type Project } from '../schema';
 
 /**
  * List all projects for an organization with asset counts, transcription status, and job progress
@@ -10,7 +10,6 @@ export async function listOrganizationProjects(db: DB, organizationId: string, l
   const results = await db
     .select({
       project: projects,
-      shortsCount: count(shorts.id),
       longFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'long_form')`,
       shortFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'short_form')`,
       hasTranscription: sql<boolean>`EXISTS (SELECT 1 FROM transcriptions t WHERE t.project_id = ${projects.id})`,
@@ -18,9 +17,7 @@ export async function listOrganizationProjects(db: DB, organizationId: string, l
       assetThumbnailUrl: sql<string | null>`(SELECT ma.thumbnail_url FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'long_form' ORDER BY ma.created_at ASC LIMIT 1)`,
     })
     .from(projects)
-    .leftJoin(shorts, eq(projects.id, shorts.projectId))
     .where(eq(projects.organizationId, organizationId))
-    .groupBy(projects.id)
     .orderBy(desc(projects.createdAt))
     .limit(limit);
 
@@ -54,7 +51,7 @@ export async function listOrganizationProjects(db: DB, organizationId: string, l
     ...row.project,
     // Get thumbnailUrl from first long-form asset
     thumbnailUrl: row.assetThumbnailUrl,
-    shortsCount: row.shortsCount,
+    shortsCount: Number(row.shortFormCount) || 0, // Use shortFormCount from media_assets
     longFormCount: Number(row.longFormCount) || 0,
     shortFormCount: Number(row.shortFormCount) || 0,
     hasTranscription: row.hasTranscription,
@@ -118,13 +115,6 @@ export async function getProjectWithRelations(db: DB, projectId: string, organiz
     .where(eq(transcriptions.projectId, projectId))
     .orderBy(desc(transcriptions.createdAt));
 
-  // Get shorts (for backward compat, will be deprecated)
-  const projectShorts = await db
-    .select()
-    .from(shorts)
-    .where(eq(shorts.projectId, projectId))
-    .orderBy(desc(shorts.createdAt));
-
   return {
     project,
     mediaAssets: assets,
@@ -132,7 +122,6 @@ export async function getProjectWithRelations(db: DB, projectId: string, organiz
     shortFormAssets,
     transcription,
     transcriptions: allTranscriptions,
-    shorts: projectShorts,
   };
 }
 

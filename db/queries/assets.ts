@@ -1,4 +1,4 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import type { DB } from '../index';
 import { mediaAssets, projects, type NewMediaAsset, type MediaAsset } from '../schema';
 
@@ -48,6 +48,31 @@ export async function getAssetById(
     .limit(1);
 
   return result ?? null;
+}
+
+/**
+ * Get multiple assets by IDs with organization verification
+ */
+export async function getAssetsByIds(
+  db: DB,
+  assetIds: string[],
+  organizationId: string
+) {
+  if (assetIds.length === 0) {
+    return [];
+  }
+
+  const results = await db
+    .select()
+    .from(mediaAssets)
+    .where(
+      and(
+        inArray(mediaAssets.id, assetIds),
+        eq(mediaAssets.organizationId, organizationId)
+      )
+    );
+
+  return results;
 }
 
 /**

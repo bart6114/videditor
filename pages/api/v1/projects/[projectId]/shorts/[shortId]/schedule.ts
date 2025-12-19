@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
-import { getShortById } from '@server/db/queries/shorts';
+import { getAssetById } from '@server/db/queries/assets';
 import { getSocialAccountById } from '@server/db/queries/social-accounts';
 import { createScheduledPost } from '@server/db/queries/scheduled-posts';
 import { authenticate } from '@/lib/api/auth';
@@ -59,19 +59,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const db = getDb();
 
-  // Get the short (verifies ownership via organization)
-  const short = await getShortById(db, shortId, authResult.organizationId);
-  if (!short) {
+  // Get the asset (verifies ownership via organization)
+  const asset = await getAssetById(db, shortId, authResult.organizationId);
+  if (!asset || asset.assetType !== 'short_form') {
     return failure(res, 404, 'Short not found');
   }
 
   // Verify short is completed
-  if (short.status !== 'completed') {
+  if (asset.status !== 'completed') {
     return failure(res, 400, 'Short must be completed before scheduling');
   }
 
   // Verify short has a video
-  if (!short.outputObjectKey) {
+  if (!asset.sourceObjectKey) {
     return failure(res, 400, 'Short has no video to publish');
   }
 

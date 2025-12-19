@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
-import { deleteShort, getShortById, updateShort } from '@server/db/queries/shorts';
+import { getAssetById, updateAsset, deleteAsset } from '@server/db/queries/assets';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { createTigrisClient, createPresignedDownload, deleteFromTigris } from '@/lib/tigris';
@@ -16,19 +16,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const shortId = req.query.shortId as string;
+  const projectId = req.query.projectId as string;
   const db = getDb();
 
-  // Fetch the short (also verifies ownership via organization)
-  const short = await getShortById(db, shortId, authResult.organizationId);
+  // Fetch the asset (also verifies ownership via organization)
+  const asset = await getAssetById(db, shortId, authResult.organizationId);
 
-  if (!short) {
+  if (!asset || asset.assetType !== 'short_form') {
+    return failure(res, 404, 'Short not found');
+  }
+
+  // Verify project ownership
+  if (asset.projectId !== projectId) {
     return failure(res, 404, 'Short not found');
   }
 
   // PATCH: Update social content
   if (req.method === 'PATCH') {
     const { socialContent } = req.body;
-    const updated = await updateShort(db, shortId, { socialContent });
+    const updated = await updateAsset(db, shortId, authResult.organizationId, { socialContent });
 
     // Generate presigned URL for thumbnailUrl if it exists
     let presignedThumbnailUrl = updated?.thumbnailUrl || null;
@@ -54,18 +60,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const deletePromises: Promise<void>[] = [];
 
   // Collect all object keys to delete
-  if (short.outputObjectKey) {
-    deletePromises.push(deleteFromTigris(tigrisClient, short.outputObjectKey));
+  if (asset.sourceObjectKey) {
+    deletePromises.push(deleteFromTigris(tigrisClient, asset.sourceObjectKey));
   }
-  if (short.thumbnailUrl) {
-    deletePromises.push(deleteFromTigris(tigrisClient, short.thumbnailUrl));
+  if (asset.thumbnailUrl) {
+    deletePromises.push(deleteFromTigris(tigrisClient, asset.thumbnailUrl));
   }
 
   // Delete all assets from Tigris (ignore errors for missing files)
   await Promise.allSettled(deletePromises);
 
   // Delete from database (cascade handles processing_jobs)
-  await deleteShort(db, shortId, authResult.organizationId);
+  await deleteAsset(db, shortId, authResult.organizationId);
 
   return success(res, { deleted: true });
 }
