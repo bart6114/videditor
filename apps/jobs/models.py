@@ -71,6 +71,23 @@ class ShortStatus(str, Enum):
     ERROR = "error"
 
 
+class AssetType(str, Enum):
+    """Media asset type enumeration."""
+
+    LONG_FORM = "long_form"
+    SHORT_FORM = "short_form"
+
+
+class AssetStatus(str, Enum):
+    """Media asset status enumeration."""
+
+    UPLOADING = "uploading"
+    READY = "ready"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    ERROR = "error"
+
+
 class ShortTaskStatus(str, Enum):
     """Short task status enumeration."""
 
@@ -148,7 +165,8 @@ class ProcessingJob(Base):
 
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=True, index=True)
-    short_id = Column(String(255), nullable=True)
+    short_id = Column(String(255), nullable=True)  # DEPRECATED: Use media_asset_id instead
+    media_asset_id = Column(String(255), nullable=True, index=True)  # Links to media asset for unified processing
     type = Column(ENUM('thumbnail', 'transcription', 'analysis', 'short_processing', 'social_content_generation', 'youtube_publish', 'instagram_publish', name='job_type', create_type=False), nullable=False, index=True)
     status = Column(ENUM('queued', 'running', 'succeeded', 'failed', 'canceled', name='job_status', create_type=False), nullable=False, default="queued", index=True)
     payload = Column(JSONB, nullable=True)
@@ -167,6 +185,7 @@ class ProcessingJob(Base):
     # Additional composite indexes would go here
     __table_args__ = (
         Index("idx_processing_jobs_project_id", "project_id"),
+        Index("idx_processing_jobs_media_asset_id", "media_asset_id"),
         Index("idx_processing_jobs_status", "status"),
         Index("idx_processing_jobs_type", "type"),
         Index("idx_processing_jobs_preferred_machine_id", "preferred_machine_id"),
@@ -182,8 +201,9 @@ class Project(Base):
     organization_id = Column(String(255), nullable=False, index=True)
     created_by_id = Column(String(255), nullable=True)  # User who created the project
     title = Column(Text, nullable=False)
-    source_object_key = Column(Text, nullable=False)
-    source_bucket = Column(Text, nullable=False)
+    # DEPRECATED: Source video fields moved to media_assets table
+    source_object_key = Column(Text, nullable=True)
+    source_bucket = Column(Text, nullable=True)
     thumbnail_url = Column(Text, nullable=True)
     duration_seconds = Column(Double, nullable=True)
     file_size_bytes = Column(BigInteger, nullable=True)
@@ -196,6 +216,40 @@ class Project(Base):
     completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
 
+class MediaAsset(Base):
+    """Media asset database model for unified long-form and short-form content."""
+
+    __tablename__ = "media_assets"
+
+    id = Column(String(255), primary_key=True)
+    project_id = Column(String(255), nullable=False, index=True)
+    organization_id = Column(String(255), nullable=False, index=True)
+    created_by_id = Column(String(255), nullable=True)
+    asset_type = Column(ENUM('long_form', 'short_form', name='asset_type', create_type=False), nullable=False)
+    title = Column(Text, nullable=False)
+    source_object_key = Column(Text, nullable=False)
+    source_bucket = Column(Text, nullable=False)
+    thumbnail_url = Column(Text, nullable=True)
+    duration_seconds = Column(Double, nullable=True)
+    file_size_bytes = Column(BigInteger, nullable=True)
+    status = Column(ENUM('uploading', 'ready', 'processing', 'completed', 'error', name='asset_status', create_type=False), nullable=False, default="uploading")
+    error_message = Column(Text, nullable=True)
+    source_asset_id = Column(String(255), nullable=True, index=True)  # For short_form: reference to source long_form
+    social_content = Column(JSONB, nullable=True)  # For short_form: YouTube title/desc, IG caption, etc.
+    metadata_ = Column("metadata", JSONB, nullable=True)  # Type-specific fields (startTime, endTime, etc.)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_media_assets_project_id", "project_id"),
+        Index("idx_media_assets_organization_id", "organization_id"),
+        Index("idx_media_assets_asset_type", "asset_type"),
+        Index("idx_media_assets_status", "status"),
+        Index("idx_media_assets_source_asset_id", "source_asset_id"),
+        Index("idx_media_assets_created_at", "created_at"),
+    )
+
+
 class Transcription(Base):
     """Transcription database model."""
 
@@ -203,6 +257,7 @@ class Transcription(Base):
 
     id = Column(String(255), primary_key=True)
     project_id = Column(String(255), nullable=False, index=True)
+    media_asset_id = Column(String(255), nullable=True, index=True)  # Links to long_form media asset
     text = Column(Text, nullable=False)
     segments = Column(JSONB, nullable=False, default=[])
     language = Column(String(16), nullable=True)
@@ -260,7 +315,8 @@ class ScheduledPost(Base):
 
     id = Column(String(255), primary_key=True)
     organization_id = Column(String(255), nullable=False, index=True)
-    short_id = Column(String(255), nullable=False, index=True)
+    short_id = Column(String(255), nullable=False, index=True)  # DEPRECATED: Use media_asset_id instead
+    media_asset_id = Column(String(255), nullable=True, index=True)  # Links to short_form media asset
     social_account_id = Column(String(255), nullable=True)  # Nullable - account may be disconnected
     platform = Column(ENUM('youtube', 'tiktok', 'instagram', name='social_platform', create_type=False), nullable=False)
     scheduled_for = Column(TIMESTAMP(timezone=True), nullable=False, index=True)

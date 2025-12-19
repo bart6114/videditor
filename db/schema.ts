@@ -63,6 +63,20 @@ export const memberRoleEnum = pgEnum('member_role', ['owner', 'member']);
 export const inboxMessageTypeEnum = pgEnum('inbox_message_type', ['error', 'info', 'announcement']);
 
 // ============================================================================
+// MEDIA ASSETS (Unified asset model for long-form videos and shorts)
+// ============================================================================
+
+export const assetTypeEnum = pgEnum('asset_type', ['long_form', 'short_form']);
+
+export const assetStatusEnum = pgEnum('asset_status', [
+  'uploading',   // File being uploaded
+  'ready',       // Upload complete, no processing needed (or processing done)
+  'processing',  // Being processed (transcription, clip extraction, etc.)
+  'completed',   // All processing complete
+  'error',       // Processing failed
+]);
+
+// ============================================================================
 // ORGANIZATIONS
 // ============================================================================
 
@@ -170,8 +184,10 @@ export const projects = pgTable(
     createdById: varchar('created_by_id', { length: 255 })
       .references(() => users.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
-    sourceObjectKey: text('source_object_key').notNull(),
-    sourceBucket: text('source_bucket').notNull(),
+    // DEPRECATED: Source video fields moved to media_assets table
+    // Made nullable for migration - new projects won't populate these
+    sourceObjectKey: text('source_object_key'),
+    sourceBucket: text('source_bucket'),
     thumbnailUrl: text('thumbnail_url'),
     durationSeconds: doublePrecision('duration_seconds'),
     fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }),
@@ -190,6 +206,66 @@ export const projects = pgTable(
   })
 );
 
+// ============================================================================
+// MEDIA ASSETS (Unified storage for long-form videos and shorts)
+// ============================================================================
+
+export const mediaAssets = pgTable(
+  'media_assets',
+  {
+    id: varchar('id', { length: 255 }).primaryKey(),
+    projectId: varchar('project_id', { length: 255 })
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    organizationId: varchar('organization_id', { length: 255 })
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    createdById: varchar('created_by_id', { length: 255 })
+      .references(() => users.id, { onDelete: 'set null' }),
+
+    // Asset classification
+    assetType: assetTypeEnum('asset_type').notNull(),
+    title: text('title').notNull(),
+
+    // Storage references
+    sourceObjectKey: text('source_object_key').notNull(),
+    sourceBucket: text('source_bucket').notNull(),
+    thumbnailUrl: text('thumbnail_url'),
+
+    // Common metadata
+    durationSeconds: doublePrecision('duration_seconds'),
+    fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }),
+    status: assetStatusEnum('status').notNull().default('uploading'),
+    errorMessage: text('error_message'),
+
+    // For short_form: reference to source long_form asset (nullable)
+    sourceAssetId: varchar('source_asset_id', { length: 255 })
+      .references((): AnyPgColumn => mediaAssets.id, { onDelete: 'set null' }),
+
+    // For short_form: social content (YouTube title/desc, IG caption, etc.)
+    socialContent: jsonb('social_content'),
+
+    // Flexible metadata JSONB for type-specific fields
+    // For short_form: { startTime, endTime, transcriptionSlice, ranges, analysisJobId, tasks }
+    // For long_form: { filename, contentType }
+    metadata: jsonb('metadata'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    projectIdIdx: index('idx_media_assets_project_id').on(table.projectId),
+    organizationIdIdx: index('idx_media_assets_organization_id').on(table.organizationId),
+    assetTypeIdx: index('idx_media_assets_asset_type').on(table.assetType),
+    statusIdx: index('idx_media_assets_status').on(table.status),
+    sourceAssetIdIdx: index('idx_media_assets_source_asset_id').on(table.sourceAssetId),
+    createdAtIdx: index('idx_media_assets_created_at').on(table.createdAt),
+  })
+);
+
+export type MediaAsset = typeof mediaAssets.$inferSelect;
+export type NewMediaAsset = typeof mediaAssets.$inferInsert;
+
 export const transcriptions = pgTable(
   'transcriptions',
   {
@@ -197,6 +273,9 @@ export const transcriptions = pgTable(
     projectId: varchar('project_id', { length: 255 })
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
+    // Links to long_form media asset (nullable during migration, will become primary reference)
+    mediaAssetId: varchar('media_asset_id', { length: 255 })
+      .references(() => mediaAssets.id, { onDelete: 'cascade' }),
     text: text('text').notNull(),
     segments: jsonb('segments')
       .$type<Array<{
@@ -214,6 +293,7 @@ export const transcriptions = pgTable(
   },
   (table) => ({
     projectIdIdx: index('idx_transcriptions_project_id').on(table.projectId),
+    mediaAssetIdIdx: index('idx_transcriptions_media_asset_id').on(table.mediaAssetId),
   })
 );
 
@@ -256,6 +336,9 @@ export const processingJobs = pgTable(
     projectId: varchar('project_id', { length: 255 })
       .references(() => projects.id, { onDelete: 'cascade' }),
     shortId: varchar('short_id', { length: 255 }).references((): AnyPgColumn => shorts.id, { onDelete: 'cascade' }),
+    // Links to media asset for unified asset processing (nullable during migration)
+    mediaAssetId: varchar('media_asset_id', { length: 255 })
+      .references(() => mediaAssets.id, { onDelete: 'cascade' }),
     type: jobTypeEnum('type').notNull(),
     status: jobStatusEnum('status').notNull().default('queued'),
     payload: jsonb('payload'),
@@ -272,6 +355,7 @@ export const processingJobs = pgTable(
   },
   (table) => ({
     projectIdIdx: index('idx_processing_jobs_project_id').on(table.projectId),
+    mediaAssetIdIdx: index('idx_processing_jobs_media_asset_id').on(table.mediaAssetId),
     jobStatusIdx: index('idx_processing_jobs_status').on(table.status),
     jobTypeIdx: index('idx_processing_jobs_type').on(table.type),
     preferredMachineIdIdx: index('idx_processing_jobs_preferred_machine_id').on(table.preferredMachineId),
@@ -396,6 +480,9 @@ export const scheduledPosts = pgTable(
     shortId: varchar('short_id', { length: 255 })
       .notNull()
       .references(() => shorts.id, { onDelete: 'cascade' }),
+    // Links to short_form media asset (nullable during migration, will replace shortId)
+    mediaAssetId: varchar('media_asset_id', { length: 255 })
+      .references(() => mediaAssets.id, { onDelete: 'cascade' }),
     socialAccountId: varchar('social_account_id', { length: 255 })
       .references(() => socialAccounts.id, { onDelete: 'set null' }),
     // Platform is stored directly so we know which platform even if account is disconnected
@@ -421,6 +508,7 @@ export const scheduledPosts = pgTable(
   (table) => ({
     orgIdIdx: index('idx_scheduled_posts_org_id').on(table.organizationId),
     shortIdIdx: index('idx_scheduled_posts_short_id').on(table.shortId),
+    mediaAssetIdIdx: index('idx_scheduled_posts_media_asset_id').on(table.mediaAssetId),
     statusScheduledIdx: index('idx_scheduled_posts_status_scheduled').on(table.status, table.scheduledFor),
     scheduledForIdx: index('idx_scheduled_posts_scheduled_for').on(table.scheduledFor),
   })
