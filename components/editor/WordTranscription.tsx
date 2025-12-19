@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Minus, Plus } from 'lucide-react'
-import type { Word } from '@/pages/editor/[projectId]'
+import type { Word } from '@/hooks/useManualEditor'
 
 interface WordTranscriptionProps {
   words: Word[]

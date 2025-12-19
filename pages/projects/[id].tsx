@@ -26,6 +26,9 @@ import {
 import { ShortsSidePanel } from '@/components/shorts-side-panel'
 import { TranscriptionSidePanel } from '@/components/transcription-side-panel'
 import { BulkScheduleDialog } from '@/components/bulk-schedule-dialog'
+import { LongFormAssetCard } from '@/components/LongFormAssetCard'
+import { UploadAssetModal } from '@/components/UploadAssetModal'
+import { SelectedAssetPanel } from '@/components/SelectedAssetPanel'
 import {
   Sparkles,
   Download,
@@ -42,7 +45,12 @@ import {
   AlertCircle,
   CheckCircle2,
   Calendar,
+  Upload,
+  Video,
+  Film,
+  X,
 } from 'lucide-react'
+import type { MediaAsset } from '@/types/projects'
 import type { Project, Short, Transcription } from '@server/db/schema'
 import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortTasks } from '@shared/index'
 import { useUserSettings } from '@/hooks/useUserSettings'
@@ -251,7 +259,7 @@ export default function ProjectDetail() {
   const projectData = useProjectData(id as string | undefined)
 
   // Destructure commonly used values from projectData
-  const { project, shorts, transcription, loading, activeJob, transcriptionJob, scheduledPostsByShort, lastAnalysisJobId } = projectData
+  const { project, shorts, transcription, transcriptions, longFormAssets, loading, activeJob, transcriptionJob, scheduledPostsByShort, lastAnalysisJobId } = projectData
 
   // Local UI state (not managed by hook)
   const [analyzing, setAnalyzing] = useState(false)
@@ -290,6 +298,17 @@ export default function ProjectDetail() {
     | { type: 'editing'; value: string; saving: boolean }
   const [titleEdit, setTitleEdit] = useState<TitleEditState>({ type: 'viewing' })
   const [showInsufficientCredits, setShowInsufficientCredits] = useState(false)
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
+  const [playingAsset, setPlayingAsset] = useState<MediaAsset | null>(null)
+
+  // Derived state: the currently selected long-form asset
+  const selectedAsset = longFormAssets.find(a => a.id === selectedAssetId) || null
+
+  // Get the transcription for the selected asset (by mediaAssetId match)
+  const selectedAssetTranscription = selectedAssetId
+    ? transcriptions.find(t => t.mediaAssetId === selectedAssetId) || null
+    : null
 
   // Local UI state for retry button feedback
   const [retryingTranscription, setRetryingTranscription] = useState(false)
@@ -452,9 +471,7 @@ export default function ProjectDetail() {
     }
   }
 
-  async function handleRetryTranscription() {
-    if (!project) return
-
+  async function handleRetryTranscriptionForAsset(asset: MediaAsset) {
     setRetryingTranscription(true)
 
     try {
@@ -463,8 +480,9 @@ export default function ProjectDetail() {
         body: JSON.stringify({
           type: 'transcription',
           payload: {
-            sourceObjectKey: project.sourceObjectKey,
-            sourceBucket: project.sourceBucket,
+            sourceObjectKey: asset.sourceObjectKey,
+            sourceBucket: asset.sourceBucket,
+            mediaAssetId: asset.id, // Link transcription to this asset
           },
         }),
       })
@@ -756,604 +774,110 @@ export default function ProjectDetail() {
 
       <WorkspaceLayout title={project.title}>
         <div className="space-y-6">
-          {/* Top Row: 2-Column Grid */}
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Left Column: Video Player */}
-            <Card className="bg-card border-border h-full flex flex-col" data-tour="video-player">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    {titleEdit.type === 'editing' ? (
-                      <div className="flex items-center gap-2 mb-2">
-                        <Input
-                          value={titleEdit.value}
-                          onChange={(e) => setTitleEdit({ ...titleEdit, value: e.target.value })}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveTitle()
-                            if (e.key === 'Escape') cancelEditingTitle()
-                          }}
-                          className="flex-1"
-                          autoFocus
-                        />
-                        <Button
-                          size="sm"
-                          onClick={handleSaveTitle}
-                          disabled={titleEdit.saving || !titleEdit.value.trim()}
-                        >
-                          {titleEdit.saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={cancelEditingTitle}>
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 mb-2">
-                        <CardTitle className="text-foreground">{project.title}</CardTitle>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={startEditingTitle}
-                          className="h-8 w-8 p-0"
-                          title="Edit title"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setDialog({ type: 'deleteProject', deleting: false })}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          title="Delete project"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                    <CardDescription className="text-muted-foreground">
-                      Duration: {project.durationSeconds ? formatDuration(project.durationSeconds) : '—'} • Status:{' '}
-                      <Badge variant={project.status === 'completed' ? 'default' : 'secondary'}>{project.status}</Badge>
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
-                <div className="flex-1 min-h-[300px] bg-black rounded-lg overflow-hidden relative flex items-center justify-center">
-                  {playbackUrl ? (
-                    <>
-                      {!videoPlayerLoaded ? (
-                        <div
-                          className="absolute inset-0 cursor-pointer group flex items-center justify-center"
-                          onClick={() => setVideoPlayerLoaded(true)}
-                        >
-                          {project.thumbnailUrl ? (
-                            <Image
-                              src={project.thumbnailUrl}
-                              alt={project.title}
-                              fill
-                              className="object-contain"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-muted" />
-                          )}
+          {/* Header with Upload Button */}
+          <div className="flex items-center justify-end">
+            <Button onClick={() => setUploadModalOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />
+              Upload Asset
+            </Button>
+          </div>
 
-                          {/* Play button overlay */}
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
-                            <div className="w-20 h-20 rounded-full bg-white/90 group-hover:bg-white group-hover:scale-110 transition-all flex items-center justify-center shadow-xl">
-                              <Play className="w-10 h-10 text-black fill-black ml-1" />
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="absolute inset-0">
-                          <ReactPlayer
-                            url={playbackUrl}
-                            controls
-                            width="100%"
-                            height="100%"
-                            playing={true}
-                            onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds)}
-                          />
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      Playback preview is not available yet for this project.
-                    </div>
-                  )}
+          {/* Long-Form Assets Section */}
+          {longFormAssets.length > 0 && (
+            <>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Video className="w-5 h-5 text-primary" />
+                  Long-form Videos ({longFormAssets.length})
+                </h2>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {longFormAssets.map((asset) => (
+                    <LongFormAssetCard
+                      key={asset.id}
+                      asset={asset}
+                      isSelected={selectedAssetId === asset.id}
+                      onSelect={() => setSelectedAssetId(selectedAssetId === asset.id ? null : asset.id)}
+                      onPlayVideo={() => setPlayingAsset(asset)}
+                    />
+                  ))}
                 </div>
+              </div>
+
+              {/* Selected Asset Panel - shows when an asset is selected */}
+              {selectedAsset && (
+                <SelectedAssetPanel
+                  asset={selectedAsset}
+                  projectId={id as string}
+                  onClose={() => setSelectedAssetId(null)}
+                  transcription={selectedAssetTranscription}
+                  transcriptionJob={transcriptionJob}
+                  isRetryingTranscription={retryingTranscription}
+                  onOpenTranscriptionPanel={() => setTranscriptionPanelOpen(true)}
+                  onRetryTranscription={() => selectedAsset && handleRetryTranscriptionForAsset(selectedAsset)}
+                  existingShorts={shorts}
+                  isGenerating={analyzing}
+                  hasActiveJob={!!activeJob}
+                  isProcessingShorts={isProcessingShorts}
+                  userCredits={userSettings.credits}
+                  userSettings={userSettings.settings}
+                  onGenerateStart={() => {
+                    setAnalyzing(true)
+                    projectData.setIsGeneratingShorts(true)
+                  }}
+                  onGenerateComplete={(jobId) => {
+                    setAnalyzing(false)
+                    projectData.setActiveJob({ id: jobId, status: 'running' })
+                    projectData.setLastAnalysisJobId(jobId)
+                  }}
+                  onGenerateError={(error) => {
+                    setAnalyzing(false)
+                    projectData.setIsGeneratingShorts(false)
+                    projectData.setActiveJob(null)
+                    alert(error.message || 'Failed to generate shorts')
+                  }}
+                  refreshCredits={userSettings.refreshCredits}
+                  onShortCreated={() => projectData.refresh()}
+                />
+              )}
+            </>
+          )}
+
+          {/* Empty State for No Assets */}
+          {longFormAssets.length === 0 && shorts.length === 0 && !loading && (
+            <Card className="bg-card border-border border-dashed">
+              <CardContent className="py-16 text-center">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Video className="w-10 h-10 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No content yet</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto mb-4">
+                  Upload a video to get started. You can upload long-form videos to generate shorts, or upload existing short-form clips.
+                </p>
+                <Button onClick={() => setUploadModalOpen(true)}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Your First Video
+                </Button>
               </CardContent>
             </Card>
-
-            {/* Right Column: Transcription + Shorts Generation */}
-            <div className="space-y-6">
-            {/* Transcription Section - Success State */}
-            {transcription && (
-              <Card className="bg-card border-border" data-tour="transcription-status">
-                <CardHeader
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => setTranscriptionPanelOpen(true)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-primary" />
-                      <CardTitle className="text-foreground">Transcription</CardTitle>
-                      <Badge>Ready</Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {process.env.NODE_ENV === 'development' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleRetryTranscription()
-                          }}
-                          disabled={retryingTranscription}
-                          title="Redo transcription (dev only)"
-                        >
-                          <RefreshCw className={`w-4 h-4 ${retryingTranscription ? 'animate-spin' : ''}`} />
-                        </Button>
-                      )}
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            )}
-
-            {/* Transcription Section - In Progress State */}
-            {!transcription && (retryingTranscription || (transcriptionJob && ['queued', 'running'].includes(transcriptionJob.status))) && (
-              <Card className="bg-primary/5 border-primary/30">
-                <CardContent className="py-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground mb-1">
-                        Transcribing video...
-                        {transcriptionJob?.progress?.phase === 'transcribing' && transcriptionJob.progress.total > 0 && (
-                          <span className="ml-2 text-primary">
-                            {Math.round((transcriptionJob.progress.current / transcriptionJob.progress.total) * 100)}%
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {retryingTranscription || transcriptionJob?.status === 'queued'
-                          ? 'Waiting in queue...'
-                          : transcriptionJob?.progress?.phase === 'transcribing' && transcriptionJob.progress.total > 1
-                            ? `Processing audio in parallel (${transcriptionJob.progress.current}/${transcriptionJob.progress.total} segments)`
-                            : 'Processing audio and generating transcript'}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Transcription Section - Failed State */}
-            {!transcription && !retryingTranscription && transcriptionJob && transcriptionJob.status === 'failed' && (
-              <Card className="bg-destructive/5 border-destructive/30">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-destructive" />
-                    <CardTitle className="text-foreground">Transcription Failed</CardTitle>
-                    <Badge variant="destructive">Error</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {transcriptionJob.errorMessage && (
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {transcriptionJob.errorMessage}
-                    </p>
-                  )}
-                  <Button
-                    onClick={handleRetryTranscription}
-                    disabled={retryingTranscription}
-                    variant="outline"
-                    className="border-destructive/30 hover:bg-destructive/10"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Retry Transcription
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Shorts Generation Section */}
-            {transcription && (
-              <Card className="bg-card border-border" data-tour="generate-shorts">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-foreground">
-                    <Sparkles className="w-5 h-5 text-primary" />
-                    Generate Shorts
-                  </CardTitle>
-                  <CardDescription className="text-muted-foreground">
-                    Use AI to find the most engaging moments from your video
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block text-foreground">
-                      Number of Shorts
-                    </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={15}
-                      value={shortsCount || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setShowInsufficientCredits(false);
-                        if (val === '') {
-                          setShortsCount(0);
-                        } else {
-                          const parsed = parseInt(val, 10);
-                          if (!isNaN(parsed)) {
-                            setShortsCount(parsed);
-                          }
-                        }
-                      }}
-                      onBlur={() => {
-                        const clamped = Math.max(1, Math.min(15, shortsCount || 1));
-                        setShortsCount(clamped);
-                      }}
-                      disabled={analyzing}
-                      className="bg-background border-input text-foreground"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block text-foreground">
-                        Preferred Length (seconds)
-                      </label>
-                      <Input
-                        type="number"
-                        min={15}
-                        max={120}
-                        value={preferredLength}
-                        onChange={(e) => {
-                          const parsed = parseInt(e.target.value);
-                          setPreferredLength(isNaN(parsed) ? 0 : parsed);
-                        }}
-                        onBlur={() => {
-                          const clamped = Math.max(15, Math.min(120, preferredLength || 15));
-                          setPreferredLength(clamped);
-                          if (maxLength < clamped) setMaxLength(clamped);
-                        }}
-                        disabled={analyzing}
-                        className="bg-background border-input text-foreground"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Target length for shorts
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block text-foreground">
-                        Max Length (seconds)
-                      </label>
-                      <Input
-                        type="number"
-                        min={15}
-                        max={120}
-                        value={maxLength}
-                        onChange={(e) => {
-                          const parsed = parseInt(e.target.value);
-                          setMaxLength(isNaN(parsed) ? 0 : parsed);
-                        }}
-                        onBlur={() => {
-                          const clamped = Math.max(15, Math.min(120, maxLength || 15));
-                          setMaxLength(Math.max(clamped, preferredLength));
-                        }}
-                        disabled={analyzing}
-                        className="bg-background border-input text-foreground"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Maximum allowed length
-                      </p>
-                    </div>
-                  </div>
-                  <div className="border border-border rounded-lg overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setShowAnalysisPrompt(!showAnalysisPrompt)}
-                      disabled={analyzing}
-                      className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50"
-                    >
-                      <span className="text-sm font-medium text-foreground">
-                        Custom Analysis Instructions
-                      </span>
-                      {showAnalysisPrompt ? (
-                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </button>
-                    {showAnalysisPrompt && (
-                      <div className="p-3 border-t border-border">
-                        <textarea
-                          placeholder="e.g., Focus on educational content, prefer clips with strong hooks..."
-                          value={customPrompt}
-                          onChange={(e) => setCustomPrompt(e.target.value)}
-                          disabled={analyzing}
-                          rows={3}
-                          className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                        />
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Guide the AI when identifying the best moments for shorts. For example, ensure a short about a specific topic you discussed.
-                          Set defaults in <Link href="/settings" className="text-primary hover:underline">Preferences</Link>.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  {shorts.length > 0 && (
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        id="avoidOverlap"
-                        checked={avoidExistingOverlap}
-                        onCheckedChange={setAvoidExistingOverlap}
-                        disabled={analyzing}
-                      />
-                      <label htmlFor="avoidOverlap" className="text-sm text-foreground cursor-pointer">
-                        Avoid overlap with existing shorts
-                      </label>
-                    </div>
-                  )}
-                  <div>
-                    <label className="text-sm font-medium text-foreground block mb-2">
-                      Generate Social Content
-                    </label>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Choose platforms to generate titles and descriptions for.
-                      Set defaults in <Link href="/settings" className="text-primary hover:underline">Preferences</Link>.
-                    </p>
-                    <div className="flex flex-wrap gap-2" data-tour="social-platforms">
-                      {SOCIAL_PLATFORMS.map((platform) => {
-                        const isSelected = socialPlatforms.includes(platform)
-                        const Icon = PLATFORM_ICONS[platform]
-                        return (
-                          <button
-                            key={platform}
-                            type="button"
-                            onClick={() => setSocialPlatforms((prev) =>
-                              prev.includes(platform)
-                                ? prev.filter((p) => p !== platform)
-                                : [...prev, platform]
-                            )}
-                            disabled={analyzing}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200 ${
-                              isSelected
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
-                            } ${analyzing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                            title={PLATFORM_LABELS[platform]}
-                          >
-                            <Icon size={18} />
-                            <span className="text-sm font-medium">{PLATFORM_LABELS[platform]}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                  {socialPlatforms.length > 0 && (
-                    <div className="border border-border rounded-lg overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => setShowSocialPrompt(!showSocialPrompt)}
-                        disabled={analyzing}
-                        className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50"
-                      >
-                        <span className="text-sm font-medium text-foreground">
-                          Custom Social Content Instructions
-                        </span>
-                        {showSocialPrompt ? (
-                          <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </button>
-                      {showSocialPrompt && (
-                        <div className="p-3 border-t border-border">
-                          <textarea
-                            placeholder="e.g., Use a casual and friendly tone, include relevant emojis, always end with a CTA like 'Follow for more tips!'..."
-                            value={customSocialPrompt}
-                            onChange={(e) => setCustomSocialPrompt(e.target.value)}
-                            disabled={analyzing}
-                            rows={3}
-                            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                          />
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Guide the AI when generating titles and captions for social media
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleAnalyze}
-                        disabled={analyzing || !!activeJob || !transcription || userSettings.credits === null || isProcessingShorts}
-                        className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
-                      >
-                        {analyzing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Generating {shortsCount} shorts...
-                          </>
-                        ) : activeJob ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Generation in progress...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Generate {shortsCount} Shorts with AI
-                          </>
-                        )}
-                      </Button>
-
-                      {/* Manual editor button */}
-                      <Link
-                        href={`/editor/${id}`}
-                        className={!transcription || !!activeJob || isProcessingShorts ? 'pointer-events-none' : ''}
-                      >
-                        <Button
-                          variant="outline"
-                          disabled={!transcription || !!activeJob || isProcessingShorts}
-                          className="h-full"
-                        >
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Manual
-                        </Button>
-                      </Link>
-                    </div>
-
-                    {/* Credit cost indicator */}
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Cost: {shortsCount} credit{shortsCount !== 1 ? 's' : ''}
-                      </span>
-                      {userSettings.credits !== null && (
-                        <span className={userSettings.credits < shortsCount ? 'text-destructive' : 'text-muted-foreground'}>
-                          Balance: {userSettings.credits} credit{userSettings.credits !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Insufficient credits warning - shown after failed generation attempt */}
-                    {showInsufficientCredits && userSettings.credits !== null && (
-                      <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                        <p className="text-sm text-destructive">
-                          Insufficient credits. You need {shortsCount - userSettings.credits} more credit{shortsCount - userSettings.credits !== 1 ? 's' : ''}.{' '}
-                          <Link href="/settings/billing" className="underline font-medium hover:text-destructive/80">
-                            Add credits
-                          </Link>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Generation Progress Indicator */}
-            {activeJob && (
-              <Card className="bg-primary/5 border-primary/30 shadow-glow">
-                <CardContent className="py-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      {activeJob.progress?.phase === 'analyzing' ? (
-                        <>
-                          <p className="font-medium text-foreground mb-1">
-                            Analyzing transcript...
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            AI is finding the best moments for shorts
-                          </p>
-                        </>
-                      ) : activeJob.progress?.phase === 'generating' ? (
-                        <>
-                          <p className="font-medium text-foreground mb-1">
-                            Processing clips...
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {activeJob.progress.current} of {activeJob.progress.total} shorts created
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="font-medium text-foreground mb-1">
-                            Starting generation...
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Preparing to analyze your video
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Shorts Processing Progress (after analysis completes) */}
-            {(() => {
-              // Filter to only show progress for the current batch
-              const batchShorts = lastAnalysisJobId
-                ? shorts.filter(s => s.analysisJobId === lastAnalysisJobId)
-                : shorts.filter(s => s.status === 'pending' || s.status === 'processing')
-              const completed = batchShorts.filter(s => s.status === 'completed').length
-              const total = batchShorts.length
-              const hasPending = batchShorts.some(s => s.status === 'pending' || s.status === 'processing')
-
-              if (!activeJob && total > 0 && hasPending) {
-                return (
-                  <Card className="bg-primary/5 border-primary/30">
-                    <CardContent className="py-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
-                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-foreground mb-1">
-                            Processing shorts...
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {completed} of {total} completed
-                          </p>
-                          <div className="mt-2 h-2 bg-primary/20 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary transition-all duration-300"
-                              style={{ width: `${(completed / total) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              }
-              return null
-            })()}
-
-            {/* No Transcription Placeholder - Only when no job exists */}
-            {!transcription && !transcriptionJob && !retryingTranscription && (
-              <Card className="bg-card border-border border-dashed">
-                <CardContent className="py-12 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-secondary flex items-center justify-center">
-                    <FileText className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="font-semibold text-foreground mb-2">No transcription yet</h3>
-                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                    The transcription will start processing shortly.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-            </div>
-          </div>
+          )}
 
           {/* Bottom Row: Shorts Table (Full Width) */}
           {shorts.length > 0 && (
-            <Card className="bg-card border-border" data-tour="shorts-table">
-              <CardHeader className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="text-foreground text-base sm:text-lg">
-                      Short form videos ({shorts.length})
-                    </CardTitle>
-                    {hasSelections && (
-                      <Badge variant="secondary" className="text-xs">
-                        {selectedShortIds.size} selected
-                      </Badge>
-                    )}
-                  </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Film className="w-5 h-5 text-primary" />
+                Short-form Videos ({shorts.length})
+              </h2>
+              <Card className="bg-card border-border" data-tour="shorts-table">
+                <CardHeader className="py-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {hasSelections && (
+                        <Badge variant="secondary" className="text-xs">
+                          {selectedShortIds.size} selected
+                        </Badge>
+                      )}
+                    </div>
                   <div className="flex flex-wrap gap-2">
                     {hasSelections && (
                       <Button
@@ -1585,6 +1109,7 @@ export default function ProjectDetail() {
                 </div>
               </CardContent>
             </Card>
+            </div>
           )}
         </div>
 
@@ -1605,7 +1130,7 @@ export default function ProjectDetail() {
 
         {/* Side Panel for viewing transcription */}
         <TranscriptionSidePanel
-          transcription={transcription}
+          transcription={selectedAssetTranscription}
           isOpen={transcriptionPanelOpen}
           onClose={() => setTranscriptionPanelOpen(false)}
         />
@@ -1714,6 +1239,54 @@ export default function ProjectDetail() {
           }}
           defaultSchedulingPrompt={userSettings.settings?.defaultSchedulingPrompt || null}
         />
+
+        {/* Upload Asset Modal */}
+        <UploadAssetModal
+          open={uploadModalOpen}
+          onOpenChange={setUploadModalOpen}
+          projectId={id as string}
+          onUploadComplete={() => projectData.refresh()}
+        />
+
+        {/* Video Lightbox for Long-Form Assets */}
+        <Dialog open={!!playingAsset} onOpenChange={(open) => !open && setPlayingAsset(null)}>
+          <DialogContent className="font-sans max-w-4xl p-0 overflow-hidden">
+            <div className="relative">
+              {/* Close button */}
+              <button
+                onClick={() => setPlayingAsset(null)}
+                className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+              {/* Video player */}
+              <div className="aspect-video bg-black">
+                {playingAsset?.videoUrl ? (
+                  <ReactPlayer
+                    url={playingAsset.videoUrl}
+                    controls
+                    width="100%"
+                    height="100%"
+                    playing={true}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                    <Loader2 className="w-8 h-8 animate-spin" />
+                  </div>
+                )}
+              </div>
+              {/* Title bar */}
+              <div className="p-4 bg-card border-t border-border">
+                <h3 className="font-medium text-foreground">{playingAsset?.title}</h3>
+                {playingAsset?.durationSeconds && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Duration: {formatDuration(playingAsset.durationSeconds)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </WorkspaceLayout>
     </>
   )

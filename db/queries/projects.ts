@@ -3,7 +3,7 @@ import type { DB } from '../index';
 import { projects, transcriptions, shorts, processingJobs, mediaAssets, type NewProject, type Project } from '../schema';
 
 /**
- * List all projects for an organization with shorts count, transcription status, and job progress
+ * List all projects for an organization with asset counts, transcription status, and job progress
  */
 export async function listOrganizationProjects(db: DB, organizationId: string, limit: number = 100) {
   // Get projects with aggregated data
@@ -11,6 +11,8 @@ export async function listOrganizationProjects(db: DB, organizationId: string, l
     .select({
       project: projects,
       shortsCount: count(shorts.id),
+      longFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'long_form')`,
+      shortFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'short_form')`,
       hasTranscription: sql<boolean>`EXISTS (SELECT 1 FROM transcriptions t WHERE t.project_id = ${projects.id})`,
     })
     .from(projects)
@@ -49,6 +51,8 @@ export async function listOrganizationProjects(db: DB, organizationId: string, l
   return results.map((row) => ({
     ...row.project,
     shortsCount: row.shortsCount,
+    longFormCount: Number(row.longFormCount) || 0,
+    shortFormCount: Number(row.shortFormCount) || 0,
     hasTranscription: row.hasTranscription,
     transcriptionProgress: progressByProject.get(row.project.id) ?? null,
   }));

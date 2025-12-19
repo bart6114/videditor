@@ -9,20 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Loader2, Film } from 'lucide-react'
 import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 import type { Project, Transcription } from '@server/db/schema'
-import { SOCIAL_PLATFORMS, type SocialPlatform, type TimeRange } from '@shared/index'
+import { SOCIAL_PLATFORMS, type SocialPlatform } from '@shared/index'
 import WordTranscription from '@/components/editor/WordTranscription'
 import SegmentVideoPlayer, { type SegmentVideoPlayerRef } from '@/components/editor/SegmentVideoPlayer'
-
-// Word type with timestamp and selection state
-export interface Word {
-  id: string
-  text: string
-  start: number
-  end: number
-  selected: boolean
-  speaker: string | null
-  confidence?: number
-}
+import { type Word, getSelectedRanges, formatDuration } from '@/hooks/useManualEditor'
 
 // Type for word-level transcription data (stored in transcriptions.segments)
 // Deepgram provides per-word timestamps, speaker diarization, and confidence scores
@@ -46,38 +36,6 @@ function mapTranscriptWords(transcriptWords: TranscriptWord[]): Word[] {
     speaker: word.speaker,
     confidence: word.confidence,
   }))
-}
-
-// Get selected time ranges from word selection
-function getSelectedRanges(words: Word[]): TimeRange[] {
-  const ranges: TimeRange[] = []
-  let currentRange: TimeRange | null = null
-
-  words.forEach((word) => {
-    if (word.selected) {
-      if (currentRange && word.start - currentRange.end < 0.1) {
-        // Extend current range
-        currentRange.end = word.end
-      } else {
-        // Start new range
-        if (currentRange) ranges.push(currentRange)
-        currentRange = { start: word.start, end: word.end }
-      }
-    } else if (currentRange) {
-      ranges.push(currentRange)
-      currentRange = null
-    }
-  })
-
-  if (currentRange) ranges.push(currentRange)
-  return ranges
-}
-
-// Format duration as MM:SS
-function formatDuration(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
 // LinkedIn icon as inline SVG (not available in simple-icons)

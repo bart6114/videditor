@@ -6,9 +6,8 @@ import { useUser } from '@clerk/nextjs'
 import { useApi } from '@/lib/api/client'
 import { useOnboarding } from '@/contexts/OnboardingContext'
 import { TOUR_IDS } from '@/components/onboarding/tour-ids'
-import { VideoUpload } from '@/components/video-upload'
+import { CreateProjectModal } from '@/components/CreateProjectModal'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,20 +18,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import WorkspaceLayout from '@/components/layout/WorkspaceLayout'
-import { Video, Clock, Loader2, AlertCircle, FileText, Film, Trash2, Calendar } from 'lucide-react'
-import { formatFileSize, formatRelativeTime } from '@/lib/utils'
+import { Video, Loader2, AlertCircle, Film, Trash2, Plus } from 'lucide-react'
+import { formatRelativeTime } from '@/lib/utils'
 import type { ProjectSummary } from '@/types/projects'
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = Math.floor(seconds % 60)
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-  return `${minutes}:${secs.toString().padStart(2, '0')}`
-}
 
 export default function Projects() {
   const router = useRouter()
@@ -45,6 +33,7 @@ export default function Projects() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [createModalOpen, setCreateModalOpen] = useState(false)
 
   // Start onboarding tour if user hasn't completed it
   useEffect(() => {
@@ -149,42 +138,6 @@ export default function Projects() {
     return false
   }
 
-  function getEstimatedMinutes(duration: number | null | undefined): number | null {
-    if (!duration) return null
-    const CHUNK_DURATION = 360  // 6 minutes
-    const CONCURRENT = 5
-    const API_TIME_PER_BATCH = 60  // ~60 seconds per batch of API calls
-    const OVERHEAD = 30  // audio extraction + thumbnail
-
-    const chunks = Math.ceil(duration / CHUNK_DURATION)
-    const batches = Math.ceil(chunks / CONCURRENT)
-    const estimatedSeconds = (batches * API_TIME_PER_BATCH) + OVERHEAD
-    return Math.ceil(estimatedSeconds / 60)
-  }
-
-  function getProcessingLabel(
-    status: ProjectSummary['status'],
-    durationSeconds?: number | null,
-    transcriptionProgress?: { current: number; total: number } | null
-  ): { label: string; estimate: string | null } {
-    const estimateMinutes = getEstimatedMinutes(durationSeconds)
-    const estimate = estimateMinutes ? `~${estimateMinutes}m total` : null
-
-    if (status === 'uploading') {
-      return { label: 'Uploading...', estimate: null }
-    }
-
-    // Show percentage if transcription progress is available
-    if (transcriptionProgress && transcriptionProgress.total > 0) {
-      const percent = Math.round((transcriptionProgress.current / transcriptionProgress.total) * 100)
-      return { label: `Transcribing... ${percent}%`, estimate }
-    }
-
-    // All other processing states show "Processing..." with optional estimate inline
-    const label = estimateMinutes ? `Processing... (~${estimateMinutes}m)` : 'Processing...'
-    return { label, estimate: null }
-  }
-
   // Show loading state while checking authentication
   if (!isLoaded) {
     return (
@@ -214,14 +167,17 @@ export default function Projects() {
       </Head>
 
       <WorkspaceLayout title="Projects">
-        {/* Upload Section */}
-        <div className="mb-8">
-          <VideoUpload onUploadComplete={loadProjects} />
+        {/* Header with New Project button */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-foreground">Your Projects</h2>
+          <Button onClick={() => setCreateModalOpen(true)} data-tour="new-project-button">
+            <Plus className="w-4 h-4 mr-2" />
+            New Project
+          </Button>
         </div>
 
         {/* Projects Grid */}
         <div data-tour="projects-list">
-          <h2 className="text-2xl font-bold mb-4 text-foreground">Your Projects</h2>
 
           {loading ? (
             <div className="text-center py-12">
@@ -253,104 +209,85 @@ export default function Projects() {
                   <Video className="w-10 h-10 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">No projects yet</h3>
-                <p className="text-muted-foreground max-w-sm mx-auto">
-                  Upload your first video to get started. We&apos;ll automatically transcribe it and help you create engaging shorts.
+                <p className="text-muted-foreground max-w-sm mx-auto mb-4">
+                  Create your first project to start organizing your videos and generating engaging shorts.
                 </p>
+                <Button onClick={() => setCreateModalOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Your First Project
+                </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {projects.map((project) => (
                 <Card
                   key={project.id}
-                  className="bg-card border-border hover:border-primary/40 hover:shadow-soft-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group overflow-hidden"
+                  className="bg-card border-border hover:border-primary/40 hover:shadow-soft-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group overflow-hidden"
                   onClick={() => router.push(`/projects/${project.id}`)}
                 >
-                  {/* Thumbnail */}
-                  <div className="relative aspect-video bg-secondary overflow-hidden">
-                    {project.thumbnailUrl ? (
-                      <Image
-                        src={project.thumbnailUrl}
-                        alt={project.title}
-                        fill
-                        className={`object-cover transition-all duration-300 group-hover:scale-105 ${isProcessing(project) ? 'opacity-40' : ''}`}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">
-                        <Video className="w-12 h-12 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
-                      </div>
-                    )}
-                    {/* Processing Overlay */}
-                    {isProcessing(project) && (() => {
-                      const { label, estimate } = getProcessingLabel(project.status, project.durationSeconds, project.transcriptionProgress)
-                      return (
-                        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 animate-in fade-in duration-300">
-                          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-                            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                          </div>
-                          <span className="text-foreground text-sm font-medium">
-                            {label}
-                          </span>
-                          {estimate && (
-                            <span className="text-muted-foreground text-xs">
-                              ({estimate})
-                            </span>
-                          )}
+                  <div className="flex gap-3 p-3">
+                    {/* Compact Thumbnail */}
+                    <div className="relative w-16 h-16 flex-shrink-0 rounded-lg bg-secondary overflow-hidden">
+                      {project.thumbnailUrl ? (
+                        <Image
+                          src={project.thumbnailUrl}
+                          alt={project.title}
+                          fill
+                          className={`object-cover transition-all duration-200 ${isProcessing(project) ? 'opacity-40' : ''}`}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">
+                          <Video className="w-6 h-6 text-muted-foreground" />
                         </div>
-                      )
-                    })()}
-                    {/* Delete Button Overlay - always visible on mobile for touch access */}
+                      )}
+                      {/* Processing Spinner */}
+                      {isProcessing(project) && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/60">
+                          <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Title */}
+                      <h3 className="font-medium text-sm text-foreground truncate group-hover:text-primary transition-colors">
+                        {project.title}
+                      </h3>
+
+                      {/* Asset Counts */}
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1" title="Long-form videos">
+                          <Video className="w-3 h-3" />
+                          {project.longFormCount || 0}
+                        </span>
+                        <span className="flex items-center gap-1" title="Short-form clips">
+                          <Film className="w-3 h-3" />
+                          {project.shortFormCount || 0}
+                        </span>
+                      </div>
+
+                      {/* Last Updated */}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatRelativeTime(project.updatedAt)}
+                      </p>
+
+                      {/* Error Message */}
+                      {project.errorMessage && (
+                        <p className="text-xs text-destructive mt-1 line-clamp-1">{project.errorMessage}</p>
+                      )}
+                    </div>
+
+                    {/* Delete Button */}
                     <button
                       onClick={(e) => openDeleteDialog(project, e)}
-                      className="absolute top-2 left-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm hover:bg-destructive hover:text-white active:bg-destructive active:text-white text-muted-foreground"
+                      className="self-start opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 rounded-md hover:bg-destructive hover:text-white text-muted-foreground"
                       aria-label="Delete project"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-
-                  <CardContent className="p-4">
-                    {/* Title */}
-                    <h3 className="font-semibold text-base mb-2 text-foreground truncate group-hover:text-primary transition-colors duration-200">
-                      {project.title}
-                    </h3>
-
-                    {/* Metadata Row */}
-                    <div className="flex items-center flex-wrap gap-2 md:gap-3 text-xs text-muted-foreground mb-3">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {project.durationSeconds ? formatDuration(project.durationSeconds) : '—'}
-                      </span>
-                      {project.fileSizeBytes && <span className="hidden sm:inline">{formatFileSize(project.fileSizeBytes)}</span>}
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {formatRelativeTime(project.createdAt)}
-                      </span>
-                    </div>
-
-                    {/* Transcription & Shorts Status */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge
-                        variant={project.hasTranscription ? "success" : "secondary"}
-                        className="text-xs"
-                      >
-                        <FileText className="w-3 h-3 mr-1" />
-                        {project.hasTranscription ? 'Transcribed' : 'No transcript'}
-                      </Badge>
-                      <Badge
-                        variant={project.shortsCount && project.shortsCount > 0 ? "info" : "secondary"}
-                        className="text-xs"
-                      >
-                        <Film className="w-3 h-3 mr-1" />
-                        {project.shortsCount || 0} shorts
-                      </Badge>
-                    </div>
-
-                    {/* Error Message */}
-                    {project.errorMessage && (
-                      <p className="text-xs text-destructive mt-2 line-clamp-2">{project.errorMessage}</p>
-                    )}
-                  </CardContent>
                 </Card>
               ))}
             </div>
@@ -404,6 +341,12 @@ export default function Projects() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Create Project Modal */}
+        <CreateProjectModal
+          open={createModalOpen}
+          onOpenChange={setCreateModalOpen}
+        />
       </WorkspaceLayout>
     </>
   )

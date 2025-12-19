@@ -23,6 +23,7 @@ type ProjectDataState = {
   longFormAssets: MediaAsset[]
   shortFormAssets: MediaAsset[]
   transcription: Transcription | null
+  transcriptions: Transcription[]
   scheduledPostsByShort: Record<string, ScheduledPost[]>
   loading: boolean
   error: string | null
@@ -58,6 +59,7 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
     longFormAssets: [],
     shortFormAssets: [],
     transcription: null,
+    transcriptions: [],
     scheduledPostsByShort: {},
     loading: true,
     error: null,
@@ -99,6 +101,7 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
         call<{
           project: Project
           transcription: Transcription | null
+          transcriptions: Transcription[]
           shorts: Short[]
           mediaAssets: MediaAsset[]
           longFormAssets: MediaAsset[]
@@ -124,6 +127,7 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
           ...prev,
           project: newProject,
           transcription: projectData.transcription,
+          transcriptions: projectData.transcriptions || [],
           shorts: projectData.shorts || [],
           mediaAssets: projectData.mediaAssets || [],
           longFormAssets: projectData.longFormAssets || [],
@@ -221,6 +225,7 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
           call<{
             project: Project
             transcription: Transcription | null
+            transcriptions: Transcription[]
             shorts: Short[]
             mediaAssets: MediaAsset[]
             longFormAssets: MediaAsset[]
@@ -246,6 +251,7 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
             ...prev,
             project: newProject,
             transcription: projectData.transcription,
+            transcriptions: projectData.transcriptions || [],
             shorts: projectData.shorts || [],
             mediaAssets: projectData.mediaAssets || [],
             longFormAssets: projectData.longFormAssets || [],

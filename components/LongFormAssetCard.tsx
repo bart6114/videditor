@@ -1,0 +1,144 @@
+import Image from 'next/image'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Video,
+  Clock,
+  Loader2,
+  AlertCircle,
+  Play,
+} from 'lucide-react'
+import type { MediaAsset } from '@/types/projects'
+
+interface LongFormAssetCardProps {
+  asset: MediaAsset
+  isSelected: boolean
+  onSelect: () => void
+  onPlayVideo: () => void
+}
+
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`
+}
+
+function getStatusBadge(status: MediaAsset['status']) {
+  switch (status) {
+    case 'uploading':
+      return (
+        <Badge variant="secondary" className="text-xs">
+          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+          Uploading
+        </Badge>
+      )
+    case 'processing':
+      return (
+        <Badge variant="secondary" className="text-xs">
+          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+          Processing
+        </Badge>
+      )
+    case 'ready':
+      return (
+        <Badge variant="default" className="text-xs">
+          Ready
+        </Badge>
+      )
+    case 'error':
+      return (
+        <Badge variant="destructive" className="text-xs">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          Error
+        </Badge>
+      )
+    default:
+      return (
+        <Badge variant="secondary" className="text-xs">
+          {status}
+        </Badge>
+      )
+  }
+}
+
+export function LongFormAssetCard({
+  asset,
+  isSelected,
+  onSelect,
+  onPlayVideo,
+}: LongFormAssetCardProps) {
+  return (
+    <Card
+      className={`bg-card border-border transition-all duration-200 cursor-pointer ${
+        isSelected
+          ? 'ring-2 ring-primary border-primary'
+          : 'hover:border-primary/40'
+      }`}
+      onClick={onSelect}
+    >
+      <CardContent className="p-4">
+        <div className="flex gap-4">
+          {/* Thumbnail */}
+          <div
+            className="relative w-24 h-16 flex-shrink-0 rounded-lg bg-secondary overflow-hidden group"
+            onClick={(e) => {
+              e.stopPropagation()
+              onPlayVideo()
+            }}
+          >
+            {asset.thumbnailUrl ? (
+              <Image
+                src={asset.thumbnailUrl}
+                alt={asset.title}
+                fill
+                className="object-cover transition-all duration-200 group-hover:scale-105"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">
+                <Video className="w-6 h-6 text-muted-foreground" />
+              </div>
+            )}
+            {/* Play overlay */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center">
+                <Play className="w-4 h-4 text-black fill-black ml-0.5" />
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h4 className="font-medium text-sm text-foreground truncate">
+                  {asset.title}
+                </h4>
+                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                  {asset.durationSeconds && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatDuration(asset.durationSeconds)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {getStatusBadge(asset.status)}
+            </div>
+
+            {/* Error message */}
+            {asset.errorMessage && (
+              <p className="text-xs text-destructive mt-2 line-clamp-1">
+                {asset.errorMessage}
+              </p>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

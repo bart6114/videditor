@@ -1,12 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { z } from 'zod';
 import { getDb } from '@server/db';
-import { listOrganizationProjects } from '@server/db/queries/projects';
+import { listOrganizationProjects, createProject } from '@server/db/queries/projects';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { createTigrisClient, createPresignedDownload } from '@/lib/tigris';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
+  if (!['GET', 'POST'].includes(req.method || '')) {
     return failure(res, 405, 'Method not allowed');
   }
 
@@ -16,6 +17,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const db = getDb();
+
+  // POST - Create a new empty project
+  if (req.method === 'POST') {
+    const schema = z.object({
+      title: z.string().min(1, 'Title is required').max(255, 'Title must be 255 characters or less'),
+    });
+
+    const parseResult = schema.safeParse(req.body);
+    if (!parseResult.success) {
+      return failure(res, 400, parseResult.error.errors[0].message);
+    }
+
+    const project = await createProject(db, {
+      id: crypto.randomUUID(),
+      organizationId: authResult.organizationId,
+      createdById: authResult.userId,
+      title: parseResult.data.title.trim(),
+      status: 'ready', // Empty project is ready to receive content
+    });
+
+    return success(res, { project }, 201);
+  }
+
+  // GET - List all projects
   const projects = await listOrganizationProjects(db, authResult.organizationId);
 
   // Transform thumbnailUrl from object key to presigned URL

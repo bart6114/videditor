@@ -336,36 +336,45 @@ function TimelineWithHandles({
       ref={containerRef}
       className="relative h-6 bg-muted rounded-md select-none"
     >
-      {/* Dimmed areas outside trim range */}
-      <div
-        className="absolute h-full bg-black/30 rounded-l-md"
-        style={{ left: 0, width: `${startPercent}%` }}
-      />
-      <div
-        className="absolute h-full bg-black/30 rounded-r-md"
-        style={{ left: `${endPercent}%`, right: 0 }}
-      />
-
-      {/* Selected range highlight */}
-      <div
-        className="absolute h-full bg-primary/20"
-        style={{
-          left: `${startPercent}%`,
-          width: `${endPercent - startPercent}%`,
-        }}
-      />
-
-      {/* Segment markers (word-level selections) */}
-      {ranges.map((range, i) => (
+      {/* Inner container with overflow hidden for segments */}
+      <div className="absolute inset-0 overflow-hidden rounded-md">
+        {/* Dimmed areas outside trim range */}
         <div
-          key={i}
-          className="absolute h-full bg-primary/40"
+          className="absolute h-full bg-black/30 rounded-l-md"
+          style={{ left: 0, width: `${startPercent}%` }}
+        />
+        <div
+          className="absolute h-full bg-black/30 rounded-r-md"
+          style={{ left: `${endPercent}%`, right: 0 }}
+        />
+
+        {/* Selected range highlight */}
+        <div
+          className="absolute h-full bg-primary/20"
           style={{
-            left: `${(range.start / totalDuration) * 100}%`,
-            width: `${((range.end - range.start) / totalDuration) * 100}%`,
+            left: `${startPercent}%`,
+            width: `${endPercent - startPercent}%`,
           }}
         />
-      ))}
+
+        {/* Segment markers (word-level selections) */}
+        {ranges.map((range, i) => (
+          <div
+            key={i}
+            className="absolute h-full bg-primary/40"
+            style={{
+              left: `${(range.start / totalDuration) * 100}%`,
+              width: `${((range.end - range.start) / totalDuration) * 100}%`,
+            }}
+          />
+        ))}
+
+        {/* Current time indicator */}
+        <div
+          className="absolute top-0 h-full w-0.5 bg-white shadow-sm pointer-events-none"
+          style={{ left: `${Math.min(currentPercent, 100)}%` }}
+        />
+      </div>
 
       {/* Start handle */}
       <div
@@ -398,12 +407,6 @@ function TimelineWithHandles({
           <div className="w-1 h-px bg-primary-foreground/60" />
         </div>
       </div>
-
-      {/* Current time indicator */}
-      <div
-        className="absolute top-0 h-full w-0.5 bg-white shadow-sm pointer-events-none"
-        style={{ left: `${Math.min(currentPercent, 100)}%` }}
-      />
     </div>
   )
 }
