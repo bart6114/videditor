@@ -16,17 +16,6 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
-export const projectStatusEnum = pgEnum('project_status', [
-  'uploading',
-  'ready',
-  'queued',
-  'processing',
-  'transcribing',
-  'analyzing',
-  'completed',
-  'error',
-]);
-
 export const shortStatusEnum = pgEnum('short_status', ['pending', 'processing', 'completed', 'error']);
 
 export const jobTypeEnum = pgEnum('job_type', [
@@ -186,9 +175,8 @@ export const projects = pgTable(
     title: text('title').notNull(),
     // Note: source video data (sourceObjectKey, sourceBucket, thumbnailUrl, durationSeconds, fileSizeBytes)
     // has been moved to media_assets table. See migration 0018 for column removal.
-    status: projectStatusEnum('status').notNull().default('uploading'),
+    // Note: status and errorMessage fields removed - use individual media_asset statuses instead.
     priority: real('priority').default(0),
-    errorMessage: text('error_message'),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -196,7 +184,6 @@ export const projects = pgTable(
   },
   (table) => ({
     organizationIdIdx: index('idx_projects_organization_id').on(table.organizationId),
-    statusIdx: index('idx_projects_status').on(table.status),
     createdAtIdx: index('idx_projects_created_at').on(table.createdAt),
   })
 );

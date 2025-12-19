@@ -34,7 +34,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       organizationId: authResult.organizationId,
       createdById: authResult.userId,
       title: parseResult.data.title.trim(),
-      status: 'ready', // Empty project is ready to receive content
     });
 
     return success(res, { project }, 201);

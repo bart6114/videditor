@@ -175,23 +175,3 @@ export async function deleteProject(db: DB, projectId: string, organizationId: s
   return deleted ?? null;
 }
 
-/**
- * Update project status
- */
-export async function updateProjectStatus(
-  db: DB,
-  projectId: string,
-  status: Project['status'],
-  errorMessage?: string
-) {
-  const [updated] = await db
-    .update(projects)
-    .set({
-      status,
-      errorMessage: errorMessage ?? null,
-      updatedAt: new Date(),
-    })
-    .where(eq(projects.id, projectId))
-    .returning();
-  return updated ?? null;
-}

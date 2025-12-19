@@ -34,11 +34,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const payload = parsed.data;
   const db = getDb();
 
-  // Update project status
+  // Verify project exists and belongs to this organization
   const [project] = await db
     .update(projects)
     .set({
-      status: 'queued',
       updatedAt: new Date(),
     })
     .where(and(eq(projects.id, payload.projectId), eq(projects.organizationId, authResult.organizationId)))
@@ -106,6 +105,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   return success(res, {
     projectId: project.id,
     mediaAssetId: payload.mediaAssetId,
-    status: project.status,
+    status: 'processing', // Asset is now being processed
   });
 }

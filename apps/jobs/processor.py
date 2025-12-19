@@ -21,7 +21,6 @@ from models import (
     ProcessingJob,
     Project,
     ProjectMachineAffinity,
-    ProjectStatus,
     ScheduledPost,
     ScheduledPostStatus,
     ShortTaskStatus,
@@ -287,15 +286,6 @@ class JobProcessor:
             project_id=job.project_id,
         )
 
-        # Update project status
-        await session.execute(
-            update(Project)
-            .where(Project.id == job.project_id)
-            .values(
-                status=ProjectStatus.PROCESSING.value,
-                updated_at=datetime.now(timezone.utc),
-            )
-        )
         await session.commit()
 
         # Create temporary files for video and thumbnail
@@ -371,15 +361,6 @@ class JobProcessor:
                 content_type="image/jpeg",
             )
 
-            # Update project status (thumbnail/duration now stored in MediaAsset only)
-            await session.execute(
-                update(Project)
-                .where(Project.id == job.project_id)
-                .values(
-                    status=ProjectStatus.READY.value,
-                    updated_at=datetime.now(timezone.utc),
-                )
-            )
 
             # Also update media_asset if this job has a media_asset_id
             media_asset_id = payload.get("mediaAssetId")
@@ -470,15 +451,6 @@ class JobProcessor:
             project_id=job.project_id,
         )
 
-        # Update project status
-        await session.execute(
-            update(Project)
-            .where(Project.id == job.project_id)
-            .values(
-                status=ProjectStatus.TRANSCRIBING.value,
-                updated_at=datetime.now(timezone.utc),
-            )
-        )
         await session.commit()
 
         # Create temporary file for video
@@ -554,15 +526,6 @@ class JobProcessor:
             )
             session.add(transcription)
 
-            # Update project status to completed
-            await session.execute(
-                update(Project)
-                .where(Project.id == job.project_id)
-                .values(
-                    status=ProjectStatus.COMPLETED.value,
-                    updated_at=datetime.now(timezone.utc),
-                )
-            )
 
             # Also update media_asset status if linked
             if media_asset_id:
@@ -644,15 +607,6 @@ class JobProcessor:
             max_length=max_length,
         )
 
-        # Update project status and set initial progress
-        await session.execute(
-            update(Project)
-            .where(Project.id == job.project_id)
-            .values(
-                status=ProjectStatus.ANALYZING.value,
-                updated_at=datetime.now(timezone.utc),
-            )
-        )
         await session.commit()
 
         # Set progress to analyzing phase
@@ -1192,17 +1146,8 @@ class JobProcessor:
 
             all_done = all(s.status == AssetStatus.COMPLETED.value for s in all_shorts)
             if all_done:
-                await session.execute(
-                    update(Project)
-                    .where(Project.id == project_id)
-                    .values(
-                        status=ProjectStatus.COMPLETED.value,
-                        updated_at=datetime.now(timezone.utc),
-                    )
-                )
-                await session.commit()
                 self.logger.info(
-                    "🎉 All shorts completed, project marked as COMPLETED",
+                    "All shorts completed",
                     project_id=project_id,
                     total_shorts=len(all_shorts),
                 )

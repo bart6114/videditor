@@ -49,19 +49,6 @@ class JobStatus(str, Enum):
     CANCELED = "canceled"
 
 
-class ProjectStatus(str, Enum):
-    """Project status enumeration."""
-
-    UPLOADING = "uploading"
-    READY = "ready"
-    QUEUED = "queued"
-    PROCESSING = "processing"
-    TRANSCRIBING = "transcribing"
-    ANALYZING = "analyzing"
-    COMPLETED = "completed"
-    ERROR = "error"
-
-
 class ShortStatus(str, Enum):
     """Short status enumeration."""
 
@@ -202,9 +189,8 @@ class Project(Base):
     created_by_id = Column(String(255), nullable=True)  # User who created the project
     title = Column(Text, nullable=False)
     # Note: source video data (source_object_key, source_bucket, etc.) moved to media_assets table
-    status = Column(ENUM('uploading', 'ready', 'queued', 'processing', 'transcribing', 'analyzing', 'completed', 'error', name='project_status', create_type=False), nullable=False, default="uploading")
+    # Note: status field removed - use individual media_asset statuses instead
     priority = Column(Float, nullable=True, default=0)
-    error_message = Column(Text, nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

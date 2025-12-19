@@ -1,16 +1,3 @@
-export const PROJECT_STATUSES = [
-  'uploading',
-  'ready',
-  'queued',
-  'processing',
-  'transcribing',
-  'analyzing',
-  'completed',
-  'error',
-] as const;
-
-export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
-
 export const JOB_TYPES = ['thumbnail', 'transcription', 'analysis', 'short_processing', 'social_content_generation', 'youtube_publish', 'instagram_publish'] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 

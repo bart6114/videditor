@@ -87,14 +87,6 @@ export default function Projects() {
     loadProjects()
   }, [loadProjects])
 
-  // Poll only when there are processing projects
-  useEffect(() => {
-    const hasProcessingProjects = projects.some(isProcessing)
-    if (!hasProcessingProjects) return
-
-    const interval = setInterval(loadProjects, 5000)
-    return () => clearInterval(interval)
-  }, [projects, loadProjects])
 
   async function handleDeleteProject() {
     if (!projectToDelete) return
@@ -121,21 +113,6 @@ export default function Projects() {
     e.stopPropagation() // Prevent card click navigation
     setProjectToDelete(project)
     setDeleteDialogOpen(true)
-  }
-
-  function isProcessing(project: ProjectSummary): boolean {
-    // Primary check: explicit processing statuses
-    if (['uploading', 'queued', 'processing', 'transcribing'].includes(project.status)) {
-      return true
-    }
-
-    // Fallback: uploaded but no transcription yet (and not failed)
-    // This catches edge cases where status might be stale
-    if (project.status !== 'error' && project.hasTranscription === false) {
-      return true
-    }
-
-    return false
   }
 
   // Show loading state while checking authentication
@@ -234,17 +211,11 @@ export default function Projects() {
                           src={project.thumbnailUrl}
                           alt={project.title}
                           fill
-                          className={`object-cover transition-all duration-200 ${isProcessing(project) ? 'opacity-40' : ''}`}
+                          className="object-cover transition-all duration-200"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">
                           <Video className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                      )}
-                      {/* Processing Spinner */}
-                      {isProcessing(project) && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/60">
-                          <Loader2 className="w-5 h-5 text-primary animate-spin" />
                         </div>
                       )}
                     </div>
@@ -272,11 +243,6 @@ export default function Projects() {
                       <p className="text-xs text-muted-foreground mt-1">
                         {formatRelativeTime(project.updatedAt)}
                       </p>
-
-                      {/* Error Message */}
-                      {project.errorMessage && (
-                        <p className="text-xs text-destructive mt-1 line-clamp-1">{project.errorMessage}</p>
-                      )}
                     </div>
 
                     {/* Delete Button */}

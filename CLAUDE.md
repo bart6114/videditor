@@ -207,6 +207,28 @@ fly secrets set -a videditor-app POSTHOG_API_KEY="phc_..." POSTHOG_HOST="https:/
 - Add sane defaults for available preferences
 - Look at YouTube tags for publishing (very low prio)
 - Support for MOV format
+- **Tigris download reliability** - `apps/jobs/utils/storage.py` `download_from_tigris()` frequently times out on large videos:
+  - Add configurable read timeouts (currently uses aiohttp defaults)
+  - Implement chunked streaming instead of `await stream.read()` which loads entire file into memory
+  - Add retry logic with exponential backoff for transient network failures
+  - Error: `aiohttp.client_exceptions.SocketTimeoutError: Timeout on reading data from socket`
+
+## Recent Refactors (Reference for Debugging)
+
+### Removed `project.status` (Dec 2024)
+Project-level status was removed because it was legacy from when 1 project = 1 video. Now each `media_asset` has its own `status` field.
+
+**What was removed:**
+- `projects.status` and `projects.error_message` columns (migration `0019_worried_stellaris.sql`)
+- `projectStatusEnum` from schema
+- `ProjectStatus` enum from Python models and shared types
+- Processing spinner from projects overview page
+- All `update(Project).values(status=...)` calls from processor.py
+
+**If you see errors about:**
+- `project.status` not existing → The column was removed, use `media_assets.status` instead
+- `ProjectStatus` import failing → The type was removed from `@shared/index` and `apps/jobs/models.py`
+- UI showing stale processing state → Status is now tracked per-asset, not per-project
 
 ### Before Production Deployment: Unified Media Assets Migration
 

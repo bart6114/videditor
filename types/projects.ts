@@ -1,21 +1,16 @@
-import type { ProjectStatus, AssetType, AssetStatus, SocialContent, ShortFormMetadata, LongFormMetadata } from '@shared/index';
+import type { AssetType, AssetStatus, SocialContent, ShortFormMetadata, LongFormMetadata } from '@shared/index';
 
 export type ProjectSummary = {
   id: string;
   userId: string;
   title: string;
   thumbnailUrl: string | null;
-  durationSeconds: number | null;
-  fileSizeBytes: number | null;
-  status: ProjectStatus;
-  errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
   shortsCount?: number;
   longFormCount?: number;
   shortFormCount?: number;
   hasTranscription?: boolean;
-  transcriptionProgress?: { current: number; total: number } | null;
 };
 
 export type MediaAsset = {
