@@ -1,6 +1,6 @@
 import { eq, and, desc, count, sql } from 'drizzle-orm';
 import type { DB } from '../index';
-import { projects, transcriptions, shorts, processingJobs, type NewProject, type Project } from '../schema';
+import { projects, transcriptions, shorts, processingJobs, mediaAssets, type NewProject, type Project } from '../schema';
 
 /**
  * List all projects for an organization with shorts count, transcription status, and job progress
@@ -72,7 +72,7 @@ export async function getProjectById(db: DB, projectId: string, organizationId: 
 }
 
 /**
- * Get project with related transcription and shorts
+ * Get project with related transcription, shorts, and media assets
  */
 export async function getProjectWithRelations(db: DB, projectId: string, organizationId: string) {
   // Get project
@@ -86,14 +86,31 @@ export async function getProjectWithRelations(db: DB, projectId: string, organiz
     return null;
   }
 
-  // Get transcription
+  // Get media assets
+  const assets = await db
+    .select()
+    .from(mediaAssets)
+    .where(eq(mediaAssets.projectId, projectId))
+    .orderBy(desc(mediaAssets.createdAt));
+
+  const longFormAssets = assets.filter(a => a.assetType === 'long_form');
+  const shortFormAssets = assets.filter(a => a.assetType === 'short_form');
+
+  // Get transcription (first one, for backward compat)
   const [transcription] = await db
     .select()
     .from(transcriptions)
     .where(eq(transcriptions.projectId, projectId))
     .limit(1);
 
-  // Get shorts
+  // Get all transcriptions
+  const allTranscriptions = await db
+    .select()
+    .from(transcriptions)
+    .where(eq(transcriptions.projectId, projectId))
+    .orderBy(desc(transcriptions.createdAt));
+
+  // Get shorts (for backward compat, will be deprecated)
   const projectShorts = await db
     .select()
     .from(shorts)
@@ -102,7 +119,11 @@ export async function getProjectWithRelations(db: DB, projectId: string, organiz
 
   return {
     project,
+    mediaAssets: assets,
+    longFormAssets,
+    shortFormAssets,
     transcription,
+    transcriptions: allTranscriptions,
     shorts: projectShorts,
   };
 }

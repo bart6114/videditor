@@ -7,6 +7,7 @@ import type { JobType } from '@shared/index';
 type EnqueueJobInput = {
   projectId?: string;
   shortId?: string;
+  mediaAssetId?: string;
   type: JobType;
   payload?: Record<string, unknown>;
 };
@@ -38,6 +39,7 @@ export async function enqueueJob(input: EnqueueJobInput) {
     id: crypto.randomUUID(),
     projectId: input.projectId ?? null,
     shortId: input.shortId ?? null,
+    mediaAssetId: input.mediaAssetId ?? null,
     type: input.type,
     status: 'queued',
     payload: input.payload ?? null,

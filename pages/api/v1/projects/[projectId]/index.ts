@@ -133,6 +133,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
   );
 
+  // Generate presigned URLs for media assets
+  const tigrisClient = createTigrisClient();
+  const mediaAssetsWithUrls = await Promise.all(
+    result.mediaAssets.map(async (asset) => {
+      let presignedThumbnailUrl = null;
+      let presignedVideoUrl = null;
+
+      if (asset.thumbnailUrl) {
+        try {
+          presignedThumbnailUrl = await createPresignedDownload(tigrisClient, asset.thumbnailUrl, 3600, undefined, 'image/jpeg');
+        } catch (error) {
+          console.error('Failed to generate presigned URL for asset thumbnail:', asset.thumbnailUrl, error);
+        }
+      }
+
+      if (asset.sourceObjectKey) {
+        try {
+          presignedVideoUrl = await createPresignedDownload(tigrisClient, asset.sourceObjectKey, 7200);
+        } catch (error) {
+          console.error('Failed to generate presigned URL for asset video:', asset.sourceObjectKey, error);
+        }
+      }
+
+      return {
+        ...asset,
+        thumbnailUrl: presignedThumbnailUrl,
+        videoUrl: presignedVideoUrl,
+      };
+    })
+  );
+
   return success(res, {
     ...result,
     project: {
@@ -140,6 +171,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       thumbnailUrl,
       videoUrl,
     },
+    mediaAssets: mediaAssetsWithUrls,
+    longFormAssets: mediaAssetsWithUrls.filter(a => a.assetType === 'long_form'),
+    shortFormAssets: mediaAssetsWithUrls.filter(a => a.assetType === 'short_form'),
     shorts: shortsWithPresignedUrls,
   });
 }

@@ -13,8 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import JobRunnerConfig
 from database import get_session_factory
 from models import (
+    AssetStatus,
+    AssetType,
     JobStatus,
     JobType,
+    MediaAsset,
     ProcessingJob,
     Project,
     ProjectMachineAffinity,
@@ -381,6 +384,21 @@ class JobProcessor:
                     updated_at=datetime.now(timezone.utc),
                 )
             )
+
+            # Also update media_asset if this job has a media_asset_id
+            media_asset_id = payload.get("mediaAssetId")
+            if media_asset_id:
+                await session.execute(
+                    update(MediaAsset)
+                    .where(MediaAsset.id == media_asset_id)
+                    .values(
+                        thumbnail_url=thumbnail_object_key,
+                        duration_seconds=duration,
+                        status=AssetStatus.READY.value,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+
             await session.commit()
 
             # Enqueue transcription job
@@ -392,9 +410,11 @@ class JobProcessor:
             await self._enqueue_job(
                 session,
                 project_id=job.project_id,
+                media_asset_id=media_asset_id,
                 job_type=JobType.TRANSCRIPTION,
                 payload={
                     "projectId": job.project_id,
+                    "mediaAssetId": media_asset_id,
                     "sourceObjectKey": source_object_key,
                     "sourceBucket": source_bucket,
                 },
@@ -524,9 +544,13 @@ class JobProcessor:
                 text_length=len(transcription_result.text),
             )
 
+            # Get media_asset_id from payload if available
+            media_asset_id = payload.get("mediaAssetId")
+
             transcription = Transcription(
                 id=str(uuid.uuid4()),
                 project_id=job.project_id,
+                media_asset_id=media_asset_id,  # Link to long_form media asset
                 text=transcription_result.text,
                 segments=[word.model_dump() for word in transcription_result.words],
                 language=transcription_result.language,
@@ -543,6 +567,18 @@ class JobProcessor:
                     updated_at=datetime.now(timezone.utc),
                 )
             )
+
+            # Also update media_asset status if linked
+            if media_asset_id:
+                await session.execute(
+                    update(MediaAsset)
+                    .where(MediaAsset.id == media_asset_id)
+                    .values(
+                        status=AssetStatus.COMPLETED.value,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+
             await session.commit()
 
             return {
@@ -703,6 +739,19 @@ class JobProcessor:
         shorts_created = []
         jobs_queued = []
 
+        # Find source long_form media_asset for linking (if exists)
+        source_media_asset_id = None
+        source_asset_stmt = (
+            select(MediaAsset)
+            .where(MediaAsset.project_id == job.project_id)
+            .where(MediaAsset.asset_type == AssetType.LONG_FORM.value)
+            .limit(1)
+        )
+        source_asset_result = await session.execute(source_asset_stmt)
+        source_asset = source_asset_result.scalar_one_or_none()
+        if source_asset:
+            source_media_asset_id = source_asset.id
+
         # Create short containers and queue SHORT_PROCESSING jobs
         for idx, suggestion in enumerate(suggestions):
             short_id = str(uuid.uuid4())
@@ -723,7 +772,7 @@ class JobProcessor:
                 "social_content": ShortTaskStatus.SKIPPED.value if not social_platforms else ShortTaskStatus.PENDING.value,
             }
 
-            # Create short container (no output URLs yet)
+            # Create short container (no output URLs yet) - DEPRECATED, kept for backward compat
             short = Short(
                 id=short_id,
                 project_id=job.project_id,
@@ -737,6 +786,32 @@ class JobProcessor:
                 tasks=initial_tasks,
             )
             session.add(short)
+
+            # Also create media_asset with assetType='short_form' (dual-write)
+            short_title = suggestion.transcription[:50] if suggestion.transcription else f"Short {idx + 1}"
+            media_asset = MediaAsset(
+                id=short_id,  # Use same ID for easy migration
+                project_id=job.project_id,
+                organization_id=project.organization_id,
+                created_by_id=project.created_by_id,
+                asset_type=AssetType.SHORT_FORM.value,
+                title=short_title,
+                source_object_key="",  # Populated after clip extraction
+                source_bucket=self.config.TIGRIS_BUCKET,
+                status=AssetStatus.PROCESSING.value,
+                source_asset_id=source_media_asset_id,
+                metadata_={
+                    "startTime": suggestion.start_time,
+                    "endTime": suggestion.end_time,
+                    "transcriptionSlice": suggestion.transcription,
+                    "analysisJobId": job.id,
+                    "contextBefore": context_before,
+                    "contextAfter": context_after,
+                    "tasks": initial_tasks,
+                },
+            )
+            session.add(media_asset)
+
             await session.flush()
 
             shorts_created.append(short_id)
@@ -746,9 +821,11 @@ class JobProcessor:
                 session,
                 project_id=job.project_id,
                 short_id=short_id,
+                media_asset_id=short_id,  # Same ID as short
                 job_type=JobType.SHORT_PROCESSING,
                 payload={
                     "shortId": short_id,
+                    "mediaAssetId": short_id,
                     "projectId": job.project_id,
                     "sourceObjectKey": project.source_object_key,
                     "sourceBucket": project.source_bucket,
@@ -849,6 +926,40 @@ class JobProcessor:
         )
         await session.commit()
 
+    async def _update_media_asset_task(
+        self,
+        session: AsyncSession,
+        asset_id: str,
+        task_name: str,
+        status: str,
+    ) -> None:
+        """
+        Update a specific task status within the media_asset's metadata.tasks JSONB.
+
+        Args:
+            session: Database session
+            asset_id: Media asset ID
+            task_name: Task name ('clip_extraction', 'thumbnail_extraction', 'social_content')
+            status: Task status ('pending', 'processing', 'done', 'error', 'skipped')
+        """
+        await session.execute(
+            text(f"""
+                UPDATE media_assets
+                SET metadata = jsonb_set(
+                    COALESCE(metadata, CAST('{{"tasks": {{}}}}' AS jsonb)),
+                    '{{tasks, {task_name}}}',
+                    CAST(:value AS jsonb)
+                ),
+                updated_at = NOW()
+                WHERE id = :asset_id
+            """),
+            {
+                "value": f'"{status}"',
+                "asset_id": asset_id,
+            }
+        )
+        await session.commit()
+
     async def _handle_short_processing(
         self, job: ProcessingJob, session: AsyncSession
     ) -> dict[str, Any]:
@@ -887,6 +998,9 @@ class JobProcessor:
         if not all([short_id, project_id, source_object_key, source_bucket, organization_id]):
             raise ValueError("Missing required payload fields for short processing")
 
+        # Get media_asset_id for dual-write
+        media_asset_id = payload.get("mediaAssetId")
+
         # Determine if we're using multi-range or single-range mode
         is_multi_range = ranges and len(ranges) > 0
 
@@ -894,6 +1008,7 @@ class JobProcessor:
             "✂️ Processing short",
             job_id=job.id,
             short_id=short_id,
+            media_asset_id=media_asset_id,
             start_time=start_time,
             end_time=end_time,
             ranges_count=len(ranges) if ranges else 0,
@@ -909,6 +1024,18 @@ class JobProcessor:
                 updated_at=datetime.now(timezone.utc),
             )
         )
+
+        # Also update media_asset status (dual-write)
+        if media_asset_id:
+            await session.execute(
+                update(MediaAsset)
+                .where(MediaAsset.id == media_asset_id)
+                .values(
+                    status=AssetStatus.PROCESSING.value,
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
+
         await session.commit()
 
         # Create temp files for clip and thumbnail (these are always fresh)
@@ -1098,6 +1225,31 @@ class JobProcessor:
                     updated_at=datetime.now(timezone.utc),
                 )
             )
+
+            # Also update media_asset to completed (dual-write)
+            if media_asset_id:
+                clip_object_key = result_data.get("clipObjectKey")
+                thumb_object_key = result_data.get("thumbnailObjectKey")
+                clip_duration = await get_video_duration(temp_clip_path) if os.path.exists(temp_clip_path) else None
+
+                await session.execute(
+                    update(MediaAsset)
+                    .where(MediaAsset.id == media_asset_id)
+                    .values(
+                        status=AssetStatus.COMPLETED.value,
+                        source_object_key=clip_object_key or "",
+                        thumbnail_url=thumb_object_key,
+                        duration_seconds=clip_duration,
+                        social_content=social_content_data,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                # Update tasks in metadata
+                await self._update_media_asset_task(session, media_asset_id, "clip_extraction", ShortTaskStatus.DONE.value)
+                await self._update_media_asset_task(session, media_asset_id, "thumbnail_extraction", ShortTaskStatus.DONE.value)
+                if social_platforms:
+                    await self._update_media_asset_task(session, media_asset_id, "social_content", ShortTaskStatus.DONE.value if social_content_data else ShortTaskStatus.ERROR.value)
+
             await session.commit()
 
             self.logger.info("✅ Short processing completed", short_id=short_id)
@@ -1141,6 +1293,19 @@ class JobProcessor:
                     updated_at=datetime.now(timezone.utc),
                 )
             )
+
+            # Also update media_asset on error (dual-write)
+            if media_asset_id:
+                await session.execute(
+                    update(MediaAsset)
+                    .where(MediaAsset.id == media_asset_id)
+                    .values(
+                        status=AssetStatus.ERROR.value,
+                        error_message=str(e),
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+
             await session.commit()
             raise
 
@@ -1163,6 +1328,7 @@ class JobProcessor:
         session: AsyncSession,
         project_id: str | None = None,
         short_id: str | None = None,
+        media_asset_id: str | None = None,
         job_type: JobType = JobType.TRANSCRIPTION,
         payload: dict[str, Any] | None = None,
     ) -> ProcessingJob:
@@ -1175,7 +1341,8 @@ class JobProcessor:
         Args:
             session: Database session
             project_id: Project ID
-            short_id: Short ID
+            short_id: Short ID (deprecated, use media_asset_id)
+            media_asset_id: Media asset ID
             job_type: Job type
             payload: Job payload
 
@@ -1197,6 +1364,7 @@ class JobProcessor:
             id=str(uuid.uuid4()),
             project_id=project_id,
             short_id=short_id,
+            media_asset_id=media_asset_id,
             type=job_type.value,
             status=JobStatus.QUEUED.value,
             payload=payload,

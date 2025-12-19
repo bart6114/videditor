@@ -20,6 +20,40 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 export const SHORT_STATUSES = ['pending', 'processing', 'completed', 'error'] as const;
 export type ShortStatus = (typeof SHORT_STATUSES)[number];
 
+// ============================================================================
+// Media Asset Types (Unified asset model)
+// ============================================================================
+
+export const ASSET_TYPES = ['long_form', 'short_form'] as const;
+export type AssetType = (typeof ASSET_TYPES)[number];
+
+export const ASSET_STATUSES = ['uploading', 'ready', 'processing', 'completed', 'error'] as const;
+export type AssetStatus = (typeof ASSET_STATUSES)[number];
+
+export type ShortFormMetadata = {
+  startTime?: number;
+  endTime?: number;
+  transcriptionSlice?: string;
+  analysisJobId?: string;
+  contextBefore?: string;
+  contextAfter?: string;
+  ranges?: { start: number; end: number }[];
+  isManual?: boolean;
+  rangeCount?: number;
+  totalDuration?: number;
+  isUploaded?: boolean;
+  tasks?: {
+    clip_extraction: 'pending' | 'processing' | 'done' | 'error';
+    thumbnail_extraction: 'pending' | 'processing' | 'done' | 'error';
+    social_content: 'pending' | 'processing' | 'done' | 'error' | 'skipped';
+  };
+};
+
+export type LongFormMetadata = {
+  filename?: string;
+  contentType?: string;
+};
+
 // Task tracking for short processing
 export const SHORT_TASK_TYPES = ['clip_extraction', 'thumbnail_extraction', 'social_content'] as const;
 export type ShortTaskType = (typeof SHORT_TASK_TYPES)[number];
@@ -119,6 +153,7 @@ export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
 
 export type UploadRequestResponse = {
   projectId: string;
+  mediaAssetId?: string;
   objectKey: string;
   uploadUrl: string;
   bucket: string;
@@ -126,6 +161,7 @@ export type UploadRequestResponse = {
 
 export type UploadCompletePayload = {
   projectId: string;
+  mediaAssetId?: string;
   durationSeconds?: number;
   fileSizeBytes?: number;
   metadata?: Record<string, unknown>;

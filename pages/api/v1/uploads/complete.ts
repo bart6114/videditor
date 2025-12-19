@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 import { getDb } from '@server/db';
-import { projects } from '@server/db/schema';
+import { projects, mediaAssets } from '@server/db/schema';
 import type { UploadCompletePayload } from '@shared/index';
 import { enqueueJob } from '@/lib/jobs';
 import { authenticate } from '@/lib/api/auth';
@@ -10,6 +10,7 @@ import { and, eq } from 'drizzle-orm';
 
 const uploadCompleteSchema = z.object({
   projectId: z.string().uuid(),
+  mediaAssetId: z.string().uuid().optional(), // New: link to media asset
   durationSeconds: z.number().positive().optional(),
   fileSizeBytes: z.number().int().positive().optional(),
   metadata: z.record(z.any()).optional(),
@@ -30,9 +31,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 400, 'Invalid completion payload', parsed.error.flatten());
   }
 
-  const payload: UploadCompletePayload = parsed.data;
+  const payload = parsed.data;
   const db = getDb();
 
+  // Update project status (backward compat)
   const [project] = await db
     .update(projects)
     .set({
@@ -49,17 +51,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 404, 'Project not found');
   }
 
-  // Enqueue thumbnail generation job (which will then enqueue transcription)
+  // If mediaAssetId provided, update the media asset
+  let mediaAsset = null;
+  if (payload.mediaAssetId) {
+    const [updated] = await db
+      .update(mediaAssets)
+      .set({
+        durationSeconds: payload.durationSeconds ?? null,
+        fileSizeBytes: payload.fileSizeBytes ?? null,
+        status: 'processing', // Will be set to 'ready' for short_form after this
+        updatedAt: new Date(),
+      })
+      .where(and(eq(mediaAssets.id, payload.mediaAssetId), eq(mediaAssets.projectId, payload.projectId)))
+      .returning();
+
+    mediaAsset = updated;
+
+    if (!mediaAsset) {
+      return failure(res, 404, 'Media asset not found');
+    }
+
+    // For short_form assets, mark as ready (no processing pipeline)
+    if (mediaAsset.assetType === 'short_form') {
+      await db
+        .update(mediaAssets)
+        .set({ status: 'ready', updatedAt: new Date() })
+        .where(eq(mediaAssets.id, payload.mediaAssetId));
+
+      return success(res, {
+        projectId: project.id,
+        mediaAssetId: mediaAsset.id,
+        status: 'ready',
+      });
+    }
+  }
+
+  // For long_form assets (or legacy without mediaAssetId), enqueue processing
+  const sourceObjectKey = mediaAsset?.sourceObjectKey ?? project.sourceObjectKey;
+  const sourceBucket = mediaAsset?.sourceBucket ?? project.sourceBucket;
+
   await enqueueJob({
     projectId: project.id,
+    mediaAssetId: payload.mediaAssetId,
     type: 'thumbnail',
     payload: {
       projectId: project.id,
-      sourceObjectKey: project.sourceObjectKey,
-      sourceBucket: project.sourceBucket,
+      mediaAssetId: payload.mediaAssetId,
+      sourceObjectKey,
+      sourceBucket,
       organizationId: authResult.organizationId,
     },
   });
 
-  return success(res, { projectId: project.id, status: project.status });
+  return success(res, {
+    projectId: project.id,
+    mediaAssetId: payload.mediaAssetId,
+    status: project.status,
+  });
 }
