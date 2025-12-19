@@ -78,6 +78,13 @@ class JobRunnerConfig(BaseSettings):
     TIGRIS_ACCESS_KEY_ID: str = Field(min_length=1)
     TIGRIS_SECRET_ACCESS_KEY: str = Field(min_length=1)
 
+    # Tigris download/upload reliability
+    TIGRIS_DOWNLOAD_CHUNK_SIZE: int = Field(default=1024 * 1024, ge=65536)  # 1MB
+    TIGRIS_CONNECT_TIMEOUT: float = Field(default=10.0, ge=1.0, le=60.0)  # 10s
+    TIGRIS_READ_TIMEOUT: float = Field(default=300.0, ge=30.0, le=1800.0)  # 5min for large files
+    TIGRIS_MAX_RETRIES: int = Field(default=3, ge=1, le=10)
+    TIGRIS_RETRY_BASE_DELAY: float = Field(default=1.0, ge=0.5, le=10.0)
+
     @field_validator("DATABASE_URL")
     @classmethod
     def validate_database_url(cls, v: str) -> str:

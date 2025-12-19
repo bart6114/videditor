@@ -91,6 +91,11 @@ Job Runner (Fly Machine, Python 3.13)
 **Python Jobs Worker:**
 - `DATABASE_URL` – same Neon Postgres connection (automatically converts to asyncpg format)
 - `TIGRIS_*` – credentials for downloading/uploading processed media
+- `TIGRIS_DOWNLOAD_CHUNK_SIZE` – chunk size for streaming downloads (default: 1MB)
+- `TIGRIS_CONNECT_TIMEOUT` – connection timeout in seconds (default: 10)
+- `TIGRIS_READ_TIMEOUT` – read timeout for large files (default: 300s / 5min)
+- `TIGRIS_MAX_RETRIES` – max retry attempts for downloads/uploads (default: 3)
+- `TIGRIS_RETRY_BASE_DELAY` – base delay for exponential backoff (default: 1.0s)
 - `DEEPGRAM_API_KEY` – Deepgram API key for transcription
 - `DEEPGRAM_MODEL` – Deepgram model (default: "nova-3")
 - `DEEPGRAM_CHUNK_DURATION_SECONDS` – Max chunk duration (default: 360, 6 minutes)
@@ -204,14 +209,8 @@ fly secrets set -a videditor-app POSTHOG_API_KEY="phc_..." POSTHOG_HOST="https:/
 
 ## TODOs / Follow-ups
 
-- Add sane defaults for available preferences
 - Look at YouTube tags for publishing (very low prio)
 - Support for MOV format
-- **Tigris download reliability** - `apps/jobs/utils/storage.py` `download_from_tigris()` frequently times out on large videos:
-  - Add configurable read timeouts (currently uses aiohttp defaults)
-  - Implement chunked streaming instead of `await stream.read()` which loads entire file into memory
-  - Add retry logic with exponential backoff for transient network failures
-  - Error: `aiohttp.client_exceptions.SocketTimeoutError: Timeout on reading data from socket`
 
 ## Recent Refactors (Reference for Debugging)
 

@@ -47,6 +47,24 @@ type UseProjectDataReturn = ProjectDataState & JobState & {
 
 const POLL_INTERVAL = 3000
 
+// Preserve video/thumbnail URLs for unchanged assets to prevent video player restart during polling
+function preserveAssetUrls<T extends { id: string; sourceObjectKey?: string | null; videoUrl?: string | null; thumbnailUrl?: string | null }>(
+  newAssets: T[],
+  prevAssets: T[]
+): T[] {
+  return newAssets.map(newAsset => {
+    const prevAsset = prevAssets.find(a => a.id === newAsset.id)
+    if (prevAsset && prevAsset.sourceObjectKey === newAsset.sourceObjectKey) {
+      return {
+        ...newAsset,
+        videoUrl: prevAsset.videoUrl ?? newAsset.videoUrl,
+        thumbnailUrl: prevAsset.thumbnailUrl ?? newAsset.thumbnailUrl,
+      }
+    }
+    return newAsset
+  })
+}
+
 export function useProjectData(projectId: string | undefined): UseProjectDataReturn {
   const { call } = useApi()
   const isMountedRef = useRef(true)
@@ -129,9 +147,9 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
           transcription: projectData.transcription,
           transcriptions: projectData.transcriptions || [],
           shorts: projectData.shorts || [],
-          mediaAssets: projectData.mediaAssets || [],
-          longFormAssets: projectData.longFormAssets || [],
-          shortFormAssets: projectData.shortFormAssets || [],
+          mediaAssets: preserveAssetUrls(projectData.mediaAssets || [], prev.mediaAssets),
+          longFormAssets: preserveAssetUrls(projectData.longFormAssets || [], prev.longFormAssets),
+          shortFormAssets: preserveAssetUrls(projectData.shortFormAssets || [], prev.shortFormAssets),
           loading: false,
           error: null,
         }
@@ -253,9 +271,9 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
             transcription: projectData.transcription,
             transcriptions: projectData.transcriptions || [],
             shorts: projectData.shorts || [],
-            mediaAssets: projectData.mediaAssets || [],
-            longFormAssets: projectData.longFormAssets || [],
-            shortFormAssets: projectData.shortFormAssets || [],
+            mediaAssets: preserveAssetUrls(projectData.mediaAssets || [], prev.mediaAssets),
+            longFormAssets: preserveAssetUrls(projectData.longFormAssets || [], prev.longFormAssets),
+            shortFormAssets: preserveAssetUrls(projectData.shortFormAssets || [], prev.shortFormAssets),
           }
         })
 
