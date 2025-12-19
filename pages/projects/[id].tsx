@@ -144,53 +144,82 @@ function renderShortStatusBadge(
 
   // COMPLETED - check scheduled post status first
   if (short.status === 'completed' && scheduledPosts && scheduledPosts.length > 0) {
-    const publishing = scheduledPosts.find(p => p.status === 'publishing')
-    const scheduled = scheduledPosts.find(p => p.status === 'scheduled')
-    const published = scheduledPosts.find(p => p.status === 'published')
-    const failed = scheduledPosts.find(p => p.status === 'failed')
-    const post = publishing || scheduled || published || failed
+    const publishingPosts = scheduledPosts.filter(p => p.status === 'publishing')
+    const scheduledPostsList = scheduledPosts.filter(p => p.status === 'scheduled')
+    const publishedPosts = scheduledPosts.filter(p => p.status === 'published')
+    const failedPosts = scheduledPosts.filter(p => p.status === 'failed')
 
-    if (post) {
-      if (post.status === 'publishing') {
-        return (
-          <Badge variant="secondary" className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20">
-            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-            Publishing...
-          </Badge>
-        )
-      }
-      if (post.status === 'scheduled') {
-        return (
-          <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
-            <Clock className="w-3 h-3 mr-1" />
-            {post.scheduledFor.toLocaleDateString([], { month: 'short', day: 'numeric' })}
-          </Badge>
-        )
-      }
-      if (post.status === 'published' && post.platformUrl) {
-        return (
-          <a
-            href={post.platformUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex"
-          >
-            <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/20 cursor-pointer">
-              <SiYoutube size={12} className="mr-1" />
-              Published
-            </Badge>
-          </a>
-        )
-      }
-      if (post.status === 'failed') {
-        return (
-          <Badge variant="secondary" className="text-xs bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" title={post.errorMessage || 'Publishing failed'}>
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Failed
-          </Badge>
-        )
-      }
+    // Helper to render platform icons
+    const renderPlatformIcons = (posts: ScheduledPost[]) => (
+      <span className="inline-flex items-center gap-0.5 ml-1">
+        {posts.map(p => {
+          const Icon = PLATFORM_ICONS[p.platform as SocialPlatform]
+          return Icon ? <Icon key={p.id} size={12} /> : null
+        })}
+      </span>
+    )
+
+    if (publishingPosts.length > 0) {
+      return (
+        <Badge variant="secondary" className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20">
+          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+          Publishing...
+          {renderPlatformIcons(publishingPosts)}
+        </Badge>
+      )
+    }
+
+    if (scheduledPostsList.length > 0) {
+      const earliestDate = scheduledPostsList.reduce((min, p) =>
+        p.scheduledFor < min ? p.scheduledFor : min,
+        scheduledPostsList[0].scheduledFor
+      )
+      return (
+        <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
+          <Clock className="w-3 h-3 mr-1" />
+          Scheduled {earliestDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}
+          {renderPlatformIcons(scheduledPostsList)}
+        </Badge>
+      )
+    }
+
+    if (publishedPosts.length > 0) {
+      return (
+        <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
+          Published
+          <span className="inline-flex items-center gap-0.5 ml-1">
+            {publishedPosts.map(p => {
+              const Icon = PLATFORM_ICONS[p.platform as SocialPlatform]
+              if (!Icon) return null
+              if (p.platformUrl) {
+                return (
+                  <a
+                    key={p.id}
+                    href={p.platformUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:opacity-70"
+                  >
+                    <Icon size={12} />
+                  </a>
+                )
+              }
+              return <Icon key={p.id} size={12} />
+            })}
+          </span>
+        </Badge>
+      )
+    }
+
+    if (failedPosts.length > 0) {
+      return (
+        <Badge variant="secondary" className="text-xs bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" title={failedPosts[0].errorMessage || 'Publishing failed'}>
+          <AlertCircle className="w-3 h-3 mr-1" />
+          Failed
+          {renderPlatformIcons(failedPosts)}
+        </Badge>
+      )
     }
   }
 
@@ -526,11 +555,6 @@ export default function ProjectDetail() {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(blobUrl)
-
-      // Clear selection after successful download
-      if (hasSelections) {
-        clearSelection()
-      }
     } catch (error) {
       console.error('Error downloading shorts:', error)
       alert(error instanceof Error ? error.message : 'Failed to download shorts')
@@ -578,11 +602,6 @@ export default function ProjectDetail() {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(blobUrl)
-
-      // Clear selection after successful download
-      if (hasSelections) {
-        clearSelection()
-      }
     } catch (error) {
       console.error('Error downloading metadata:', error)
       alert(error instanceof Error ? error.message : 'Failed to download metadata')
@@ -1327,7 +1346,7 @@ export default function ProjectDetail() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <CardTitle className="text-foreground text-base sm:text-lg">
-                      Generated Shorts ({shorts.filter((s) => s.status === 'completed').length}/{shorts.length})
+                      Short form videos ({shorts.length})
                     </CardTitle>
                     {hasSelections && (
                       <Badge variant="secondary" className="text-xs">
