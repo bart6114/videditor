@@ -69,14 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       organizationId: authResult.organizationId,
       createdById: authResult.userId,
       title: payload.filename,
-      // Deprecated fields - kept for backward compatibility during migration
-      sourceObjectKey: presigned.objectKey,
-      sourceBucket: presigned.bucket,
-      fileSizeBytes: payload.fileSizeBytes ?? null,
-      metadata: {
-        filename: payload.filename,
-        contentType: payload.contentType,
-      },
+      // Note: source video data is stored in media_assets table, not projects
     });
   }
 

@@ -184,13 +184,8 @@ export const projects = pgTable(
     createdById: varchar('created_by_id', { length: 255 })
       .references(() => users.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
-    // DEPRECATED: Source video fields moved to media_assets table
-    // Made nullable for migration - new projects won't populate these
-    sourceObjectKey: text('source_object_key'),
-    sourceBucket: text('source_bucket'),
-    thumbnailUrl: text('thumbnail_url'),
-    durationSeconds: doublePrecision('duration_seconds'),
-    fileSizeBytes: bigint('file_size_bytes', { mode: 'number' }),
+    // Note: source video data (sourceObjectKey, sourceBucket, thumbnailUrl, durationSeconds, fileSizeBytes)
+    // has been moved to media_assets table. See migration 0018 for column removal.
     status: projectStatusEnum('status').notNull().default('uploading'),
     priority: real('priority').default(0),
     errorMessage: text('error_message'),

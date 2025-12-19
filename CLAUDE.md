@@ -208,6 +208,38 @@ fly secrets set -a videditor-app POSTHOG_API_KEY="phc_..." POSTHOG_HOST="https:/
 - Look at YouTube tags for publishing (very low prio)
 - Support for MOV format
 
+### Before Production Deployment: Unified Media Assets Migration
+
+The codebase has been refactored to use `media_assets` table instead of project-level source fields and the legacy `shorts` table. Before deploying to production:
+
+1. **Verify current state** (read-only, safe to run anytime):
+   ```bash
+   psql $DATABASE_URL -f scripts/verify-media-assets-migration.sql
+   ```
+
+2. **Run data migration** (if verification shows pending items):
+   ```bash
+   psql $DATABASE_URL -f scripts/migrate-to-media-assets.sql
+   ```
+   This script is idempotent - safe to run multiple times. It:
+   - Creates `long_form` media_assets from `projects.source_object_key`
+   - Creates `short_form` media_assets from the `shorts` table
+   - Links transcriptions, scheduled_posts, and processing_jobs to media_assets
+
+3. **Verify again** to confirm migration completed:
+   ```bash
+   psql $DATABASE_URL -f scripts/verify-media-assets-migration.sql
+   ```
+
+4. **Deploy code** - The schema migration `0018_groovy_husk.sql` will drop deprecated columns:
+   - `projects.source_object_key`
+   - `projects.source_bucket`
+   - `projects.thumbnail_url`
+   - `projects.duration_seconds`
+   - `projects.file_size_bytes`
+
+**Important:** Run steps 1-3 BEFORE deploying, as the new code no longer writes to these deprecated columns.
+
 ## First-Time Fly.io Deployment
 
 ### 1. Create Fly Apps

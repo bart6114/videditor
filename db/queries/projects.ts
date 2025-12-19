@@ -14,6 +14,8 @@ export async function listOrganizationProjects(db: DB, organizationId: string, l
       longFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'long_form')`,
       shortFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'short_form')`,
       hasTranscription: sql<boolean>`EXISTS (SELECT 1 FROM transcriptions t WHERE t.project_id = ${projects.id})`,
+      // Get thumbnail from first long-form asset (replaces deprecated project.thumbnailUrl)
+      assetThumbnailUrl: sql<string | null>`(SELECT ma.thumbnail_url FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'long_form' ORDER BY ma.created_at ASC LIMIT 1)`,
     })
     .from(projects)
     .leftJoin(shorts, eq(projects.id, shorts.projectId))
@@ -50,6 +52,8 @@ export async function listOrganizationProjects(db: DB, organizationId: string, l
   // Map to enriched project objects
   return results.map((row) => ({
     ...row.project,
+    // Get thumbnailUrl from first long-form asset
+    thumbnailUrl: row.assetThumbnailUrl,
     shortsCount: row.shortsCount,
     longFormCount: Number(row.longFormCount) || 0,
     shortFormCount: Number(row.shortFormCount) || 0,

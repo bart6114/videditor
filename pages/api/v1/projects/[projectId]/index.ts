@@ -31,15 +31,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const tigrisClient = createTigrisClient();
     const deletePromises: Promise<void>[] = [];
 
-    // Collect all object keys to delete
-    if (result.project.sourceObjectKey) {
-      deletePromises.push(deleteFromTigris(tigrisClient, result.project.sourceObjectKey));
-    }
-    if (result.project.thumbnailUrl) {
-      deletePromises.push(deleteFromTigris(tigrisClient, result.project.thumbnailUrl));
+    // Delete all media assets from Tigris
+    for (const asset of result.mediaAssets) {
+      if (asset.sourceObjectKey) {
+        deletePromises.push(deleteFromTigris(tigrisClient, asset.sourceObjectKey));
+      }
+      if (asset.thumbnailUrl) {
+        deletePromises.push(deleteFromTigris(tigrisClient, asset.thumbnailUrl));
+      }
     }
 
-    // Delete all shorts' videos and thumbnails
+    // Delete all legacy shorts' videos and thumbnails (for backward compat during migration)
     for (const short of result.shorts) {
       if (short.outputObjectKey) {
         deletePromises.push(deleteFromTigris(tigrisClient, short.outputObjectKey));
@@ -87,33 +89,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 404, 'Project not found');
   }
 
-  // Transform thumbnailUrl from object key to presigned URL
-  let thumbnailUrl = null;
-  if (result.project.thumbnailUrl) {
-    try {
-      const tigrisClient = createTigrisClient();
-      thumbnailUrl = await createPresignedDownload(tigrisClient, result.project.thumbnailUrl, 3600, undefined, 'image/jpeg');
-    } catch (error) {
-      console.error('Failed to generate presigned URL for thumbnail:', result.project.thumbnailUrl, error);
-      // Leave thumbnailUrl as null on error
-    }
-  }
-
-  // Generate presigned URL for video playback
-  let videoUrl = null;
-  if (result.project.sourceObjectKey) {
-    try {
-      const tigrisClient = createTigrisClient();
-      // Longer expiration for video playback (2 hours)
-      videoUrl = await createPresignedDownload(tigrisClient, result.project.sourceObjectKey, 7200);
-    } catch (error) {
-      console.error('Failed to generate presigned URL for video:', result.project.sourceObjectKey, error);
-      // Leave videoUrl as null on error
-    }
-  }
-
-  // NOTE: shorts table query is deprecated but kept for backward compat during deletion
-  // Shorts are now derived from shortFormAssets via mediaAssetToShort transform
+  // NOTE: Project-level thumbnailUrl/videoUrl are deprecated
+  // Video playback now uses media assets (long_form/short_form)
+  // Shorts are derived from shortFormAssets via mediaAssetToShort transform
 
   // Generate presigned URLs for media assets
   const tigrisClient = createTigrisClient();
@@ -155,11 +133,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return success(res, {
     ...result,
-    project: {
-      ...result.project,
-      thumbnailUrl,
-      videoUrl,
-    },
+    project: result.project,
     mediaAssets: mediaAssetsWithUrls,
     longFormAssets: mediaAssetsWithUrls.filter(a => a.assetType === 'long_form'),
     shortFormAssets: shortFormAssetsWithUrls,

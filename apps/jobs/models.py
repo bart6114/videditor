@@ -201,12 +201,7 @@ class Project(Base):
     organization_id = Column(String(255), nullable=False, index=True)
     created_by_id = Column(String(255), nullable=True)  # User who created the project
     title = Column(Text, nullable=False)
-    # DEPRECATED: Source video fields moved to media_assets table
-    source_object_key = Column(Text, nullable=True)
-    source_bucket = Column(Text, nullable=True)
-    thumbnail_url = Column(Text, nullable=True)
-    duration_seconds = Column(Double, nullable=True)
-    file_size_bytes = Column(BigInteger, nullable=True)
+    # Note: source video data (source_object_key, source_bucket, etc.) moved to media_assets table
     status = Column(ENUM('uploading', 'ready', 'queued', 'processing', 'transcribing', 'analyzing', 'completed', 'error', name='project_status', create_type=False), nullable=False, default="uploading")
     priority = Column(Float, nullable=True, default=0)
     error_message = Column(Text, nullable=True)

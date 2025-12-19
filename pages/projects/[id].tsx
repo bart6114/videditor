@@ -292,11 +292,6 @@ export default function ProjectDetail() {
     | { type: 'bulkSchedule' }
   const [dialog, setDialog] = useState<DialogState>({ type: 'none' })
   const [bulkDeleting, setBulkDeleting] = useState(false) // For bulk delete via window.confirm
-  // Consolidated title edit state
-  type TitleEditState =
-    | { type: 'viewing' }
-    | { type: 'editing'; value: string; saving: boolean }
-  const [titleEdit, setTitleEdit] = useState<TitleEditState>({ type: 'viewing' })
   const [showInsufficientCredits, setShowInsufficientCredits] = useState(false)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
@@ -682,30 +677,16 @@ export default function ProjectDetail() {
     }
   }
 
-  function startEditingTitle() {
-    setTitleEdit({ type: 'editing', value: project?.title || '', saving: false })
-  }
+  // Save project title (used by WorkspaceLayout inline editing)
+  async function handleTitleSave(newTitle: string): Promise<void> {
+    if (!project) return
 
-  async function handleSaveTitle() {
-    if (titleEdit.type !== 'editing' || !project || !titleEdit.value.trim()) return
+    await call(`/v1/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title: newTitle }),
+    })
 
-    setTitleEdit({ ...titleEdit, saving: true })
-    try {
-      await call(`/v1/projects/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ title: titleEdit.value.trim() }),
-      })
-
-      await projectData.refresh()
-      setTitleEdit({ type: 'viewing' })
-    } catch (error) {
-      console.error('Error updating title:', error)
-      setTitleEdit({ ...titleEdit, saving: false })
-    }
-  }
-
-  function cancelEditingTitle() {
-    setTitleEdit({ type: 'viewing' })
+    await projectData.refresh()
   }
 
   async function handleDeleteProject() {
@@ -760,7 +741,7 @@ export default function ProjectDetail() {
         <meta property="og:type" content="website" />
         <meta property="og:title" content={`${project.title} - VidEditor.ai`} />
         <meta property="og:description" content={`Edit and create shorts from "${project.title}" using AI`} />
-        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og/project?title=${encodeURIComponent(project.title)}&shorts=${shorts.length}&duration=${project.durationSeconds ? formatDuration(project.durationSeconds) : '0:00'}`} />
+        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og/project?title=${encodeURIComponent(project.title)}&shorts=${shorts.length}&duration=${longFormAssets[0]?.durationSeconds ? formatDuration(longFormAssets[0].durationSeconds) : '0:00'}`} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:site_name" content="VidEditor.ai" />
@@ -769,10 +750,10 @@ export default function ProjectDetail() {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={`${project.title} - VidEditor.ai`} />
         <meta name="twitter:description" content={`Edit and create shorts from "${project.title}" using AI`} />
-        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og/project?title=${encodeURIComponent(project.title)}&shorts=${shorts.length}&duration=${project.durationSeconds ? formatDuration(project.durationSeconds) : '0:00'}`} />
+        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_APP_URL || 'https://videditor.ai'}/api/og/project?title=${encodeURIComponent(project.title)}&shorts=${shorts.length}&duration=${longFormAssets[0]?.durationSeconds ? formatDuration(longFormAssets[0].durationSeconds) : '0:00'}`} />
       </Head>
 
-      <WorkspaceLayout title={project.title}>
+      <WorkspaceLayout title={project.title} onTitleSave={handleTitleSave}>
         <div className="space-y-6">
           {/* Header with Upload Button */}
           <div className="flex items-center justify-end">

@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
+import { eq, and } from 'drizzle-orm';
 import { getDb } from '@server/db';
-import { shorts, processingJobs } from '@server/db/schema';
+import { mediaAssets, processingJobs } from '@server/db/schema';
 import { getProjectById } from '@server/db/queries/projects';
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
@@ -15,6 +16,7 @@ const timeRangeSchema = z.object({
 });
 
 const manualShortSchema = z.object({
+  sourceAssetId: z.string().uuid('Source asset ID is required'),
   ranges: z.array(timeRangeSchema).min(1, 'At least one time range is required'),
   transcriptionSlice: z.string().min(1, 'Transcription slice is required'),
   socialPlatforms: z.array(z.enum(SOCIAL_PLATFORMS)).optional(),
@@ -45,17 +47,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 400, 'Invalid request body', parsed.error.flatten());
   }
 
-  const { ranges, transcriptionSlice, socialPlatforms } = parsed.data;
+  const { sourceAssetId, ranges, transcriptionSlice, socialPlatforms } = parsed.data;
+
+  // Fetch source long-form asset
+  const [sourceAsset] = await db
+    .select()
+    .from(mediaAssets)
+    .where(
+      and(
+        eq(mediaAssets.id, sourceAssetId),
+        eq(mediaAssets.projectId, projectId),
+        eq(mediaAssets.assetType, 'long_form')
+      )
+    )
+    .limit(1);
+
+  if (!sourceAsset) {
+    return failure(res, 404, 'Source asset not found');
+  }
 
   // Sort ranges by start time
   const sortedRanges = [...ranges].sort((a, b) => a.start - b.start);
 
-  // Calculate overall start/end times for backward compatibility
+  // Calculate overall start/end times
   const overallStartTime = sortedRanges[0].start;
   const overallEndTime = sortedRanges[sortedRanges.length - 1].end;
 
   // Generate IDs
-  const shortId = crypto.randomUUID();
+  const shortAssetId = crypto.randomUUID();
   const jobId = crypto.randomUUID();
 
   // Determine if social content generation is requested
@@ -67,39 +86,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     0
   );
 
-  // Create short record
-  const [newShort] = await db.insert(shorts).values({
-    id: shortId,
+  // Create short_form media asset
+  const [newShortAsset] = await db.insert(mediaAssets).values({
+    id: shortAssetId,
     projectId,
-    analysisJobId: null, // Manual short, no analysis job
-    transcriptionSlice,
-    startTime: overallStartTime,
-    endTime: overallEndTime,
-    status: 'pending',
-    tasks: {
-      clip_extraction: 'pending',
-      thumbnail_extraction: 'pending',
-      social_content: generateSocialContent ? 'pending' : 'skipped',
-    },
+    organizationId: authResult.organizationId,
+    createdById: authResult.userId,
+    assetType: 'short_form',
+    title: transcriptionSlice.substring(0, 50),
+    sourceObjectKey: '', // Will be populated by processing job
+    sourceBucket: sourceAsset.sourceBucket,
+    status: 'processing',
+    sourceAssetId: sourceAssetId,
     metadata: {
+      startTime: overallStartTime,
+      endTime: overallEndTime,
+      transcriptionSlice,
+      ranges: sortedRanges,
       isManual: true,
       rangeCount: sortedRanges.length,
       totalDuration,
+      tasks: {
+        clip_extraction: 'pending',
+        thumbnail_extraction: 'pending',
+        social_content: generateSocialContent ? 'pending' : 'skipped',
+      },
     },
   }).returning();
 
-  // Create processing job with ranges in payload
+  // Create processing job
   const [newJob] = await db.insert(processingJobs).values({
     id: jobId,
     projectId,
-    shortId,
+    mediaAssetId: shortAssetId,
     type: 'short_processing',
     status: 'queued',
     payload: {
-      shortId,
+      mediaAssetId: shortAssetId,
       projectId,
-      sourceObjectKey: project.sourceObjectKey,
-      sourceBucket: project.sourceBucket,
+      sourceObjectKey: sourceAsset.sourceObjectKey,
+      sourceBucket: sourceAsset.sourceBucket,
       organizationId: authResult.organizationId,
       ranges: sortedRanges as TimeRange[],
       transcriptionSlice,
@@ -108,7 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }).returning();
 
   return success(res, {
-    short: newShort,
+    asset: newShortAsset,
     job: newJob,
   });
 }

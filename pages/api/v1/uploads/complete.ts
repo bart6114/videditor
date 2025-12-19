@@ -34,14 +34,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const payload = parsed.data;
   const db = getDb();
 
-  // Update project status (backward compat)
+  // Update project status
   const [project] = await db
     .update(projects)
     .set({
       status: 'queued',
-      durationSeconds: payload.durationSeconds ?? null,
-      fileSizeBytes: payload.fileSizeBytes ?? null,
-      metadata: payload.metadata ?? undefined,
       updatedAt: new Date(),
     })
     .where(and(eq(projects.id, payload.projectId), eq(projects.organizationId, authResult.organizationId)))
@@ -86,9 +83,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  // For long_form assets (or legacy without mediaAssetId), enqueue processing
-  const sourceObjectKey = mediaAsset?.sourceObjectKey ?? project.sourceObjectKey;
-  const sourceBucket = mediaAsset?.sourceBucket ?? project.sourceBucket;
+  // For long_form assets, enqueue processing
+  if (!mediaAsset) {
+    return failure(res, 400, 'mediaAssetId is required for long_form uploads');
+  }
+  const sourceObjectKey = mediaAsset.sourceObjectKey;
+  const sourceBucket = mediaAsset.sourceBucket;
 
   await enqueueJob({
     projectId: project.id,
