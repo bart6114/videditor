@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApi } from '@/lib/api/client'
 import { extractTranscriptionJob, extractActiveAnalysisJob, type ApiJob, type TranscriptionJob, type AnalysisJob } from '@/lib/jobs/parsing'
 import type { Project, Short, Transcription } from '@server/db/schema'
+import type { MediaAsset } from '@/types/projects'
 
 type ScheduledPost = {
   id: string
@@ -18,6 +19,9 @@ type ScheduledPost = {
 type ProjectDataState = {
   project: (Project & { videoUrl?: string; thumbnailUrl?: string }) | null
   shorts: Short[]
+  mediaAssets: MediaAsset[]
+  longFormAssets: MediaAsset[]
+  shortFormAssets: MediaAsset[]
   transcription: Transcription | null
   scheduledPostsByShort: Record<string, ScheduledPost[]>
   loading: boolean
@@ -50,6 +54,9 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
   const [state, setState] = useState<ProjectDataState>({
     project: null,
     shorts: [],
+    mediaAssets: [],
+    longFormAssets: [],
+    shortFormAssets: [],
     transcription: null,
     scheduledPostsByShort: {},
     loading: true,
@@ -93,6 +100,9 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
           project: Project
           transcription: Transcription | null
           shorts: Short[]
+          mediaAssets: MediaAsset[]
+          longFormAssets: MediaAsset[]
+          shortFormAssets: MediaAsset[]
         }>(`/v1/projects/${projectId}`),
         call<{ jobs: ApiJob[] }>(`/v1/projects/${projectId}/jobs`),
       ])
@@ -115,6 +125,9 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
           project: newProject,
           transcription: projectData.transcription,
           shorts: projectData.shorts || [],
+          mediaAssets: projectData.mediaAssets || [],
+          longFormAssets: projectData.longFormAssets || [],
+          shortFormAssets: projectData.shortFormAssets || [],
           loading: false,
           error: null,
         }
@@ -209,6 +222,9 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
             project: Project
             transcription: Transcription | null
             shorts: Short[]
+            mediaAssets: MediaAsset[]
+            longFormAssets: MediaAsset[]
+            shortFormAssets: MediaAsset[]
           }>(`/v1/projects/${projectId}`),
           call<{ jobs: ApiJob[] }>(`/v1/projects/${projectId}/jobs`),
         ])
@@ -231,6 +247,9 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
             project: newProject,
             transcription: projectData.transcription,
             shorts: projectData.shorts || [],
+            mediaAssets: projectData.mediaAssets || [],
+            longFormAssets: projectData.longFormAssets || [],
+            shortFormAssets: projectData.shortFormAssets || [],
           }
         })
 
