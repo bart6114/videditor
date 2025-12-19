@@ -371,13 +371,11 @@ class JobProcessor:
                 content_type="image/jpeg",
             )
 
-            # Update project with thumbnail URL and duration
+            # Update project status (thumbnail/duration now stored in MediaAsset only)
             await session.execute(
                 update(Project)
                 .where(Project.id == job.project_id)
                 .values(
-                    thumbnail_url=thumbnail_object_key,
-                    duration_seconds=duration,
                     status=ProjectStatus.READY.value,
                     updated_at=datetime.now(timezone.utc),
                 )
@@ -660,13 +658,23 @@ class JobProcessor:
         # Set progress to analyzing phase
         await self._update_job_progress(session, job.id, phase="analyzing", current=0, total=0)
 
-        # Fetch project to get source video info
+        # Fetch project
         project_stmt = select(Project).where(Project.id == job.project_id).limit(1)
         project_result = await session.execute(project_stmt)
         project = project_result.scalar_one_or_none()
 
         if not project:
             raise ValueError(f"Project not found: {job.project_id}")
+
+        # Fetch source media asset for source video info
+        source_asset = None
+        if job.media_asset_id:
+            source_asset_stmt = select(MediaAsset).where(MediaAsset.id == job.media_asset_id).limit(1)
+            source_asset_result = await session.execute(source_asset_stmt)
+            source_asset = source_asset_result.scalar_one_or_none()
+
+        if not source_asset:
+            raise ValueError(f"Source media asset not found for analysis job: {job.id}")
 
         # Fetch transcription
         transcription_stmt = (
@@ -812,8 +820,8 @@ class JobProcessor:
                     "shortId": short_id,
                     "mediaAssetId": short_id,
                     "projectId": job.project_id,
-                    "sourceObjectKey": project.source_object_key,
-                    "sourceBucket": project.source_bucket,
+                    "sourceObjectKey": source_asset.source_object_key,
+                    "sourceBucket": source_asset.source_bucket,
                     "organizationId": project.organization_id,
                     "startTime": suggestion.start_time,
                     "endTime": suggestion.end_time,
