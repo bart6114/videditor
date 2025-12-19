@@ -8,7 +8,6 @@ import { SocialPlatformSelector } from '@/components/SocialPlatformSelector'
 import {
   Sparkles,
   Loader2,
-  Pencil,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
@@ -28,7 +27,6 @@ interface GenerateShortsFormProps {
   onGenerateStart: () => void
   onGenerateComplete: (jobId: string) => void
   onGenerateError: (error: Error) => void
-  editorHref: string
   compact?: boolean
 }
 
@@ -45,7 +43,6 @@ export function GenerateShortsForm({
   onGenerateStart,
   onGenerateComplete,
   onGenerateError,
-  editorHref,
   compact = false,
 }: GenerateShortsFormProps) {
   const { call } = useApi()
@@ -280,43 +277,29 @@ export function GenerateShortsForm({
 
       {/* Action buttons and credit indicator */}
       <div className="space-y-2">
-        <div className="flex gap-2">
-          <Button
-            onClick={handleAnalyze}
-            disabled={isDisabled}
-            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
-            size={compact ? 'sm' : 'default'}
-          >
-            {analyzing || isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : hasActiveJob ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                In progress...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate {shortsCount} Shorts
-              </>
-            )}
-          </Button>
-
-          <Link href={editorHref} className={isDisabled ? 'pointer-events-none' : ''}>
-            <Button
-              variant="outline"
-              disabled={isDisabled}
-              size={compact ? 'sm' : 'default'}
-              className="h-full"
-            >
-              <Pencil className="w-4 h-4" />
-              {!compact && <span className="ml-2">Manual</span>}
-            </Button>
-          </Link>
-        </div>
+        <Button
+          onClick={handleAnalyze}
+          disabled={isDisabled}
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+          size={compact ? 'sm' : 'default'}
+        >
+          {analyzing || isGenerating ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : hasActiveJob ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              In progress...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 mr-2" />
+              Generate {shortsCount} Shorts
+            </>
+          )}
+        </Button>
 
         {/* Credit cost indicator */}
         <div className="flex items-center justify-between text-xs">

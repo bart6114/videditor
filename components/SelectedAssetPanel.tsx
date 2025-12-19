@@ -213,7 +213,6 @@ export function SelectedAssetPanel({
                     onGenerateError(error)
                     refreshCredits()
                   }}
-                  editorHref={`/editor/${projectId}?assetId=${asset.id}`}
                 />
               )}
 
