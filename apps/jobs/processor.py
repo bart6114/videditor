@@ -806,8 +806,7 @@ class JobProcessor:
             processing_job = await self._enqueue_job(
                 session,
                 project_id=job.project_id,
-                short_id=short_id,
-                media_asset_id=short_id,  # Same ID as short
+                media_asset_id=short_id,  # Use same ID as the created media asset
                 job_type=JobType.SHORT_PROCESSING,
                 payload={
                     "shortId": short_id,
@@ -1238,7 +1237,6 @@ class JobProcessor:
         self,
         session: AsyncSession,
         project_id: str | None = None,
-        short_id: str | None = None,
         media_asset_id: str | None = None,
         job_type: JobType = JobType.TRANSCRIPTION,
         payload: dict[str, Any] | None = None,
@@ -1252,7 +1250,6 @@ class JobProcessor:
         Args:
             session: Database session
             project_id: Project ID
-            short_id: Short ID (deprecated, use media_asset_id)
             media_asset_id: Media asset ID
             job_type: Job type
             payload: Job payload
@@ -1274,7 +1271,7 @@ class JobProcessor:
         new_job = ProcessingJob(
             id=str(uuid.uuid4()),
             project_id=project_id,
-            short_id=short_id,
+            short_id=None,  # Deprecated - use media_asset_id instead
             media_asset_id=media_asset_id,
             type=job_type.value,
             status=JobStatus.QUEUED.value,
