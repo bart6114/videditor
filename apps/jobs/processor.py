@@ -24,8 +24,6 @@ from models import (
     ProjectStatus,
     ScheduledPost,
     ScheduledPostStatus,
-    Short,
-    ShortStatus,
     ShortTaskStatus,
     SocialAccount,
     SocialPlatform,
@@ -208,26 +206,26 @@ class JobProcessor:
                 result = await session.execute(stmt)
                 failed_job = result.scalar_one_or_none()
 
-                # Update related short status if job has a short_id
-                if failed_job and failed_job.short_id:
+                # Update related media_asset status if job has a media_asset_id
+                if failed_job and failed_job.media_asset_id:
                     if failed_job.type == JobType.SOCIAL_CONTENT_GENERATION.value:
-                        # Social content failure is non-fatal - short is still usable
+                        # Social content failure is non-fatal - asset is still usable
                         await session.execute(
-                            update(Short)
-                            .where(Short.id == failed_job.short_id)
+                            update(MediaAsset)
+                            .where(MediaAsset.id == failed_job.media_asset_id)
                             .values(
-                                status=ShortStatus.COMPLETED.value,
+                                status=AssetStatus.COMPLETED.value,
                                 error_message=f"Social content generation failed: {str(error)}",
                                 updated_at=datetime.now(timezone.utc),
                             )
                         )
                     elif failed_job.type == JobType.SHORT_PROCESSING.value:
-                        # Short processing failure - mark short as error
+                        # Short processing failure - mark asset as error
                         await session.execute(
-                            update(Short)
-                            .where(Short.id == failed_job.short_id)
+                            update(MediaAsset)
+                            .where(MediaAsset.id == failed_job.media_asset_id)
                             .values(
-                                status=ShortStatus.ERROR.value,
+                                status=AssetStatus.ERROR.value,
                                 error_message=str(error),
                                 updated_at=datetime.now(timezone.utc),
                             )
@@ -683,15 +681,18 @@ class JobProcessor:
         if not transcription.segments:
             raise ValueError("Transcription has no segments")
 
-        # Fetch existing shorts if avoidExistingOverlap is enabled
+        # Fetch existing short_form assets if avoidExistingOverlap is enabled
         existing_shorts = None
         if avoid_existing_overlap:
-            existing_shorts_stmt = select(Short).where(Short.project_id == job.project_id)
+            existing_shorts_stmt = select(MediaAsset).where(
+                MediaAsset.project_id == job.project_id,
+                MediaAsset.asset_type == AssetType.SHORT_FORM.value
+            )
             existing_shorts_result = await session.execute(existing_shorts_stmt)
             existing_shorts_rows = existing_shorts_result.scalars().all()
             if existing_shorts_rows:
                 existing_shorts = [
-                    {"transcription": s.transcription_slice}
+                    {"transcription": (s.metadata_ or {}).get("transcriptionSlice", "")}
                     for s in existing_shorts_rows
                 ]
                 self.logger.info(
@@ -772,22 +773,7 @@ class JobProcessor:
                 "social_content": ShortTaskStatus.SKIPPED.value if not social_platforms else ShortTaskStatus.PENDING.value,
             }
 
-            # Create short container (no output URLs yet) - DEPRECATED, kept for backward compat
-            short = Short(
-                id=short_id,
-                project_id=job.project_id,
-                analysis_job_id=job.id,
-                transcription_slice=suggestion.transcription,
-                start_time=suggestion.start_time,
-                end_time=suggestion.end_time,
-                output_object_key=None,
-                thumbnail_url=None,
-                status=ShortStatus.PENDING.value,
-                tasks=initial_tasks,
-            )
-            session.add(short)
-
-            # Also create media_asset with assetType='short_form' (dual-write)
+            # Create media_asset with assetType='short_form'
             short_title = suggestion.transcription[:50] if suggestion.transcription else f"Short {idx + 1}"
             media_asset = MediaAsset(
                 id=short_id,  # Use same ID for easy migration
@@ -892,40 +878,6 @@ class JobProcessor:
         )
         await session.commit()
 
-    async def _update_short_task(
-        self,
-        session: AsyncSession,
-        short_id: str,
-        task_name: str,
-        status: str,
-    ) -> None:
-        """
-        Update a specific task status within the short's tasks JSONB.
-
-        Args:
-            session: Database session
-            short_id: Short ID
-            task_name: Task name ('clip_extraction', 'thumbnail_extraction', 'social_content')
-            status: Task status ('pending', 'processing', 'done', 'error', 'skipped')
-        """
-        await session.execute(
-            text(f"""
-                UPDATE shorts
-                SET tasks = jsonb_set(
-                    COALESCE(tasks, CAST('{{}}' AS jsonb)),
-                    '{{{task_name}}}',
-                    CAST(:value AS jsonb)
-                ),
-                updated_at = NOW()
-                WHERE id = :short_id
-            """),
-            {
-                "value": f'"{status}"',
-                "short_id": short_id,
-            }
-        )
-        await session.commit()
-
     async def _update_media_asset_task(
         self,
         session: AsyncSession,
@@ -1015,27 +967,15 @@ class JobProcessor:
             is_multi_range=is_multi_range,
         )
 
-        # Update short status to processing
+        # Update media_asset status to processing
         await session.execute(
-            update(Short)
-            .where(Short.id == short_id)
+            update(MediaAsset)
+            .where(MediaAsset.id == media_asset_id)
             .values(
-                status=ShortStatus.PROCESSING.value,
+                status=AssetStatus.PROCESSING.value,
                 updated_at=datetime.now(timezone.utc),
             )
         )
-
-        # Also update media_asset status (dual-write)
-        if media_asset_id:
-            await session.execute(
-                update(MediaAsset)
-                .where(MediaAsset.id == media_asset_id)
-                .values(
-                    status=AssetStatus.PROCESSING.value,
-                    updated_at=datetime.now(timezone.utc),
-                )
-            )
-
         await session.commit()
 
         # Create temp files for clip and thumbnail (these are always fresh)
@@ -1086,7 +1026,7 @@ class JobProcessor:
                 )
 
             # 2. Extract clip(s)
-            await self._update_short_task(session, short_id, "clip_extraction", ShortTaskStatus.PROCESSING.value)
+            await self._update_media_asset_task(session, media_asset_id, "clip_extraction", ShortTaskStatus.PROCESSING.value)
             try:
                 if is_multi_range:
                     # Multi-range: extract each segment, then concatenate
@@ -1141,16 +1081,16 @@ class JobProcessor:
                     content_type="video/mp4",
                 )
 
-                await self._update_short_task(session, short_id, "clip_extraction", ShortTaskStatus.DONE.value)
+                await self._update_media_asset_task(session, media_asset_id, "clip_extraction", ShortTaskStatus.DONE.value)
                 result_data["clipObjectKey"] = clip_object_key
                 self.logger.info("✓ Clip extracted and uploaded", short_id=short_id)
 
             except Exception as e:
-                await self._update_short_task(session, short_id, "clip_extraction", ShortTaskStatus.ERROR.value)
+                await self._update_media_asset_task(session, media_asset_id, "clip_extraction", ShortTaskStatus.ERROR.value)
                 raise
 
             # 3. Extract thumbnail
-            await self._update_short_task(session, short_id, "thumbnail_extraction", ShortTaskStatus.PROCESSING.value)
+            await self._update_media_asset_task(session, media_asset_id, "thumbnail_extraction", ShortTaskStatus.PROCESSING.value)
             try:
                 # Get actual clip duration (works for both single and multi-range)
                 clip_duration = await get_video_duration(temp_clip_path)
@@ -1173,18 +1113,18 @@ class JobProcessor:
                     content_type="image/jpeg",
                 )
 
-                await self._update_short_task(session, short_id, "thumbnail_extraction", ShortTaskStatus.DONE.value)
+                await self._update_media_asset_task(session, media_asset_id, "thumbnail_extraction", ShortTaskStatus.DONE.value)
                 result_data["thumbnailObjectKey"] = thumb_object_key
                 self.logger.info("✓ Thumbnail extracted and uploaded", short_id=short_id)
 
             except Exception as e:
-                await self._update_short_task(session, short_id, "thumbnail_extraction", ShortTaskStatus.ERROR.value)
+                await self._update_media_asset_task(session, media_asset_id, "thumbnail_extraction", ShortTaskStatus.ERROR.value)
                 raise
 
             # 4. Generate social content (if platforms specified)
             social_content_data = None
             if social_platforms:
-                await self._update_short_task(session, short_id, "social_content", ShortTaskStatus.PROCESSING.value)
+                await self._update_media_asset_task(session, media_asset_id, "social_content", ShortTaskStatus.PROCESSING.value)
                 try:
                     # Fetch user ID for PostHog attribution
                     user_id = await self._get_user_id_for_project(session, project_id)
@@ -1200,7 +1140,7 @@ class JobProcessor:
                         trace_id=f"social_content:project={project_id}:short={short_id}:platforms={platforms_str}",
                         user_id=user_id,
                     )
-                    await self._update_short_task(session, short_id, "social_content", ShortTaskStatus.DONE.value)
+                    await self._update_media_asset_task(session, media_asset_id, "social_content", ShortTaskStatus.DONE.value)
                     result_data["socialContent"] = social_content_data
                     self.logger.info("✓ Social content generated", short_id=short_id, platforms=list(social_content_data.keys()) if social_content_data else [])
 
@@ -1210,57 +1150,40 @@ class JobProcessor:
                         short_id=short_id,
                         error=str(e),
                     )
-                    await self._update_short_task(session, short_id, "social_content", ShortTaskStatus.ERROR.value)
+                    await self._update_media_asset_task(session, media_asset_id, "social_content", ShortTaskStatus.ERROR.value)
                     # Don't raise - social content failure is non-fatal
 
-            # 5. Update short to completed
+            # 5. Update media_asset to completed
+            clip_object_key = result_data.get("clipObjectKey")
+            thumb_object_key = result_data.get("thumbnailObjectKey")
+            clip_duration = await get_video_duration(temp_clip_path) if os.path.exists(temp_clip_path) else None
+
             await session.execute(
-                update(Short)
-                .where(Short.id == short_id)
+                update(MediaAsset)
+                .where(MediaAsset.id == media_asset_id)
                 .values(
-                    status=ShortStatus.COMPLETED.value,
-                    output_object_key=result_data.get("clipObjectKey"),
-                    thumbnail_url=result_data.get("thumbnailObjectKey"),
+                    status=AssetStatus.COMPLETED.value,
+                    source_object_key=clip_object_key or "",
+                    thumbnail_url=thumb_object_key,
+                    duration_seconds=clip_duration,
                     social_content=social_content_data,
                     updated_at=datetime.now(timezone.utc),
                 )
             )
-
-            # Also update media_asset to completed (dual-write)
-            if media_asset_id:
-                clip_object_key = result_data.get("clipObjectKey")
-                thumb_object_key = result_data.get("thumbnailObjectKey")
-                clip_duration = await get_video_duration(temp_clip_path) if os.path.exists(temp_clip_path) else None
-
-                await session.execute(
-                    update(MediaAsset)
-                    .where(MediaAsset.id == media_asset_id)
-                    .values(
-                        status=AssetStatus.COMPLETED.value,
-                        source_object_key=clip_object_key or "",
-                        thumbnail_url=thumb_object_key,
-                        duration_seconds=clip_duration,
-                        social_content=social_content_data,
-                        updated_at=datetime.now(timezone.utc),
-                    )
-                )
-                # Update tasks in metadata
-                await self._update_media_asset_task(session, media_asset_id, "clip_extraction", ShortTaskStatus.DONE.value)
-                await self._update_media_asset_task(session, media_asset_id, "thumbnail_extraction", ShortTaskStatus.DONE.value)
-                if social_platforms:
-                    await self._update_media_asset_task(session, media_asset_id, "social_content", ShortTaskStatus.DONE.value if social_content_data else ShortTaskStatus.ERROR.value)
-
             await session.commit()
 
             self.logger.info("✅ Short processing completed", short_id=short_id)
 
-            # 6. Check if all shorts for this project are now completed
+            # 6. Check if all short_form assets for this project are now completed
             # If so, update project status to COMPLETED
-            all_shorts_stmt = select(Short).where(Short.project_id == project_id)
+            all_shorts_stmt = select(MediaAsset).where(
+                MediaAsset.project_id == project_id,
+                MediaAsset.asset_type == AssetType.SHORT_FORM.value
+            )
             all_shorts_result = await session.execute(all_shorts_stmt)
             all_shorts = all_shorts_result.scalars().all()
 
-            all_done = all(s.status == ShortStatus.COMPLETED.value for s in all_shorts)
+            all_done = all(s.status == AssetStatus.COMPLETED.value for s in all_shorts)
             if all_done:
                 await session.execute(
                     update(Project)
@@ -1284,28 +1207,16 @@ class JobProcessor:
             }
 
         except Exception as e:
+            # Update media_asset to error status
             await session.execute(
-                update(Short)
-                .where(Short.id == short_id)
+                update(MediaAsset)
+                .where(MediaAsset.id == media_asset_id)
                 .values(
-                    status=ShortStatus.ERROR.value,
+                    status=AssetStatus.ERROR.value,
                     error_message=str(e),
                     updated_at=datetime.now(timezone.utc),
                 )
             )
-
-            # Also update media_asset on error (dual-write)
-            if media_asset_id:
-                await session.execute(
-                    update(MediaAsset)
-                    .where(MediaAsset.id == media_asset_id)
-                    .values(
-                        status=AssetStatus.ERROR.value,
-                        error_message=str(e),
-                        updated_at=datetime.now(timezone.utc),
-                    )
-                )
-
             await session.commit()
             raise
 
@@ -1466,12 +1377,12 @@ class JobProcessor:
                 await session.commit()
                 raise ValueError(error_msg)
 
-            # Get short
-            stmt = select(Short).where(Short.id == short_id).limit(1)
+            # Get media asset (short)
+            stmt = select(MediaAsset).where(MediaAsset.id == short_id).limit(1)
             result = await session.execute(stmt)
-            short = result.scalar_one_or_none()
+            short_asset = result.scalar_one_or_none()
 
-            if not short or not short.output_object_key:
+            if not short_asset or not short_asset.source_object_key:
                 raise ValueError(f"Short not found or not ready: {short_id}")
 
             # Check/refresh access token if expired
@@ -1503,7 +1414,7 @@ class JobProcessor:
                 await download_from_tigris(
                     self.config,
                     self.config.TIGRIS_BUCKET,
-                    short.output_object_key,
+                    short_asset.source_object_key,
                     temp_video_path,
                 )
 
@@ -1740,12 +1651,12 @@ class JobProcessor:
                 await session.commit()
                 raise ValueError(error_msg)
 
-            # Get short
-            stmt = select(Short).where(Short.id == short_id).limit(1)
+            # Get media asset (short)
+            stmt = select(MediaAsset).where(MediaAsset.id == short_id).limit(1)
             result = await session.execute(stmt)
-            short = result.scalar_one_or_none()
+            short_asset = result.scalar_one_or_none()
 
-            if not short or not short.output_object_key:
+            if not short_asset or not short_asset.source_object_key:
                 raise ValueError(f"Short not found or not ready: {short_id}")
 
             # Check/refresh access token if expiring within 7 days
@@ -1775,7 +1686,7 @@ class JobProcessor:
             video_url = await generate_presigned_url(
                 self.config,
                 self.config.TIGRIS_BUCKET,
-                short.output_object_key,
+                short_asset.source_object_key,
                 expires_in=3600,  # 1 hour
             )
 
@@ -1925,8 +1836,8 @@ class JobProcessor:
             platforms=social_platforms,
         )
 
-        # Update short task status to processing
-        await self._update_short_task(
+        # Update media asset task status to processing
+        await self._update_media_asset_task(
             session, short_id, "social_content", ShortTaskStatus.PROCESSING.value
         )
 
@@ -1947,16 +1858,16 @@ class JobProcessor:
                 user_id=user_id,
             )
 
-            await self._update_short_task(
+            await self._update_media_asset_task(
                 session, short_id, "social_content", ShortTaskStatus.DONE.value
             )
 
-            # Update short with social content and mark as completed
+            # Update media_asset with social content and mark as completed
             await session.execute(
-                update(Short)
-                .where(Short.id == short_id)
+                update(MediaAsset)
+                .where(MediaAsset.id == short_id)
                 .values(
-                    status=ShortStatus.COMPLETED.value,
+                    status=AssetStatus.COMPLETED.value,
                     social_content=social_content_data,
                     updated_at=datetime.now(timezone.utc),
                 )
@@ -1981,16 +1892,16 @@ class JobProcessor:
                 short_id=short_id,
                 error=str(e),
             )
-            await self._update_short_task(
+            await self._update_media_asset_task(
                 session, short_id, "social_content", ShortTaskStatus.ERROR.value
             )
-            # Mark short as completed with error on social content
-            # (clip and thumbnail are already done, so short is still usable)
+            # Mark asset as completed with error on social content
+            # (clip and thumbnail are already done, so asset is still usable)
             await session.execute(
-                update(Short)
-                .where(Short.id == short_id)
+                update(MediaAsset)
+                .where(MediaAsset.id == short_id)
                 .values(
-                    status=ShortStatus.COMPLETED.value,  # Still completed - video is ready
+                    status=AssetStatus.COMPLETED.value,  # Still completed - video is ready
                     error_message=f"Social content generation failed: {str(e)}",
                     updated_at=datetime.now(timezone.utc),
                 )

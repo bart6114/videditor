@@ -148,6 +148,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const post = await createScheduledPost(db, {
         organizationId: authResult.organizationId,
         shortId: item.shortId,
+        mediaAssetId: item.shortId,  // Same ID as short for unified assets
         socialAccountId: item.socialAccountId,
         platform: socialAccountInfo.platform,
         scheduledFor: scheduledDate,

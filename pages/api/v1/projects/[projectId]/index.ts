@@ -5,6 +5,7 @@ import { getProjectWithRelations, deleteProject, updateProject } from '@server/d
 import { authenticate } from '@/lib/api/auth';
 import { failure, success } from '@/lib/api/responses';
 import { createTigrisClient, createPresignedDownload, deleteFromTigris } from '@/lib/tigris';
+import { mediaAssetToShort } from '@/lib/transforms/mediaAssetToShort';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!['GET', 'DELETE', 'PATCH'].includes(req.method || '')) {
@@ -111,27 +112,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  // Generate presigned URLs for short thumbnails
-  const shortsWithPresignedUrls = await Promise.all(
-    result.shorts.map(async (short) => {
-      if (!short.thumbnailUrl) {
-        return short;
-      }
-
-      try {
-        const tigrisClient = createTigrisClient();
-        const presignedThumbnailUrl = await createPresignedDownload(tigrisClient, short.thumbnailUrl, 3600, undefined, 'image/jpeg');
-        return {
-          ...short,
-          thumbnailUrl: presignedThumbnailUrl,
-        };
-      } catch (error) {
-        console.error('Failed to generate presigned URL for short thumbnail:', short.thumbnailUrl, error);
-        // Return short with original thumbnailUrl on error
-        return short;
-      }
-    })
-  );
+  // NOTE: shorts table query is deprecated but kept for backward compat during deletion
+  // Shorts are now derived from shortFormAssets via mediaAssetToShort transform
 
   // Generate presigned URLs for media assets
   const tigrisClient = createTigrisClient();
@@ -164,6 +146,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
   );
 
+  // Filter short form assets for convenience arrays
+  const shortFormAssetsWithUrls = mediaAssetsWithUrls.filter(a => a.assetType === 'short_form');
+
+  // Derive shorts from shortFormAssets for backward compatibility
+  // This replaces the deprecated shorts table query
+  const shorts = shortFormAssetsWithUrls.map(asset => mediaAssetToShort(asset));
+
   return success(res, {
     ...result,
     project: {
@@ -173,7 +162,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     },
     mediaAssets: mediaAssetsWithUrls,
     longFormAssets: mediaAssetsWithUrls.filter(a => a.assetType === 'long_form'),
-    shortFormAssets: mediaAssetsWithUrls.filter(a => a.assetType === 'short_form'),
-    shorts: shortsWithPresignedUrls,
+    shortFormAssets: shortFormAssetsWithUrls,
+    shorts,
   });
 }
