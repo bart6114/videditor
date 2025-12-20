@@ -15,7 +15,7 @@
     /* Neon Accent Colors */
     --primary: 153 100% 50%;         /* #00ff88 - electric green */
     --primary-foreground: 240 10% 4%;
-    --secondary: 300 100% 50%;       /* #ff00ff - hot magenta */
+    --secondary: 173 80% 40%;        /* #14B8A6 - teal */
     --secondary-foreground: 240 10% 4%;
     --accent: 191 100% 50%;          /* #00d4ff - cyan/electric blue */
     --accent-foreground: 240 10% 4%;
@@ -51,7 +51,7 @@
     --popover-foreground: 0 0% 88%;
     --primary: 153 100% 50%;
     --primary-foreground: 240 10% 4%;
-    --secondary: 300 100% 50%;
+    --secondary: 173 80% 40%;
     --secondary-foreground: 240 10% 4%;
     --accent: 191 100% 50%;
     --accent-foreground: 240 10% 4%;

@@ -59,7 +59,7 @@ const config: Config = {
         // Explicit neon colors for direct use
         neon: {
           green: '#00ff88',
-          magenta: '#ff00ff',
+          magenta: '#14B8A6',
           cyan: '#00d4ff',
           red: '#ff3366',
         },

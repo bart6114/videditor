@@ -48,9 +48,10 @@ function getStatusBadge(status: MediaAsset['status']) {
         </Badge>
       )
     case 'ready':
+    case 'completed':
       return (
         <Badge variant="default" className="text-xs">
-          Ready
+          Transcribed
         </Badge>
       )
     case 'error':

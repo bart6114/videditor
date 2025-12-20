@@ -22,7 +22,7 @@ const priorityStyles: Record<Priority, string> = {
   high: 'bg-primary/20 text-primary border-primary/30',
   medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   low: 'bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30',
-  beta: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  beta: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
 }
 
 export default function Roadmap() {
