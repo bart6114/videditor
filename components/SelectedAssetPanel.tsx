@@ -41,6 +41,7 @@ const VideoPlayer = memo(function VideoPlayer({ videoUrl, thumbnailUrl, title }:
           src={thumbnailUrl}
           alt={title}
           fill
+          sizes="100vw"
           className="object-contain"
         />
         <div className="absolute inset-0 flex items-center justify-center bg-background/50">

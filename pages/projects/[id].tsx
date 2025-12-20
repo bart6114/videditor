@@ -1038,6 +1038,7 @@ export default function ProjectDetail() {
                                   src={short.thumbnailUrl}
                                   alt="Short thumbnail"
                                   fill
+                                  sizes="80px"
                                   className="object-cover"
                                 />
                               ) : (

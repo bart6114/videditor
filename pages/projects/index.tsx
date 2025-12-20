@@ -210,6 +210,7 @@ export default function Projects() {
                           src={project.thumbnailUrl}
                           alt={project.title}
                           fill
+                          sizes="64px"
                           className="object-cover transition-all duration-200"
                         />
                       ) : (

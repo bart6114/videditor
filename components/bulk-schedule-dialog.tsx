@@ -533,6 +533,7 @@ export function BulkScheduleDialog({
                             src={info.thumbnail}
                             alt=""
                             fill
+                            sizes="64px"
                             className="object-cover"
                           />
                         ) : (

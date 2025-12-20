@@ -101,6 +101,7 @@ export function LongFormAssetCard({
                 src={asset.thumbnailUrl}
                 alt={asset.title}
                 fill
+                sizes="96px"
                 className="object-cover transition-transform duration-200 group-hover:scale-105"
               />
             ) : (
