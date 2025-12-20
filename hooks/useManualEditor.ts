@@ -15,7 +15,7 @@ export interface Word {
 
 // Type for word-level transcription data (stored in transcriptions.segments)
 // Deepgram provides per-word timestamps, speaker diarization, and confidence scores
-type TranscriptWord = {
+export type TranscriptWord = {
   start: number
   end: number
   text: string
@@ -82,10 +82,11 @@ export interface UseManualEditorReturn {
   handleRangeChange: (start: number, end: number) => void
   getTranscriptionSlice: () => string
   resetWords: () => void
+  loadSegments: (segments: TranscriptWord[]) => void
 }
 
 export function useManualEditor(transcription: Transcription | null): UseManualEditorReturn {
-  // Initialize words from transcription
+  // Initialize words from transcription (segments may be loaded later via loadSegments)
   const initialWords = useMemo(() => {
     if (!transcription?.segments) return []
     return mapTranscriptWords(transcription.segments as TranscriptWord[])
@@ -149,6 +150,12 @@ export function useManualEditor(transcription: Transcription | null): UseManualE
     setWords(initialWords)
   }, [initialWords])
 
+  // Load segments dynamically (for lazy loading)
+  const loadSegments = useCallback((segments: TranscriptWord[]) => {
+    const mapped = mapTranscriptWords(segments)
+    setWords(mapped)
+  }, [])
+
   return {
     words,
     setWords,
@@ -162,5 +169,6 @@ export function useManualEditor(transcription: Transcription | null): UseManualE
     handleRangeChange,
     getTranscriptionSlice,
     resetWords,
+    loadSegments,
   }
 }

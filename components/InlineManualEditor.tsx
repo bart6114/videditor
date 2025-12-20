@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { SocialPlatformSelector } from '@/components/SocialPlatformSelector'
 import { Loader2, Scissors } from 'lucide-react'
 import type { SocialPlatform } from '@shared/index'
-import { useManualEditor, formatDuration } from '@/hooks/useManualEditor'
+import { useManualEditor, formatDuration, type TranscriptWord } from '@/hooks/useManualEditor'
 import SegmentVideoPlayer, { type SegmentVideoPlayerRef } from '@/components/editor/SegmentVideoPlayer'
 import WordTranscription from '@/components/editor/WordTranscription'
 import type { MediaAsset } from '@/types/projects'
@@ -32,6 +32,34 @@ export function InlineManualEditor({
   const [customSocialPrompt, setCustomSocialPrompt] = useState('')
   const [saving, setSaving] = useState(false)
   const [defaultsLoaded, setDefaultsLoaded] = useState(false)
+  const [segmentsLoading, setSegmentsLoading] = useState(false)
+  const [segmentsError, setSegmentsError] = useState<string | null>(null)
+  const [segmentsLoadedFor, setSegmentsLoadedFor] = useState<string | null>(null)
+
+  // Fetch segments on mount (lazy loading)
+  useEffect(() => {
+    if (!transcription?.id || segmentsLoadedFor === transcription.id) return
+    if (segmentsLoading) return
+
+    async function loadSegments() {
+      setSegmentsLoading(true)
+      setSegmentsError(null)
+
+      try {
+        const data = await call<{ id: string; segments: TranscriptWord[] }>(
+          `/v1/transcriptions/${transcription.id}/segments`
+        )
+        editor.loadSegments(data.segments)
+        setSegmentsLoadedFor(transcription.id)
+      } catch (err) {
+        setSegmentsError(err instanceof Error ? err.message : 'Failed to load transcription')
+      } finally {
+        setSegmentsLoading(false)
+      }
+    }
+
+    loadSegments()
+  }, [transcription?.id, call, editor, segmentsLoading, segmentsLoadedFor])
 
   // Load user default settings for social platforms and prompt
   useEffect(() => {
@@ -117,6 +145,25 @@ export function InlineManualEditor({
       setSaving(false)
     }
   }, [editor, projectId, socialPlatforms, customSocialPrompt, call, onShortCreated])
+
+  // Show loading state while segments are being fetched
+  if (segmentsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Loading transcription...</span>
+      </div>
+    )
+  }
+
+  // Show error state if segments failed to load
+  if (segmentsError) {
+    return (
+      <div className="text-sm text-destructive py-4">
+        {segmentsError}
+      </div>
+    )
+  }
 
   return (
     <div ref={containerRef} className="grid lg:grid-cols-2 gap-6">

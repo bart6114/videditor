@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { X } from 'lucide-react'
+import { X, Loader2 } from 'lucide-react'
+import { useApi } from '@/lib/api/client'
 
 interface TranscriptionSegment {
   start: number
@@ -11,6 +12,7 @@ interface TranscriptionSegment {
 
 interface TranscriptionSidePanelProps {
   transcription: {
+    id: string
     text: string
     segments?: TranscriptionSegment[]
   } | null
@@ -59,6 +61,53 @@ export function TranscriptionSidePanel({
   isOpen,
   onClose,
 }: TranscriptionSidePanelProps) {
+  const { call } = useApi()
+  const [segments, setSegments] = useState<TranscriptionSegment[] | null>(null)
+  const [loadingSegments, setLoadingSegments] = useState(false)
+  const [segmentsError, setSegmentsError] = useState<string | null>(null)
+  const [lastLoadedId, setLastLoadedId] = useState<string | null>(null)
+
+  // Fetch segments when panel opens (lazy loading)
+  const loadSegments = useCallback(async (transcriptionId: string) => {
+    if (lastLoadedId === transcriptionId && segments !== null) {
+      return // Already loaded for this transcription
+    }
+
+    setLoadingSegments(true)
+    setSegmentsError(null)
+
+    try {
+      const data = await call<{ id: string; segments: TranscriptionSegment[] }>(
+        `/v1/transcriptions/${transcriptionId}/segments`
+      )
+      setSegments(data.segments)
+      setLastLoadedId(transcriptionId)
+    } catch (err) {
+      setSegmentsError(err instanceof Error ? err.message : 'Failed to load segments')
+      setSegments(null)
+    } finally {
+      setLoadingSegments(false)
+    }
+  }, [call, lastLoadedId, segments])
+
+  // Load segments when panel opens
+  useEffect(() => {
+    if (isOpen && transcription?.id && !loadingSegments) {
+      // Only load if we haven't loaded for this transcription yet
+      if (lastLoadedId !== transcription.id) {
+        loadSegments(transcription.id)
+      }
+    }
+  }, [isOpen, transcription?.id, loadSegments, loadingSegments, lastLoadedId])
+
+  // Reset state when transcription changes
+  useEffect(() => {
+    if (transcription?.id !== lastLoadedId) {
+      setSegments(null)
+      setSegmentsError(null)
+    }
+  }, [transcription?.id, lastLoadedId])
+
   // Handle ESC key to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -73,9 +122,9 @@ export function TranscriptionSidePanel({
 
   if (!transcription) return null
 
-  const hasSegments = transcription.segments && transcription.segments.length > 0
+  const hasSegments = segments && segments.length > 0
   const mergedSegments = hasSegments
-    ? mergeConsecutiveSpeakerSegments(transcription.segments!)
+    ? mergeConsecutiveSpeakerSegments(segments)
     : []
 
   return (
@@ -109,7 +158,15 @@ export function TranscriptionSidePanel({
           {/* Content - Scrollable */}
           <div className="flex-1 overflow-y-auto">
             <div className="p-4 md:p-6">
-              {hasSegments ? (
+              {loadingSegments ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : segmentsError ? (
+                <div className="text-sm text-destructive py-4">
+                  {segmentsError}
+                </div>
+              ) : hasSegments ? (
                 <div className="space-y-0">
                   {mergedSegments.map((segment, idx) => (
                     <div

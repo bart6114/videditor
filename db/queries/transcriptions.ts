@@ -32,3 +32,20 @@ export async function deleteTranscription(db: DB, transcriptionId: string) {
     .returning({ id: transcriptions.id });
   return deleted ?? null;
 }
+
+/**
+ * Get transcription segments by ID (for lazy loading)
+ * Returns only the segments array to reduce payload size
+ */
+export async function getTranscriptionSegments(db: DB, transcriptionId: string) {
+  const [result] = await db
+    .select({
+      id: transcriptions.id,
+      projectId: transcriptions.projectId,
+      segments: transcriptions.segments,
+    })
+    .from(transcriptions)
+    .where(eq(transcriptions.id, transcriptionId))
+    .limit(1);
+  return result ?? null;
+}

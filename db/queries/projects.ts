@@ -104,15 +104,34 @@ export async function getProjectWithRelations(db: DB, projectId: string, organiz
   const shortFormAssets = assets.filter(a => a.assetType === 'short_form');
 
   // Get transcription (first one, for backward compat)
+  // Note: segments are excluded to reduce payload size - fetch via /api/v1/transcriptions/[id]/segments
   const [transcription] = await db
-    .select()
+    .select({
+      id: transcriptions.id,
+      projectId: transcriptions.projectId,
+      mediaAssetId: transcriptions.mediaAssetId,
+      text: transcriptions.text,
+      language: transcriptions.language,
+      durationSeconds: transcriptions.durationSeconds,
+      createdAt: transcriptions.createdAt,
+      updatedAt: transcriptions.updatedAt,
+    })
     .from(transcriptions)
     .where(eq(transcriptions.projectId, projectId))
     .limit(1);
 
-  // Get all transcriptions
+  // Get all transcriptions (segments excluded to reduce payload size)
   const allTranscriptions = await db
-    .select()
+    .select({
+      id: transcriptions.id,
+      projectId: transcriptions.projectId,
+      mediaAssetId: transcriptions.mediaAssetId,
+      text: transcriptions.text,
+      language: transcriptions.language,
+      durationSeconds: transcriptions.durationSeconds,
+      createdAt: transcriptions.createdAt,
+      updatedAt: transcriptions.updatedAt,
+    })
     .from(transcriptions)
     .where(eq(transcriptions.projectId, projectId))
     .orderBy(desc(transcriptions.createdAt));

@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "default_social_platforms" SET DEFAULT '["youtube", "instagram"]'::jsonb;
