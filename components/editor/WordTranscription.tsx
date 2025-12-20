@@ -10,6 +10,7 @@ interface WordTranscriptionProps {
   onWordClick: (time: number) => void
   onDisableWords: (wordIds: string[]) => void
   onEnableWords: (wordIds: string[]) => void
+  className?: string
 }
 
 interface ToolbarState {
@@ -50,6 +51,7 @@ export default function WordTranscription({
   onWordClick,
   onDisableWords,
   onEnableWords,
+  className,
 }: WordTranscriptionProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [toolbar, setToolbar] = useState<ToolbarState>({
@@ -158,7 +160,10 @@ export default function WordTranscription({
   return (
     <div
       ref={containerRef}
-      className="relative max-h-[500px] overflow-y-auto overflow-x-hidden p-4 bg-muted/30 rounded-lg select-text custom-scrollbar"
+      className={cn(
+        "relative overflow-y-auto overflow-x-hidden p-4 bg-muted/30 rounded-lg select-text custom-scrollbar",
+        className
+      )}
     >
       {/* Floating toolbar - fixed position relative to viewport */}
       {toolbar.visible && (toolbar.hasSelected || toolbar.hasDeselected) && (

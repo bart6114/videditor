@@ -121,7 +121,7 @@ export function InlineManualEditor({
   return (
     <div ref={containerRef} className="grid lg:grid-cols-2 gap-6">
       {/* Left: Video with timeline */}
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {asset.videoUrl ? (
           <SegmentVideoPlayer
             ref={playerRef}
@@ -137,21 +137,22 @@ export function InlineManualEditor({
         )}
       </div>
 
-      {/* Right: Word editor + actions */}
-      <div className="flex flex-col">
-        {/* Scrollable word transcription */}
-        <div className="flex-1 min-h-0 max-h-[350px] overflow-y-auto">
+      {/* Right: Word editor + actions - position:relative with no content so grid row height is determined by left column */}
+      <div className="relative">
+        {/* Absolute container fills the grid cell, handles overflow */}
+        <div className="absolute inset-0 flex flex-col overflow-hidden">
+          {/* Scrollable word transcription */}
           <WordTranscription
             words={editor.words}
             currentWordId={editor.currentWordId}
             onWordClick={handleWordClick}
             onDisableWords={editor.disableWords}
             onEnableWords={editor.enableWords}
+            className="flex-1 min-h-0"
           />
-        </div>
 
-        {/* Actions footer */}
-        <div className="pt-4 mt-4 border-t border-border space-y-3">
+          {/* Actions footer */}
+          <div className="flex-shrink-0 pt-4 border-t border-border space-y-3">
           {/* Platform selection with optional instructions - wait for defaults to prevent flicker */}
           {defaultsLoaded && (
             <SocialPlatformSelector
@@ -178,6 +179,7 @@ export function InlineManualEditor({
             )}
             Save & Render ({formatDuration(editor.selectedDuration)})
           </Button>
+        </div>
         </div>
       </div>
     </div>
