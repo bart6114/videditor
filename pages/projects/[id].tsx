@@ -1007,7 +1007,7 @@ export default function ProjectDetail() {
                       {shorts.map((short) => (
                         <tr
                           key={short.id}
-                          className={`border-b border-border last:border-0 hover:bg-secondary/50 cursor-pointer transition-all duration-200 group ${
+                          className={`border-b border-border last:border-0 hover:bg-secondary/50 cursor-pointer transition-colors duration-200 group ${
                             selectedShort?.id === short.id && !hasSelections ? 'bg-primary/10 hover:bg-primary/15' : ''
                           } ${
                             selectedShortIds.has(short.id) ? 'bg-primary/20 hover:bg-primary/25' : ''

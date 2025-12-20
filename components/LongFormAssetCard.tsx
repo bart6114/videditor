@@ -79,7 +79,7 @@ export function LongFormAssetCard({
 }: LongFormAssetCardProps) {
   return (
     <Card
-      className={`bg-card border-border transition-all duration-200 cursor-pointer group/card ${
+      className={`bg-card border-border transition-[background-color,border-color,box-shadow] duration-200 cursor-pointer group/card ${
         isSelected
           ? 'ring-2 ring-primary border-primary shadow-neon'
           : 'hover:border-primary/40 hover:shadow-neon-subtle'
@@ -101,7 +101,7 @@ export function LongFormAssetCard({
                 src={asset.thumbnailUrl}
                 alt={asset.title}
                 fill
-                className="object-cover transition-all duration-200 group-hover:scale-105"
+                className="object-cover transition-transform duration-200 group-hover:scale-105"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-muted">
