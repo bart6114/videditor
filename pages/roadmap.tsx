@@ -1,9 +1,10 @@
 import Head from 'next/head'
 import Link from 'next/link'
+import { Check } from 'lucide-react'
 import { MonkeyLogo } from '@/components/MonkeyLogo'
 import roadmapData from '@/data/roadmap.json'
 
-type Priority = 'high' | 'medium' | 'low' | 'beta'
+type Priority = 'high' | 'medium' | 'low' | 'beta' | 'delivered'
 
 interface RoadmapItem {
   topic: string
@@ -16,6 +17,7 @@ const priorityOrder: Record<Priority, number> = {
   high: 1,
   medium: 2,
   low: 3,
+  delivered: 4,
 }
 
 const priorityStyles: Record<Priority, string> = {
@@ -23,6 +25,7 @@ const priorityStyles: Record<Priority, string> = {
   medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   low: 'bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30',
   beta: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+  delivered: 'bg-emerald-500/30 text-emerald-300 border-emerald-400/60',
 }
 
 export default function Roadmap() {
@@ -60,13 +63,18 @@ export default function Roadmap() {
             {items.map((item, index) => (
               <div
                 key={index}
-                className="p-6 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm"
+                className={`p-6 rounded-xl border bg-card/50 backdrop-blur-sm ${
+                  item.priority === 'delivered'
+                    ? 'border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]'
+                    : 'border-border/50'
+                }`}
               >
                 <div className="flex items-start justify-between gap-4 mb-3">
                   <h2 className="text-xl font-semibold text-foreground">{item.topic}</h2>
                   <span
-                    className={`px-3 py-1 text-xs font-medium rounded-full border ${priorityStyles[item.priority]}`}
+                    className={`px-3 py-1 text-xs font-medium rounded-full border flex items-center gap-1.5 ${priorityStyles[item.priority]}`}
                   >
+                    {item.priority === 'delivered' && <Check className="w-3 h-3" />}
                     {item.priority}
                   </span>
                 </div>

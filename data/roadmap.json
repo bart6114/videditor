@@ -35,18 +35,18 @@
     "priority": "low"
   },
   {
-    "topic": "Scheduling (individual & bulk)",
-    "description": "Schedule shorts for publishing with a calendar view. Supports individual scheduling and bulk scheduling for multiple shorts at once.",
+    "topic": "Instagram Reels integration",
+    "description": "Currently in beta testing behind a feature flag. Available for select users.",
     "priority": "beta"
   },
   {
     "topic": "YouTube integration",
-    "description": "Currently in beta testing behind a feature flag. Integration is being reviewed by Google.",
-    "priority": "beta"
+    "description": "Publish YouTube Shorts directly from VidEditor. Fully integrated and available to all users.",
+    "priority": "delivered"
   },
   {
-    "topic": "Instagram Reels integration",
-    "description": "Currently in beta testing behind a feature flag. Available for select users.",
-    "priority": "beta"
+    "topic": "Scheduling (individual & bulk)",
+    "description": "Schedule shorts for publishing with a calendar view. Supports individual scheduling and bulk scheduling for multiple shorts at once.",
+    "priority": "delivered"
   }
 ]

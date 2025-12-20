@@ -210,7 +210,7 @@ export default function Home() {
                 </p>
                 <p>
                   But if you&apos;re creating long-form videos - whether it&apos;s interviews, tutorials, or just documenting what you&apos;re working on -
-                  turning that into shorter, platform-ready pieces is time-consuming. Really time-consuming.
+                  turning that into shorter, platform-ready pieces is time-consuming.
                 </p>
                 <p>
                   This tool doesn&apos;t try to replace the creative decisions. It handles the tedious parts - transcribing your video,
@@ -346,7 +346,7 @@ export default function Home() {
                   {'>'} Publish Reels directly. Selected users.
                 </p>
                 <span className="inline-block self-center px-3 py-1 text-xs font-mono uppercase tracking-wider cyber-clip-sm border-2 bg-secondary/20 text-secondary border-secondary/30">
-                  closed beta
+                  in 2 weeks
                 </span>
               </div>
             </div>
