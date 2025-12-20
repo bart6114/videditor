@@ -268,10 +268,9 @@ export default function Projects() {
                 <span className="block mb-2">Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{projectToDelete?.title}&quot;</span>?</span>
                 <span className="block mb-2">This will permanently delete:</span>
                 <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>The original video file</li>
-                  <li>All generated shorts ({projectToDelete?.shortsCount || 0})</li>
+                  <li>Long-form videos ({projectToDelete?.longFormCount || 0})</li>
+                  <li>Generated shorts ({projectToDelete?.shortsCount || 0})</li>
                   <li>Transcription data</li>
-                  <li>All associated media assets</li>
                 </ul>
                 <span className="block mt-3 font-semibold text-destructive">
                   This action cannot be undone.
