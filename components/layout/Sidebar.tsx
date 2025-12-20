@@ -171,30 +171,6 @@ export default function Sidebar() {
           </div>
         )}
 
-        {/* User Profile */}
-        {user && (
-          <div className="px-2 py-2 cyber-clip-sm bg-muted border border-border">
-            <div className="flex items-center gap-3">
-              {user.imageUrl && (
-                <Image
-                  src={user.imageUrl}
-                  alt={user.fullName || user.emailAddresses[0]?.emailAddress || 'User'}
-                  width={36}
-                  height={36}
-                  className="rounded-full ring-2 ring-primary/50"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-mono text-foreground truncate">
-                  {user.fullName || user.firstName || 'User'}
-                </p>
-                <p className="text-xs text-muted-foreground font-mono truncate">
-                  {user.emailAddresses[0]?.emailAddress}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
         <button
           onClick={handleLogout}
           className="group flex w-full items-center px-3 py-2.5 text-sm font-mono uppercase tracking-wider text-muted-foreground cyber-clip-sm hover:text-destructive hover:bg-destructive/5 transition-all duration-200"
