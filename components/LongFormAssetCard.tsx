@@ -147,7 +147,7 @@ export function LongFormAssetCard({
             <Button
               size="sm"
               variant="ghost"
-              className="absolute top-0 right-0 opacity-0 group-hover/card:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              className="absolute bottom-0 right-0 opacity-0 group-hover/card:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 p-2"
               onClick={(e) => {
                 e.stopPropagation()
                 onDelete()

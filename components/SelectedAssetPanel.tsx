@@ -70,6 +70,16 @@ interface TranscriptionJob {
   errorMessage?: string | null
 }
 
+type AnalysisJob = {
+  id: string
+  status: string
+  progress?: {
+    phase: 'analyzing' | 'generating'
+    current: number
+    total: number
+  }
+}
+
 interface SelectedAssetPanelProps {
   asset: MediaAsset
   projectId: string
@@ -84,6 +94,8 @@ interface SelectedAssetPanelProps {
   existingShorts: Short[]
   isGenerating: boolean
   hasActiveJob: boolean
+  activeJob?: AnalysisJob | null
+  lastAnalysisJobId?: string | null
   isProcessingShorts: boolean
   userCredits: number | null
   userSettings: UserSettings | null
@@ -107,6 +119,8 @@ export function SelectedAssetPanel({
   existingShorts,
   isGenerating,
   hasActiveJob,
+  activeJob,
+  lastAnalysisJobId,
   isProcessingShorts,
   userCredits,
   userSettings,
@@ -201,6 +215,9 @@ export function SelectedAssetPanel({
                   existingShortsCount={existingShorts.length}
                   isGenerating={isGenerating}
                   hasActiveJob={hasActiveJob}
+                  activeJob={activeJob}
+                  lastAnalysisJobId={lastAnalysisJobId}
+                  shorts={existingShorts}
                   isProcessingShorts={isProcessingShorts}
                   userCredits={userCredits}
                   defaultSettings={userSettings}

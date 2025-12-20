@@ -94,7 +94,7 @@ export function ShortsSidePanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(true)
+  const [isPlaying, setIsPlaying] = useState(false)
   const playerRef = useRef<ReactPlayerType>(null)
 
   // Social content editing state
@@ -159,8 +159,6 @@ export function ShortsSidePanel({
         )
 
         setVideoUrl(data.downloadUrl)
-        // Auto-play new video once URL is loaded
-        setIsPlaying(true)
       } catch (err) {
         console.error('Error fetching video URL:', err)
         setError(err instanceof Error ? err.message : 'Failed to load video')

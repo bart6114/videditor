@@ -830,6 +830,8 @@ export default function ProjectDetail() {
                   existingShorts={shorts}
                   isGenerating={analyzing}
                   hasActiveJob={!!activeJob}
+                  activeJob={activeJob}
+                  lastAnalysisJobId={lastAnalysisJobId}
                   isProcessingShorts={isProcessingShorts}
                   userCredits={userSettings.credits}
                   userSettings={userSettings.settings}

@@ -1,18 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useApi } from '@/lib/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { SocialPlatformSelector } from '@/components/SocialPlatformSelector'
+import { GenerationProgress } from '@/components/GenerationProgress'
 import {
   Sparkles,
   Loader2,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
-import type { SocialPlatform } from '@shared/index'
+import type { SocialPlatform, ShortFormMetadata } from '@shared/index'
 import type { UserSettings } from '@/hooks/useUserSettings'
+import type { Short } from '@server/db/schema'
+
+type AnalysisJob = {
+  id: string
+  status: string
+  progress?: {
+    phase: 'analyzing' | 'generating'
+    current: number
+    total: number
+  }
+}
 
 interface GenerateShortsFormProps {
   projectId: string
@@ -24,6 +36,9 @@ interface GenerateShortsFormProps {
   isProcessingShorts: boolean
   userCredits: number | null
   defaultSettings: UserSettings | null
+  activeJob?: AnalysisJob | null
+  lastAnalysisJobId?: string | null
+  shorts?: Short[]
   onGenerateStart: () => void
   onGenerateComplete: (jobId: string) => void
   onGenerateError: (error: Error) => void
@@ -40,6 +55,9 @@ export function GenerateShortsForm({
   isProcessingShorts,
   userCredits,
   defaultSettings,
+  activeJob,
+  lastAnalysisJobId,
+  shorts = [],
   onGenerateStart,
   onGenerateComplete,
   onGenerateError,
@@ -123,6 +141,21 @@ export function GenerateShortsForm({
       setAnalyzing(false)
     }
   }
+
+  // Check if there are shorts from the current job still being processed
+  const hasProcessingShortsFromCurrentJob = useMemo(() => {
+    if (!lastAnalysisJobId) return false
+    return shorts.some((s) => {
+      const meta = s.metadata as ShortFormMetadata | null
+      return (
+        meta?.analysisJobId === lastAnalysisJobId &&
+        (s.status === 'uploading' || s.status === 'ready' || s.status === 'processing')
+      )
+    })
+  }, [shorts, lastAnalysisJobId])
+
+  // Show progress when generating, there's an active job, OR shorts from current job are processing
+  const showProgress = isGenerating || hasActiveJob || hasProcessingShortsFromCurrentJob
 
   const isDisabled = analyzing || isGenerating || hasActiveJob || !hasTranscription || userCredits === null || isProcessingShorts
 
@@ -288,7 +321,7 @@ export function GenerateShortsForm({
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Generating...
             </>
-          ) : hasActiveJob ? (
+          ) : showProgress ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               In progress...
@@ -301,17 +334,29 @@ export function GenerateShortsForm({
           )}
         </Button>
 
-        {/* Credit cost indicator */}
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">
-            Cost: {shortsCount} credit{shortsCount !== 1 ? 's' : ''}
-          </span>
-          {userCredits !== null && (
-            <span className={userCredits < shortsCount ? 'text-destructive' : 'text-muted-foreground'}>
-              Balance: {userCredits}
+        {/* Generation Progress */}
+        {showProgress && (
+          <GenerationProgress
+            activeJob={activeJob ?? null}
+            lastAnalysisJobId={lastAnalysisJobId ?? null}
+            shorts={shorts}
+            isStarting={isGenerating && !activeJob}
+          />
+        )}
+
+        {/* Credit cost indicator - hide when generation is in progress */}
+        {!showProgress && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              Cost: {shortsCount} credit{shortsCount !== 1 ? 's' : ''}
             </span>
-          )}
-        </div>
+            {userCredits !== null && (
+              <span className={userCredits < shortsCount ? 'text-destructive' : 'text-muted-foreground'}>
+                Balance: {userCredits}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Insufficient credits warning */}
         {showInsufficientCredits && userCredits !== null && (

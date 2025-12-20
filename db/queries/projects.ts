@@ -7,14 +7,16 @@ import { projects, transcriptions, processingJobs, mediaAssets, type NewProject,
  */
 export async function listOrganizationProjects(db: DB, organizationId: string, limit: number = 100) {
   // Get projects with aggregated data
+  // Note: We use sql.raw('projects.id') for the table-qualified column reference in correlated subqueries.
+  // Using ${projects.id} alone generates just "id" without the table qualifier, which breaks subqueries.
   const results = await db
     .select({
       project: projects,
-      longFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'long_form')`,
-      shortFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'short_form')`,
-      hasTranscription: sql<boolean>`EXISTS (SELECT 1 FROM transcriptions t WHERE t.project_id = ${projects.id})`,
+      longFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${sql.raw('"projects"."id"')} AND ma.asset_type = 'long_form')`,
+      shortFormCount: sql<number>`(SELECT COUNT(*) FROM media_assets ma WHERE ma.project_id = ${sql.raw('"projects"."id"')} AND ma.asset_type = 'short_form')`,
+      hasTranscription: sql<boolean>`EXISTS (SELECT 1 FROM transcriptions t WHERE t.project_id = ${sql.raw('"projects"."id"')})`,
       // Get thumbnail from first long-form asset (replaces deprecated project.thumbnailUrl)
-      assetThumbnailUrl: sql<string | null>`(SELECT ma.thumbnail_url FROM media_assets ma WHERE ma.project_id = ${projects.id} AND ma.asset_type = 'long_form' ORDER BY ma.created_at ASC LIMIT 1)`,
+      assetThumbnailUrl: sql<string | null>`(SELECT ma.thumbnail_url FROM media_assets ma WHERE ma.project_id = ${sql.raw('"projects"."id"')} AND ma.asset_type = 'long_form' ORDER BY ma.created_at ASC LIMIT 1)`,
     })
     .from(projects)
     .where(eq(projects.organizationId, organizationId))
