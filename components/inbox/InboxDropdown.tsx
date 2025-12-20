@@ -172,11 +172,17 @@ function InboxMessageDialog({
 }
 
 export function InboxDropdown() {
-  const { messages, unreadCount, isLoading, markAsRead, markAllAsRead } = useInbox();
+  const { messages, unreadCount, isLoading, markAsRead, markAllAsRead, refresh } = useInbox();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<InboxMessageData | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    // Refresh messages when opening to ensure we have the latest
+    refresh();
+  };
 
   const handleMessageClick = async (message: InboxMessageData) => {
     setSelectedMessage(message);
@@ -206,7 +212,7 @@ export function InboxDropdown() {
     <div className="relative">
       {/* Inbox Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => isOpen ? setIsOpen(false) : handleOpen()}
         className="relative p-2 rounded-lg hover:bg-secondary/50 transition-colors"
         aria-label={`Inbox${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
