@@ -52,10 +52,11 @@ export function useYouTubeSchedulingEnabled(): FeatureFlagState {
 }
 
 /**
- * Convenience hook for the Instagram scheduling feature flag.
+ * Instagram scheduling is now enabled for everyone.
+ * Previously gated by PostHog feature flag 'instagram-scheduling'.
  */
 export function useInstagramSchedulingEnabled(): FeatureFlagState {
-  return useFeatureFlag('instagram-scheduling');
+  return { enabled: true, loading: false };
 }
 
 /**
