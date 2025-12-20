@@ -140,6 +140,37 @@ async def check_container_status(
         return status, error
 
 
+async def get_media_permalink(access_token: str, media_id: str) -> str:
+    """
+    Fetch the permalink for a published media.
+
+    Instagram media IDs are numeric but URLs use shortcodes, so we need to
+    fetch the actual permalink from the API after publishing.
+
+    Args:
+        access_token: Valid Instagram access token
+        media_id: Media ID from publish response
+
+    Returns:
+        Permalink URL (e.g., https://www.instagram.com/reel/CzXyAbCdEfG/)
+    """
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+        response = await client.get(
+            f"{INSTAGRAM_GRAPH_API_BASE}/{media_id}",
+            params={
+                "fields": "permalink",
+                "access_token": access_token,
+            },
+        )
+
+        if response.status_code != 200:
+            # Fall back to constructed URL if permalink fetch fails
+            return f"https://www.instagram.com/reel/{media_id}/"
+
+        data = response.json()
+        return data.get("permalink", f"https://www.instagram.com/reel/{media_id}/")
+
+
 async def publish_container(
     access_token: str,
     user_id: str,
@@ -176,11 +207,14 @@ async def publish_container(
         data = response.json()
         media_id = data["id"]
 
-        # Construct URL - Instagram doesn't return it directly
-        # The format depends on whether it's a reel or regular post
+        # Wait briefly for Instagram to finalize, then fetch the actual permalink
+        # Instagram URLs use shortcodes (e.g., CzXyAbCdEfG), not numeric IDs
+        await asyncio.sleep(2)
+        permalink = await get_media_permalink(access_token, media_id)
+
         return {
             "mediaId": media_id,
-            "url": f"https://www.instagram.com/reel/{media_id}/",
+            "url": permalink,
         }
 
 
