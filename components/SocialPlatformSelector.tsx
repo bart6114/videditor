@@ -66,14 +66,14 @@ export function SocialPlatformSelector({
   }
 
   const buttonClasses = size === 'sm'
-    ? 'px-2 py-1 text-xs rounded-md'
-    : 'px-2.5 py-1.5 text-xs rounded-lg'
+    ? 'px-2 py-1 text-xs cyber-clip-sm'
+    : 'px-2.5 py-1.5 text-xs cyber-clip-sm'
 
   return (
     <div className="space-y-3">
       <div>
         {label && (
-          <label className="text-sm font-medium text-foreground block mb-2">
+          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground block mb-2">
             {label}
           </label>
         )}
@@ -87,15 +87,15 @@ export function SocialPlatformSelector({
                 type="button"
                 onClick={() => togglePlatform(platform)}
                 disabled={disabled}
-                className={`flex items-center gap-1.5 ${buttonClasses} border transition-all duration-200 ${
+                className={`flex items-center gap-1.5 ${buttonClasses} border-2 transition-all duration-200 ${
                   isSelected
-                    ? 'bg-primary text-primary-foreground border-primary'
+                    ? 'bg-primary text-primary-foreground border-primary shadow-neon-subtle'
                     : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
                 } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 title={PLATFORM_LABELS[platform]}
               >
                 <Icon size={14} />
-                <span className="font-medium">{PLATFORM_LABELS[platform]}</span>
+                <span className="font-mono uppercase tracking-wider">{PLATFORM_LABELS[platform]}</span>
               </button>
             )
           })}
@@ -104,31 +104,31 @@ export function SocialPlatformSelector({
 
       {/* Collapsible social instructions */}
       {showSocialPromptSection && (
-        <div className="border border-border rounded-lg overflow-hidden">
+        <div className="border-2 border-border cyber-clip-sm overflow-hidden">
           <button
             type="button"
             onClick={() => setExpanded(!isExpanded)}
             disabled={disabled}
-            className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 hover:bg-primary/5 transition-colors disabled:opacity-50"
           >
-            <span className="text-sm font-medium text-foreground">
+            <span className="text-xs font-mono uppercase tracking-wider text-foreground">
               Custom Social Instructions
             </span>
             {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              <ChevronUp className="w-4 h-4 text-primary" />
             ) : (
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
             )}
           </button>
           {isExpanded && (
-            <div className="p-3 border-t border-border">
+            <div className="p-3 border-t-2 border-border">
               <textarea
-                placeholder="e.g., Use casual tone, include emojis..."
+                placeholder="> Use casual tone, include emojis..."
                 value={socialPrompt ?? ''}
                 onChange={(e) => onSocialPromptChange?.(e.target.value)}
                 disabled={disabled}
                 rows={2}
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                className="w-full px-3 py-2 text-sm font-mono bg-background border-2 border-border cyber-clip-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none"
               />
             </div>
           )}

@@ -80,8 +80,8 @@ export function LongFormAssetCard({
     <Card
       className={`bg-card border-border transition-all duration-200 cursor-pointer group/card ${
         isSelected
-          ? 'ring-2 ring-primary border-primary'
-          : 'hover:border-primary/40'
+          ? 'ring-2 ring-primary border-primary shadow-neon'
+          : 'hover:border-primary/40 hover:shadow-neon-subtle'
       }`}
       onClick={onSelect}
     >
@@ -89,7 +89,7 @@ export function LongFormAssetCard({
         <div className="flex gap-4 relative">
           {/* Thumbnail */}
           <div
-            className="relative w-24 h-16 flex-shrink-0 rounded-lg bg-secondary overflow-hidden group"
+            className="relative w-24 h-16 flex-shrink-0 cyber-clip-sm bg-muted overflow-hidden group border border-border"
             onClick={(e) => {
               e.stopPropagation()
               onPlayVideo()
@@ -103,14 +103,14 @@ export function LongFormAssetCard({
                 className="object-cover transition-all duration-200 group-hover:scale-105"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">
-                <Video className="w-6 h-6 text-muted-foreground" />
+              <div className="w-full h-full flex items-center justify-center bg-muted">
+                <Video className="w-6 h-6 text-primary/50" />
               </div>
             )}
             {/* Play overlay */}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center">
-                <Play className="w-4 h-4 text-black fill-black ml-0.5" />
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="w-8 h-8 cyber-clip-sm bg-primary flex items-center justify-center">
+                <Play className="w-4 h-4 text-primary-foreground fill-primary-foreground ml-0.5" />
               </div>
             </div>
           </div>
@@ -119,13 +119,13 @@ export function LongFormAssetCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h4 className="font-medium text-sm text-foreground truncate">
+                <h4 className="font-mono text-sm text-foreground truncate normal-case">
                   {asset.title}
                 </h4>
-                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground font-mono">
                   {asset.durationSeconds && (
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                      <Clock className="w-3 h-3 text-primary" />
                       {formatDuration(asset.durationSeconds)}
                     </span>
                   )}
@@ -136,7 +136,7 @@ export function LongFormAssetCard({
 
             {/* Error message */}
             {asset.errorMessage && (
-              <p className="text-xs text-destructive mt-2 line-clamp-1">
+              <p className="text-xs text-destructive mt-2 line-clamp-1 font-mono">
                 {asset.errorMessage}
               </p>
             )}

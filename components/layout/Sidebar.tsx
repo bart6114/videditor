@@ -54,9 +54,9 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="flex h-full w-64 flex-col bg-card/50 backdrop-blur-sm border-r border-border" data-tour="sidebar">
+    <div className="flex h-full w-64 flex-col bg-card border-r-2 border-border circuit-grid" data-tour="sidebar">
       {/* Logo/Brand */}
-      <div className="flex h-16 items-center justify-center border-b border-border/50">
+      <div className="flex h-16 items-center justify-center border-b-2 border-border scanlines-subtle">
         <MonkeyLogo size="lg" linkTo="/projects" showText={false} />
       </div>
 
@@ -74,14 +74,14 @@ export default function Sidebar() {
             return (
               <div
                 key={item.name}
-                className="group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg text-muted-foreground/50 cursor-not-allowed"
+                className="group flex items-center justify-between px-3 py-2.5 text-sm font-mono uppercase tracking-wider cyber-clip-sm text-muted-foreground/50 cursor-not-allowed"
                 title="Coming Soon"
               >
                 <div className="flex items-center">
                   <Icon className="mr-3 h-5 w-5" />
                   {item.name}
                 </div>
-                <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                <span className="text-xs bg-muted px-1.5 py-0.5 cyber-clip-sm text-muted-foreground border border-border">
                   Soon
                 </span>
               </div>
@@ -93,11 +93,11 @@ export default function Sidebar() {
               key={item.name}
               href={item.href}
               className={`
-                group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
+                group flex items-center px-3 py-2.5 text-sm font-mono uppercase tracking-wider cyber-clip-sm transition-all duration-200
                 ${
                   isActive
-                    ? 'bg-primary/15 text-primary shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    ? 'bg-primary/10 text-primary border-l-2 border-primary shadow-neon-subtle'
+                    : 'text-muted-foreground hover:text-primary hover:bg-primary/5'
                 }
               `}
             >
@@ -109,22 +109,22 @@ export default function Sidebar() {
       </nav>
 
       {/* Organization Switcher & User Profile */}
-      <div className="border-t border-border/50 p-4 space-y-3">
+      <div className="border-t-2 border-border p-4 space-y-3">
         {/* Organization Switcher */}
         {orgContext && orgContext.currentOrganization && (
           <div className="relative">
             <button
               onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2.5 cyber-clip-sm bg-muted hover:bg-primary/5 hover:border-primary/50 border border-border transition-all duration-200"
             >
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="w-8 h-8 cyber-clip-sm bg-primary/10 flex items-center justify-center border border-primary/30">
                 <Building2 className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-medium text-foreground truncate">
+                <p className="text-sm font-mono text-foreground truncate">
                   {orgContext.currentOrganization.name}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-primary font-mono">
                   {orgContext.currentOrganization.credits} credits
                 </p>
               </div>
@@ -142,21 +142,21 @@ export default function Sidebar() {
                   className="fixed inset-0 z-10"
                   onClick={() => setOrgDropdownOpen(false)}
                 />
-                <div className="absolute left-0 right-0 bottom-full mb-1 z-20 bg-popover border border-border rounded-lg shadow-lg py-1 max-h-64 overflow-y-auto">
+                <div className="absolute left-0 right-0 bottom-full mb-1 z-20 bg-card border-2 border-border cyber-clip py-1 max-h-64 overflow-y-auto">
                   {orgContext.organizations.map((org) => (
                     <button
                       key={org.id}
                       onClick={() => handleSwitchOrg(org.id)}
-                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-secondary/50 transition-colors"
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-primary/5 transition-colors"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <div className="w-8 h-8 cyber-clip-sm bg-primary/10 flex items-center justify-center border border-primary/30">
                         <Building2 className="w-4 h-4 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0 text-left">
-                        <p className="text-sm font-medium text-foreground truncate">
+                        <p className="text-sm font-mono text-foreground truncate">
                           {org.name}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-primary font-mono">
                           {org.credits} credits
                         </p>
                       </div>
@@ -173,7 +173,7 @@ export default function Sidebar() {
 
         {/* User Profile */}
         {user && (
-          <div className="px-2 py-2 rounded-lg bg-secondary/50">
+          <div className="px-2 py-2 cyber-clip-sm bg-muted border border-border">
             <div className="flex items-center gap-3">
               {user.imageUrl && (
                 <Image
@@ -181,14 +181,14 @@ export default function Sidebar() {
                   alt={user.fullName || user.emailAddresses[0]?.emailAddress || 'User'}
                   width={36}
                   height={36}
-                  className="rounded-full ring-2 ring-primary/20"
+                  className="rounded-full ring-2 ring-primary/50"
                 />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
+                <p className="text-sm font-mono text-foreground truncate">
                   {user.fullName || user.firstName || 'User'}
                 </p>
-                <p className="text-xs text-muted-foreground truncate">
+                <p className="text-xs text-muted-foreground font-mono truncate">
                   {user.emailAddresses[0]?.emailAddress}
                 </p>
               </div>
@@ -197,7 +197,7 @@ export default function Sidebar() {
         )}
         <button
           onClick={handleLogout}
-          className="group flex w-full items-center px-3 py-2.5 text-sm font-medium text-muted-foreground rounded-lg hover:text-foreground hover:bg-secondary transition-all duration-200"
+          className="group flex w-full items-center px-3 py-2.5 text-sm font-mono uppercase tracking-wider text-muted-foreground cyber-clip-sm hover:text-destructive hover:bg-destructive/5 transition-all duration-200"
         >
           <LogOut className="mr-3 h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
           Logout

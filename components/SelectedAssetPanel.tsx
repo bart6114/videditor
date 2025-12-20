@@ -43,10 +43,10 @@ const VideoPlayer = memo(function VideoPlayer({ videoUrl, thumbnailUrl, title }:
           fill
           className="object-contain"
         />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-          <div className="text-center text-white">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-            <p className="text-sm">Video loading...</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+          <div className="text-center text-foreground">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
+            <p className="text-sm font-mono">Video loading...</p>
           </div>
         </div>
       </div>
@@ -139,15 +139,15 @@ export function SelectedAssetPanel({
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <CardTitle className="text-foreground truncate">{asset.title}</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              {mode === 'ai' ? 'Generate shorts with AI' : 'Select words to create a short'}
+            <CardTitle className="text-primary truncate normal-case">{asset.title}</CardTitle>
+            <CardDescription className="text-muted-foreground font-mono">
+              {mode === 'ai' ? '> Generate shorts with AI' : '> Select words to create a short'}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Mode Toggle */}
             {hasTranscription && isReady && (
-              <div className="flex rounded-lg border border-border p-0.5 bg-muted/30">
+              <div className="flex cyber-clip-sm border-2 border-border p-0.5 bg-muted/30">
                 <Button
                   variant={mode === 'ai' ? 'default' : 'ghost'}
                   size="sm"
@@ -172,7 +172,7 @@ export function SelectedAssetPanel({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-muted-foreground hover:text-foreground h-7 w-7 p-0"
+              className="text-muted-foreground hover:text-primary h-7 w-7 p-0"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -185,7 +185,7 @@ export function SelectedAssetPanel({
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Left: Video Player */}
             <div className="space-y-4">
-              <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+              <div className="aspect-video bg-background cyber-clip overflow-hidden relative border-2 border-border">
                 <VideoPlayer
                   videoUrl={asset.videoUrl}
                   thumbnailUrl={asset.thumbnailUrl}
@@ -235,18 +235,18 @@ export function SelectedAssetPanel({
 
               {/* Waiting for transcription message */}
               {!hasTranscription && isReady && (
-                <div className="p-4 rounded-lg border border-border bg-muted/30">
-                  <p className="text-sm text-muted-foreground">
-                    Waiting for transcription to complete before shorts can be generated.
+                <div className="p-4 cyber-clip-sm border-2 border-border bg-muted/30">
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {'>'} Waiting for transcription to complete before shorts can be generated.
                   </p>
                 </div>
               )}
 
               {/* Asset not ready message */}
               {!isReady && (
-                <div className="p-4 rounded-lg border border-border bg-muted/30">
-                  <p className="text-sm text-muted-foreground">
-                    This video is still being processed. Generation will be available once processing completes.
+                <div className="p-4 cyber-clip-sm border-2 border-border bg-muted/30">
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {'>'} This video is still being processed. Generation will be available once processing completes.
                   </p>
                 </div>
               )}

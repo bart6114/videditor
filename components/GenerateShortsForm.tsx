@@ -163,7 +163,7 @@ export function GenerateShortsForm({
     <div className="space-y-4">
       {/* Number of shorts */}
       <div>
-        <label className="text-sm font-medium mb-2 block text-foreground">
+        <label className="text-xs font-mono uppercase tracking-wider mb-2 block text-muted-foreground">
           Number of Shorts
         </label>
         <Input
@@ -195,7 +195,7 @@ export function GenerateShortsForm({
       {/* Length inputs */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium mb-2 block text-foreground">
+          <label className="text-xs font-mono uppercase tracking-wider mb-2 block text-muted-foreground">
             Preferred Length (s)
           </label>
           <Input
@@ -223,7 +223,7 @@ export function GenerateShortsForm({
           />
         </div>
         <div>
-          <label className="text-sm font-medium mb-2 block text-foreground">
+          <label className="text-xs font-mono uppercase tracking-wider mb-2 block text-muted-foreground">
             Max Length (s)
           </label>
           <Input
@@ -252,31 +252,31 @@ export function GenerateShortsForm({
       </div>
 
       {/* Custom analysis instructions (collapsible) */}
-      <div className="border border-border rounded-lg overflow-hidden">
+      <div className="border-2 border-border cyber-clip-sm overflow-hidden">
         <button
           type="button"
           onClick={() => setShowAnalysisPrompt(!showAnalysisPrompt)}
           disabled={isDisabled}
-          className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 hover:bg-primary/5 transition-colors disabled:opacity-50"
         >
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-xs font-mono uppercase tracking-wider text-foreground">
             Custom Analysis Instructions
           </span>
           {showAnalysisPrompt ? (
-            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            <ChevronUp className="w-4 h-4 text-primary" />
           ) : (
             <ChevronDown className="w-4 h-4 text-muted-foreground" />
           )}
         </button>
         {showAnalysisPrompt && (
-          <div className="p-3 border-t border-border">
+          <div className="p-3 border-t-2 border-border">
             <textarea
-              placeholder="e.g., Focus on educational content, prefer clips with strong hooks..."
+              placeholder="> Focus on educational content, prefer clips with strong hooks..."
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
               disabled={isDisabled}
               rows={2}
-              className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+              className="w-full px-3 py-2 text-sm font-mono bg-background border-2 border-border cyber-clip-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none"
             />
           </div>
         )}
@@ -291,7 +291,7 @@ export function GenerateShortsForm({
             onCheckedChange={setAvoidExistingOverlap}
             disabled={isDisabled}
           />
-          <label htmlFor={`avoidOverlap-${assetId}`} className="text-sm text-foreground cursor-pointer">
+          <label htmlFor={`avoidOverlap-${assetId}`} className="text-xs font-mono uppercase tracking-wider text-foreground cursor-pointer">
             Avoid overlap with existing shorts
           </label>
         </div>
@@ -346,13 +346,13 @@ export function GenerateShortsForm({
 
         {/* Credit cost indicator - hide when generation is in progress */}
         {!showProgress && (
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-muted-foreground">
-              Cost: {shortsCount} credit{shortsCount !== 1 ? 's' : ''}
+              {'>'} Cost: {shortsCount} credit{shortsCount !== 1 ? 's' : ''}
             </span>
             {userCredits !== null && (
-              <span className={userCredits < shortsCount ? 'text-destructive' : 'text-muted-foreground'}>
-                Balance: {userCredits}
+              <span className={userCredits < shortsCount ? 'text-destructive' : 'text-primary'}>
+                [{userCredits}]
               </span>
             )}
           </div>
@@ -360,9 +360,9 @@ export function GenerateShortsForm({
 
         {/* Insufficient credits warning */}
         {showInsufficientCredits && userCredits !== null && (
-          <div className="p-2 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <p className="text-xs text-destructive">
-              Insufficient credits. Need {shortsCount - userCredits} more.{' '}
+          <div className="p-2 bg-destructive/10 border-2 border-destructive/30 cyber-clip-sm">
+            <p className="text-xs font-mono text-destructive">
+              {'>'} ERROR: Insufficient credits. Need {shortsCount - userCredits} more.{' '}
               <Link href="/settings/billing" className="underline font-medium hover:text-destructive/80">
                 Add credits
               </Link>

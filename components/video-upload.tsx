@@ -144,17 +144,17 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
         <div
           {...getRootProps()}
           className={`
-            group relative border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300
+            group relative border-2 border-dashed cyber-clip cursor-pointer transition-all duration-300
             ${isDragActive
-              ? 'border-primary bg-primary/10 shadow-glow p-10'
-              : 'border-border hover:border-primary/50 hover:bg-secondary/30 p-6 hover:p-10'
+              ? 'border-primary bg-primary/10 shadow-neon p-10'
+              : 'border-border hover:border-primary/50 hover:bg-primary/5 p-6 hover:p-10'
             }
             ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
           `}
         >
           <input {...getInputProps()} />
           <div className="text-center">
-            <div className={`mx-auto mb-3 w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center transition-all duration-300 ${
+            <div className={`mx-auto mb-3 w-14 h-14 cyber-clip bg-primary/10 flex items-center justify-center transition-all duration-300 ${
               isDragActive ? 'scale-110 bg-primary/20' : 'group-hover:scale-110 group-hover:bg-primary/15'
             }`}>
               <Upload className={`text-primary transition-all duration-300 ${
@@ -162,16 +162,16 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
               }`} />
             </div>
             {isDragActive ? (
-              <p className="text-lg font-medium text-primary">Drop your video here...</p>
+              <p className="text-lg font-mono uppercase tracking-wider text-primary">{'>'} Drop your video here...</p>
             ) : (
               <>
-                <p className="text-base font-medium text-foreground mb-1 transition-all duration-300">
+                <p className="text-base font-mono uppercase tracking-wider text-foreground mb-1 transition-all duration-300">
                   Upload Video
                 </p>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Drag & drop or click to browse
+                <p className="text-sm font-mono text-muted-foreground mb-3">
+                  {'>'} Drag & drop or click to browse
                 </p>
-                <p className="text-xs text-muted-foreground/70">
+                <p className="text-xs font-mono text-muted-foreground/70">
                   MP4, MOV • Up to 2GB
                 </p>
               </>
@@ -179,21 +179,21 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
           </div>
         </div>
       ) : (
-        <div className="border border-border rounded-xl p-6 bg-card shadow-soft">
+        <div className="border-2 border-border cyber-clip p-6 bg-card">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="w-12 h-12 cyber-clip-sm bg-primary/10 flex items-center justify-center border border-primary/30">
                 <FileVideo className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="font-medium text-foreground">{file.name}</p>
-                <p className="text-sm text-muted-foreground">{formatFileSize(file.size)}</p>
+                <p className="font-mono text-foreground">{file.name}</p>
+                <p className="text-sm font-mono text-muted-foreground">{formatFileSize(file.size)}</p>
               </div>
             </div>
             {!uploading && (
               <button
                 onClick={() => setFile(null)}
-                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200"
+                className="p-2 cyber-clip-sm text-muted-foreground hover:text-foreground hover:bg-primary/5 border border-transparent hover:border-primary/30 transition-all duration-200"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -203,15 +203,15 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
           {uploading && (
             <div className="space-y-3">
               <Progress value={progress} className="h-2" />
-              <p className="text-sm text-muted-foreground text-center">
-                Uploading... {Math.round(progress)}%
+              <p className="text-sm font-mono text-muted-foreground text-center">
+                {'>'} Uploading... [{Math.round(progress)}%]
               </p>
             </div>
           )}
 
           {error && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-              {error}
+            <div className="mb-4 p-3 bg-destructive/10 border-2 border-destructive/30 cyber-clip-sm text-destructive text-sm font-mono">
+              {'>'} ERROR: {error}
             </div>
           )}
 
@@ -225,8 +225,8 @@ export function VideoUpload({ onUploadComplete }: VideoUploadProps) {
       )}
 
       {error && !file && (
-        <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-          {error}
+        <div className="mt-4 p-3 bg-destructive/10 border-2 border-destructive/30 cyber-clip-sm text-destructive text-sm font-mono">
+          {'>'} ERROR: {error}
         </div>
       )}
     </div>

@@ -9,8 +9,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        // Cyberpunk fonts - Manrope for display, JetBrains Mono for body
+        display: ['var(--font-manrope)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-jetbrains-mono)', 'monospace'],
+        sans: ['var(--font-jetbrains-mono)', 'monospace'], // Override sans with mono for cyberpunk
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -54,18 +56,70 @@ const config: Config = {
           DEFAULT: 'hsl(var(--info))',
           foreground: 'hsl(var(--info-foreground))',
         },
+        // Explicit neon colors for direct use
+        neon: {
+          green: '#00ff88',
+          magenta: '#ff00ff',
+          cyan: '#00d4ff',
+          red: '#ff3366',
+        },
       },
+      // Remove border-radius - cyberpunk uses clip-path chamfered corners
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        lg: '0px',
+        md: '0px',
+        sm: '0px',
+        xl: '0px',
+        '2xl': '0px',
+        '3xl': '0px',
+        full: '9999px', // Keep for traffic lights and circular elements
       },
       boxShadow: {
-        'soft': '0 2px 8px -2px rgba(0, 0, 0, 0.1), 0 4px 16px -4px rgba(0, 0, 0, 0.1)',
-        'soft-lg': '0 4px 12px -2px rgba(0, 0, 0, 0.12), 0 8px 24px -4px rgba(0, 0, 0, 0.12)',
-        'glow': '0 0 20px rgba(61, 182, 128, 0.15)',
+        'neon': '0 0 5px hsl(var(--primary)), 0 0 10px hsl(var(--primary) / 0.5)',
+        'neon-lg': '0 0 5px hsl(var(--primary)), 0 0 10px hsl(var(--primary) / 0.5), 0 0 20px hsl(var(--primary) / 0.3), 0 0 40px hsl(var(--primary) / 0.1)',
+        'neon-secondary': '0 0 5px hsl(var(--secondary)), 0 0 10px hsl(var(--secondary) / 0.5)',
+        'neon-subtle': '0 0 2px hsl(var(--primary)), 0 0 5px hsl(var(--primary) / 0.3)',
+        'neon-destructive': '0 0 5px hsl(var(--destructive)), 0 0 10px hsl(var(--destructive) / 0.5)',
       },
       keyframes: {
+        'glitch': {
+          '0%, 100%': {
+            clipPath: 'inset(0 0 0 0)',
+            transform: 'translate(0)',
+          },
+          '20%': {
+            clipPath: 'inset(20% 0 30% 0)',
+            transform: 'translate(-2px, 2px)',
+          },
+          '40%': {
+            clipPath: 'inset(50% 0 20% 0)',
+            transform: 'translate(2px, -1px)',
+          },
+          '60%': {
+            clipPath: 'inset(10% 0 60% 0)',
+            transform: 'translate(-1px, 1px)',
+          },
+          '80%': {
+            clipPath: 'inset(70% 0 5% 0)',
+            transform: 'translate(1px, -2px)',
+          },
+        },
+        'neon-pulse': {
+          '0%, 100%': {
+            boxShadow: '0 0 5px hsl(var(--primary)), 0 0 10px hsl(var(--primary) / 0.5)',
+          },
+          '50%': {
+            boxShadow: '0 0 10px hsl(var(--primary)), 0 0 20px hsl(var(--primary) / 0.5), 0 0 30px hsl(var(--primary) / 0.3)',
+          },
+        },
+        'blink': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0' },
+        },
+        'scan': {
+          '0%': { transform: 'translateY(-100%)' },
+          '100%': { transform: 'translateY(100vh)' },
+        },
         'fade-in': {
           '0%': { opacity: '0', transform: 'translateY(10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
@@ -84,6 +138,11 @@ const config: Config = {
         },
       },
       animation: {
+        'glitch': 'glitch 0.3s ease-in-out',
+        'glitch-loop': 'glitch 0.5s ease-in-out infinite',
+        'neon-pulse': 'neon-pulse 2s ease-in-out infinite',
+        'blink': 'blink 1s step-end infinite',
+        'scan': 'scan 2s linear infinite',
         'fade-in': 'fade-in 0.5s ease-out',
         'scale-in': 'scale-in 0.2s ease-out',
         'slide-up': 'slide-up 0.3s ease-out',

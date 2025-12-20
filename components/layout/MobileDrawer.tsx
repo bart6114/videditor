@@ -81,16 +81,16 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
         {/* Drawer Content */}
         <DialogPrimitive.Content
           className={cn(
-            'fixed inset-y-0 left-0 z-50 h-full w-[280px] bg-card border-r border-border shadow-lg',
+            'fixed inset-y-0 left-0 z-50 h-full w-[280px] bg-card border-r-2 border-border circuit-grid',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
             'duration-300 ease-in-out'
           )}
         >
           {/* Header with close button */}
-          <div className="flex h-14 items-center justify-between px-4 border-b border-border/50">
+          <div className="flex h-14 items-center justify-between px-4 border-b-2 border-border scanlines-subtle">
             <MonkeyLogo size="md" linkTo="/projects" showText={false} />
-            <DialogPrimitive.Close className="rounded-md p-2 hover:bg-secondary transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
+            <DialogPrimitive.Close className="cyber-clip-sm p-2 hover:bg-primary/5 hover:text-primary transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center border border-transparent hover:border-primary/30">
               <X className="h-5 w-5" />
               <span className="sr-only">Close menu</span>
             </DialogPrimitive.Close>
@@ -111,7 +111,7 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
                   <div
                     key={item.name}
                     className={cn(
-                      'group flex items-center justify-between px-3 py-3 text-base font-medium rounded-lg',
+                      'group flex items-center justify-between px-3 py-3 text-base font-mono uppercase tracking-wider cyber-clip-sm',
                       'min-h-[44px] text-muted-foreground/50 cursor-not-allowed'
                     )}
                   >
@@ -119,7 +119,7 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
                       <Icon className="mr-3 h-5 w-5" />
                       {item.name}
                     </div>
-                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                    <span className="text-xs bg-muted px-1.5 py-0.5 cyber-clip-sm text-muted-foreground border border-border">
                       Soon
                     </span>
                   </div>
@@ -132,11 +132,11 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
                   href={item.href}
                   onClick={handleNavClick}
                   className={cn(
-                    'group flex items-center px-3 py-3 text-base font-medium rounded-lg transition-all duration-200',
-                    'min-h-[44px]', // Touch-friendly height
+                    'group flex items-center px-3 py-3 text-base font-mono uppercase tracking-wider cyber-clip-sm transition-all duration-200',
+                    'min-h-[44px]',
                     isActive
-                      ? 'bg-primary/15 text-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary active:scale-95'
+                      ? 'bg-primary/10 text-primary border-l-2 border-primary shadow-neon-subtle'
+                      : 'text-muted-foreground hover:text-primary hover:bg-primary/5 active:scale-95'
                   )}
                 >
                   <Icon className="mr-3 h-5 w-5" />
@@ -147,22 +147,22 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
           </nav>
 
           {/* Organization Switcher & User Profile */}
-          <div className="border-t border-border/50 p-4 space-y-3">
+          <div className="border-t-2 border-border p-4 space-y-3">
             {/* Organization Switcher */}
             {orgContext && orgContext.currentOrganization && (
               <div className="relative">
                 <button
                   onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors min-h-[44px]"
+                  className="w-full flex items-center gap-3 px-3 py-3 cyber-clip-sm bg-muted hover:bg-primary/5 border border-border hover:border-primary/50 transition-colors min-h-[44px]"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <div className="w-8 h-8 cyber-clip-sm bg-primary/10 flex items-center justify-center border border-primary/30">
                     <Building2 className="w-4 h-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-medium text-foreground truncate">
+                    <p className="text-sm font-mono text-foreground truncate">
                       {orgContext.currentOrganization.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-primary font-mono">
                       {orgContext.currentOrganization.credits} credits
                     </p>
                   </div>
@@ -181,21 +181,21 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
                       className="fixed inset-0 z-10"
                       onClick={() => setOrgDropdownOpen(false)}
                     />
-                    <div className="absolute left-0 right-0 bottom-full mb-1 z-20 bg-popover border border-border rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
+                    <div className="absolute left-0 right-0 bottom-full mb-1 z-20 bg-card border-2 border-border cyber-clip py-1 max-h-48 overflow-y-auto">
                       {orgContext.organizations.map((org) => (
                         <button
                           key={org.id}
                           onClick={() => handleSwitchOrg(org.id)}
-                          className="w-full flex items-center gap-3 px-3 py-3 hover:bg-secondary/50 transition-colors min-h-[44px]"
+                          className="w-full flex items-center gap-3 px-3 py-3 hover:bg-primary/5 transition-colors min-h-[44px]"
                         >
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <div className="w-8 h-8 cyber-clip-sm bg-primary/10 flex items-center justify-center border border-primary/30">
                             <Building2 className="w-4 h-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0 text-left">
-                            <p className="text-sm font-medium text-foreground truncate">
+                            <p className="text-sm font-mono text-foreground truncate">
                               {org.name}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-primary font-mono">
                               {org.credits} credits
                             </p>
                           </div>
@@ -212,7 +212,7 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
 
             {/* User Profile */}
             {user && (
-              <div className="px-2 py-2 rounded-lg bg-secondary/50">
+              <div className="px-2 py-2 cyber-clip-sm bg-muted border border-border">
                 <div className="flex items-center gap-3">
                   {user.imageUrl && (
                     <Image
@@ -220,14 +220,14 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
                       alt={user.fullName || user.emailAddresses[0]?.emailAddress || 'User'}
                       width={36}
                       height={36}
-                      className="rounded-full ring-2 ring-primary/20"
+                      className="rounded-full ring-2 ring-primary/50"
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
+                    <p className="text-sm font-mono text-foreground truncate">
                       {user.fullName || user.firstName || 'User'}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground font-mono truncate">
                       {user.emailAddresses[0]?.emailAddress}
                     </p>
                   </div>
@@ -238,7 +238,7 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="group flex w-full items-center px-3 py-3 text-base font-medium text-muted-foreground rounded-lg hover:text-foreground hover:bg-secondary transition-all duration-200 min-h-[44px] active:scale-95"
+              className="group flex w-full items-center px-3 py-3 text-base font-mono uppercase tracking-wider text-muted-foreground cyber-clip-sm hover:text-destructive hover:bg-destructive/5 transition-all duration-200 min-h-[44px] active:scale-95"
             >
               <LogOut className="mr-3 h-5 w-5" />
               Logout

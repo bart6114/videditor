@@ -6,18 +6,19 @@ import { InboxDropdown } from '@/components/inbox';
 
 interface MobileHeaderProps {
   title?: string;
+  isEntityTitle?: boolean;
   onMenuClick: () => void;
 }
 
-export default function MobileHeader({ title, onMenuClick }: MobileHeaderProps) {
+export default function MobileHeader({ title, isEntityTitle, onMenuClick }: MobileHeaderProps) {
   const { user } = useUser();
 
   return (
-    <header className="md:hidden sticky top-0 z-40 h-14 bg-card/95 backdrop-blur-sm border-b border-border flex items-center justify-between px-4">
+    <header className="md:hidden sticky top-0 z-40 h-14 bg-card border-b-2 border-border flex items-center justify-between px-4 scanlines-subtle">
       {/* Hamburger Menu Button */}
       <button
         onClick={onMenuClick}
-        className="rounded-lg p-2 hover:bg-secondary transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95"
+        className="cyber-clip-sm p-2 hover:bg-primary/5 hover:text-primary transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95 border border-transparent hover:border-primary/30"
         aria-label="Open menu"
       >
         <Menu className="h-6 w-6" />
@@ -26,7 +27,7 @@ export default function MobileHeader({ title, onMenuClick }: MobileHeaderProps) 
       {/* Center - Title or Logo */}
       <div className="flex-1 flex justify-center">
         {title ? (
-          <h1 className="text-base font-semibold text-foreground truncate max-w-[200px]">
+          <h1 className={`text-base font-display tracking-widest text-primary truncate max-w-[200px] ${isEntityTitle ? '' : 'uppercase'}`}>
             {title}
           </h1>
         ) : (
@@ -43,10 +44,10 @@ export default function MobileHeader({ title, onMenuClick }: MobileHeaderProps) 
             alt={user.fullName || 'User'}
             width={32}
             height={32}
-            className="rounded-full ring-2 ring-primary/20"
+            className="rounded-full ring-2 ring-primary/50"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-secondary" />
+          <div className="w-8 h-8 cyber-clip-sm bg-muted border border-border" />
         )}
       </div>
     </header>

@@ -100,7 +100,7 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
             autoFocus
           />
           {error && (
-            <p className="mt-2 text-sm text-destructive">{error}</p>
+            <p className="mt-2 text-sm font-mono text-destructive">{'>'} {error}</p>
           )}
         </div>
 

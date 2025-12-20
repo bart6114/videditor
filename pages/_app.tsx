@@ -1,7 +1,7 @@
 import '@/styles/globals.css'
 import type { AppProps } from 'next/app'
 import { ClerkProvider, useUser } from '@clerk/nextjs'
-import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Manrope, JetBrains_Mono } from 'next/font/google'
 import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import posthog from 'posthog-js'
@@ -15,9 +15,9 @@ const CrispWithNoSSR = dynamic(() => import('@/components/crisp'), {
   ssr: false,
 })
 
-const inter = Inter({
+const manrope = Manrope({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-manrope',
   display: 'swap',
 })
 
@@ -31,7 +31,7 @@ function AppContent({ Component, pageProps }: AppProps) {
   const { user } = useUser()
 
   useEffect(() => {
-    document.body.classList.add(inter.variable, jetbrainsMono.variable)
+    document.body.classList.add(manrope.variable, jetbrainsMono.variable)
   }, [])
 
   // Identify user with PostHog when logged in
@@ -47,7 +47,7 @@ function AppContent({ Component, pageProps }: AppProps) {
   return (
     <OrganizationProvider>
       <OnboardingProvider>
-        <div className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
+        <div className={`${manrope.variable} ${jetbrainsMono.variable} font-mono`}>
           <BetaBanner />
           <Component {...pageProps} />
           <OnboardingTour />

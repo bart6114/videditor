@@ -114,31 +114,31 @@ export function GenerationProgress({
 
   switch (phase.stage) {
     case 'starting':
-      icon = <Loader2 className="w-4 h-4 animate-spin" />
-      text = 'Starting generation...'
+      icon = <Loader2 className="w-4 h-4 animate-spin text-primary" />
+      text = '> Initializing generation...'
       break
     case 'analyzing':
-      icon = <Search className="w-4 h-4 animate-pulse" />
-      text = 'Analyzing transcript...'
+      icon = <Search className="w-4 h-4 animate-pulse text-primary" />
+      text = '> Analyzing transcript...'
       break
     case 'queuing':
-      icon = <Zap className="w-4 h-4 animate-pulse" />
-      text = `Creating ${phase.total} short${phase.total !== 1 ? 's' : ''}...`
+      icon = <Zap className="w-4 h-4 animate-pulse text-primary" />
+      text = `> Creating ${phase.total} short${phase.total !== 1 ? 's' : ''}...`
       break
     case 'processing':
-      icon = <Film className="w-4 h-4 animate-pulse" />
+      icon = <Film className="w-4 h-4 animate-pulse text-primary" />
       const done = phase.completed + phase.failed
-      text = `Processing: ${done} of ${phase.total} complete`
+      text = `> Processing: [${done}/${phase.total}]`
       break
     case 'complete':
       if (phase.failed > 0) {
         icon = <AlertCircle className="w-4 h-4 text-amber-500" />
-        text = `Done: ${phase.successful} generated, ${phase.failed} failed`
-        textColor = 'text-amber-600'
+        text = `> DONE: ${phase.successful} OK, ${phase.failed} FAIL`
+        textColor = 'text-amber-500'
       } else {
-        icon = <CheckCircle2 className="w-4 h-4 text-green-500" />
-        text = `Complete! ${phase.successful} short${phase.successful !== 1 ? 's' : ''} generated`
-        textColor = 'text-green-600'
+        icon = <CheckCircle2 className="w-4 h-4 text-primary" />
+        text = `> COMPLETE: ${phase.successful} short${phase.successful !== 1 ? 's' : ''} generated`
+        textColor = 'text-primary'
       }
       break
   }
@@ -148,13 +148,13 @@ export function GenerationProgress({
       {/* Progress bar with percentage */}
       <div className="flex items-center gap-3">
         <Progress value={percentage} className="flex-1 h-2" />
-        <span className="text-xs font-medium text-muted-foreground w-10 text-right">
-          {Math.round(percentage)}%
+        <span className="text-xs font-mono text-primary w-12 text-right">
+          [{Math.round(percentage)}%]
         </span>
       </div>
 
       {/* Phase indicator */}
-      <div className={`flex items-center justify-center gap-2 text-sm ${textColor}`}>
+      <div className={`flex items-center justify-center gap-2 text-sm font-mono ${textColor}`}>
         {icon}
         <span>{text}</span>
       </div>

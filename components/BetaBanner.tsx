@@ -22,17 +22,17 @@ export function BetaBanner() {
   if (dismissed) return null
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground px-4 py-2 text-sm">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground px-4 py-2 text-sm font-mono scanlines-subtle">
       <div className="container mx-auto flex items-center justify-between gap-4">
-        <div className="flex-1 text-center">
-          <span className="font-semibold">We&apos;re in Beta!</span>
-          <span className="hidden sm:inline"> — We&apos;re actively developing, bugs may pop up, new features are coming. Check out our <Link href="/roadmap" className="underline hover:no-underline">roadmap</Link>.</span>
-          <span className="sm:hidden"> — See our <Link href="/roadmap" className="underline hover:no-underline">roadmap</Link>.</span>
-          <span className="font-semibold ml-1">You get 100 free credits!</span>
+        <div className="flex-1 text-center uppercase tracking-wider">
+          <span className="font-bold chromatic-subtle">[ BETA ]</span>
+          <span className="hidden sm:inline"> — Active development in progress. Check our <Link href="/roadmap" className="underline hover:no-underline text-inherit">roadmap</Link>.</span>
+          <span className="sm:hidden"> — See <Link href="/roadmap" className="underline hover:no-underline text-inherit">roadmap</Link>.</span>
+          <span className="font-bold ml-1">100 FREE CREDITS!</span>
         </div>
         <button
           onClick={handleDismiss}
-          className="shrink-0 p-1 hover:bg-primary-foreground/20 rounded transition-colors"
+          className="shrink-0 p-1 hover:bg-primary-foreground/20 cyber-clip-sm transition-colors border border-transparent hover:border-primary-foreground/30"
           aria-label="Dismiss banner"
         >
           <X className="w-4 h-4" />

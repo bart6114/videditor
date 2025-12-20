@@ -49,25 +49,25 @@ export function TranscriptionStatus({
     const hasProgress = progress?.phase === 'transcribing' && typeof progress.current === 'number' && typeof progress.total === 'number' && progress.total > 0
 
     return (
-      <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
-        <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+      <div className="flex items-center gap-3 p-3 cyber-clip-sm border-2 border-primary/30 bg-primary/5">
+        <div className="w-8 h-8 cyber-clip-sm bg-primary/15 flex items-center justify-center flex-shrink-0">
           <Loader2 className="w-4 h-4 animate-spin text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground">
-            Transcribing...
+          <p className="text-sm font-mono uppercase tracking-wider text-foreground">
+            {'>'} Transcribing...
             {!isQueued && hasProgress && (
               <span className="ml-2 text-primary">
-                {Math.round((progress.current! / progress.total!) * 100)}%
+                [{Math.round((progress.current! / progress.total!) * 100)}%]
               </span>
             )}
           </p>
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-xs text-muted-foreground font-mono truncate">
             {isQueued
-              ? 'Waiting in queue...'
+              ? '> Waiting in queue...'
               : hasProgress && progress.total! > 1
-                ? `Processing ${progress.current}/${progress.total} segments`
-                : 'Processing audio'}
+                ? `> Processing ${progress.current}/${progress.total} segments`
+                : '> Processing audio'}
           </p>
         </div>
       </div>
@@ -80,14 +80,14 @@ export function TranscriptionStatus({
       <div className="space-y-2">
         <button
           onClick={onOpenPanel}
-          className="w-full flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+          className="w-full flex items-center justify-between p-3 cyber-clip-sm border-2 border-border bg-card hover:bg-primary/5 hover:border-primary/50 transition-colors"
         >
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-foreground">Transcription</span>
+            <span className="text-sm font-mono uppercase tracking-wider text-foreground">Transcription</span>
             <Badge variant="default" className="text-xs">Ready</Badge>
           </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          <ChevronRight className="w-4 h-4 text-primary" />
         </button>
 
         {/* Re-transcribe button (dev mode) */}
@@ -96,7 +96,7 @@ export function TranscriptionStatus({
             onClick={onRetry}
             variant="ghost"
             size="sm"
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground font-mono uppercase tracking-wider text-xs"
             disabled={isRetrying}
           >
             <RefreshCw className={`w-3 h-3 mr-1.5 ${isRetrying ? 'animate-spin' : ''}`} />
@@ -110,13 +110,13 @@ export function TranscriptionStatus({
   // Failed state - job failed
   if (transcriptionJob && transcriptionJob.status === 'failed') {
     return (
-      <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/5">
+      <div className="p-3 cyber-clip-sm border-2 border-destructive/30 bg-destructive/5">
         <div className="flex items-center gap-2 mb-2">
           <AlertCircle className="w-4 h-4 text-destructive" />
-          <span className="text-sm font-medium text-foreground">Transcription Failed</span>
+          <span className="text-sm font-mono uppercase tracking-wider text-foreground">{'>'} ERROR: Transcription Failed</span>
         </div>
         {transcriptionJob.errorMessage && (
-          <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+          <p className="text-xs text-muted-foreground font-mono mb-2 line-clamp-2">
             {transcriptionJob.errorMessage}
           </p>
         )}
@@ -136,9 +136,9 @@ export function TranscriptionStatus({
 
   // Not available state - no transcription and no job
   return (
-    <div className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/30">
+    <div className="flex items-center gap-2 p-3 cyber-clip-sm border-2 border-border bg-muted/30">
       <FileText className="w-4 h-4 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">No transcription available</span>
+      <span className="text-sm font-mono text-muted-foreground">{'>'} No transcription available</span>
     </div>
   )
 }

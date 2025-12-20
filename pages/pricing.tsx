@@ -61,12 +61,12 @@ export default function PricingPage() {
 
       <main className="min-h-screen bg-background dark relative overflow-hidden">
         {/* Background effects */}
-        <div className="fixed inset-0 dot-grid opacity-40" />
-        <div className="fixed inset-0 mesh-gradient pointer-events-none" />
+        <div className="fixed inset-0 circuit-grid opacity-40" />
+        <div className="fixed inset-0 scanlines-subtle pointer-events-none" />
 
         {/* Header */}
         <nav className="relative container mx-auto px-4 py-6 flex justify-between items-center">
-          <Link href="/" className="text-xl font-bold text-foreground hover:text-foreground/80 transition-colors">
+          <Link href="/" className="text-xl font-display uppercase tracking-widest text-primary hover:text-primary/80 transition-colors">
             VidEditor.ai
           </Link>
           <div className="flex gap-3">
@@ -90,11 +90,11 @@ export default function PricingPage() {
         {/* Hero */}
         <div className="relative container mx-auto px-4 py-20 text-center">
           <div className="relative z-10">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-br from-foreground via-foreground/90 to-foreground/70 bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-6xl font-display uppercase tracking-widest mb-6 text-primary chromatic-subtle">
               Simple Pricing
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Pay only for what you use. No subscriptions, no hidden fees.
+            <p className="text-xl text-muted-foreground font-mono max-w-2xl mx-auto">
+              {'>'} Pay only for what you use. No subscriptions, no hidden fees.
             </p>
           </div>
         </div>
@@ -102,16 +102,16 @@ export default function PricingPage() {
         {/* Pricing Card */}
         <div className="relative container mx-auto px-4 pb-20">
           <div className="max-w-lg mx-auto">
-            <div className="relative gradient-border rounded-3xl overflow-hidden">
-              <div className="bg-gradient-to-br from-card/90 via-card/80 to-card/90 backdrop-blur-xl p-8 md:p-10">
+            <div className="relative cyber-clip-lg border-2 border-primary/30 overflow-hidden">
+              <div className="bg-card p-8 md:p-10 scanlines-subtle">
                 {/* Free credits banner */}
-                <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-8 text-center">
-                  <div className="flex items-center justify-center gap-2 text-primary font-semibold mb-1">
+                <div className="bg-primary/10 border-2 border-primary/30 cyber-clip-sm p-4 mb-8 text-center">
+                  <div className="flex items-center justify-center gap-2 text-primary font-mono uppercase tracking-wider mb-1">
                     <Zap className="w-5 h-5" />
                     {DEFAULT_FREE_CREDITS} Free Credits
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Start with {DEFAULT_FREE_CREDITS} free credits when you sign up
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {'>'} Start with {DEFAULT_FREE_CREDITS} free credits when you sign up
                   </p>
                 </div>
 
@@ -119,20 +119,20 @@ export default function PricingPage() {
                 <div className="flex justify-center gap-2 mb-6">
                   <button
                     onClick={() => setCurrency('EUR')}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                    className={`px-3 py-1 cyber-clip-sm text-sm font-mono uppercase tracking-wider transition-colors ${
                       currency === 'EUR'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        ? 'bg-primary text-primary-foreground border-2 border-primary'
+                        : 'bg-muted text-muted-foreground border-2 border-border hover:border-primary/50'
                     }`}
                   >
                     EUR
                   </button>
                   <button
                     onClick={() => setCurrency('USD')}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                    className={`px-3 py-1 cyber-clip-sm text-sm font-mono uppercase tracking-wider transition-colors ${
                       currency === 'USD'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        ? 'bg-primary text-primary-foreground border-2 border-primary'
+                        : 'bg-muted text-muted-foreground border-2 border-border hover:border-primary/50'
                     }`}
                   >
                     USD
@@ -168,30 +168,30 @@ export default function PricingPage() {
                 </div>
 
                 {/* Credit packages */}
-                <div className="border-t border-border pt-6 mb-8">
-                  <p className="text-sm text-muted-foreground mb-4">Credit packages</p>
+                <div className="border-t-2 border-border pt-6 mb-8">
+                  <p className="text-sm text-muted-foreground font-mono uppercase tracking-wider mb-4">{'>'} Credit Packages</p>
                   <div className="grid grid-cols-2 gap-3">
                     {CREDIT_PACKAGES.map(({ credits }) => (
                       <div
                         key={credits}
-                        className="p-3 border border-border rounded-lg text-center"
+                        className="p-3 border-2 border-border cyber-clip-sm text-center hover:border-primary/50 transition-colors"
                       >
-                        <div className="font-bold text-foreground">{credits} credits</div>
-                        <div className="text-sm text-primary">{formatPriceWithCurrency(credits, currency)}</div>
+                        <div className="font-mono font-bold text-foreground">{credits} credits</div>
+                        <div className="text-sm font-mono text-primary">{formatPriceWithCurrency(credits, currency)}</div>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* CTA */}
-                <Button asChild size="lg" className="w-full text-lg h-14 shadow-glow">
+                <Button asChild size="lg" variant="glitch" className="w-full text-lg h-14">
                   <Link href={isSignedIn ? '/projects' : '/sign-up'}>
                     {isSignedIn ? 'Go to Dashboard' : 'Get Started Free'}
                   </Link>
                 </Button>
 
-                <p className="text-sm text-muted-foreground text-center mt-4">
-                  No credit card required to start
+                <p className="text-sm text-muted-foreground font-mono text-center mt-4">
+                  {'>'} No credit card required to start
                 </p>
               </div>
             </div>

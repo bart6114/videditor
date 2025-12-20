@@ -1,31 +1,56 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
-const Card = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      'rounded-xl border bg-card text-card-foreground shadow-soft transition-all duration-200',
-      className
-    )}
-    {...props}
-  />
-))
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: 'default' | 'terminal' | 'holographic'
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant = 'default', ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        'border border-border bg-card text-card-foreground cyber-clip transition-all duration-200 relative',
+        variant === 'default' && 'hover:border-primary/50 hover:shadow-neon-subtle',
+        variant === 'terminal' && 'bg-background',
+        variant === 'holographic' && 'holographic corner-accents',
+        className
+      )}
+      {...props}
+    />
+  )
+)
 Card.displayName = 'Card'
 
-const CardHeader = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn('flex flex-col space-y-1.5 p-6', className)}
-    {...props}
-  />
-))
+// Terminal traffic lights component
+export const TerminalDots = () => (
+  <div className="traffic-lights">
+    <span className="traffic-light traffic-light-red" />
+    <span className="traffic-light traffic-light-yellow" />
+    <span className="traffic-light traffic-light-green" />
+  </div>
+)
+
+interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+  terminal?: boolean
+}
+
+const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
+  ({ className, terminal, children, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        'flex flex-col space-y-1.5 p-6',
+        terminal && 'terminal-header flex-row items-center',
+        className
+      )}
+      {...props}
+    >
+      {terminal && <TerminalDots />}
+      {children}
+    </div>
+  )
+)
 CardHeader.displayName = 'CardHeader'
 
 const CardTitle = React.forwardRef<
@@ -34,7 +59,10 @@ const CardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn('font-semibold leading-none tracking-tight', className)}
+    className={cn(
+      'font-display text-lg uppercase tracking-widest text-primary leading-none',
+      className
+    )}
     {...props}
   />
 ))
@@ -46,7 +74,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn('text-sm text-muted-foreground font-mono', className)}
     {...props}
   />
 ))

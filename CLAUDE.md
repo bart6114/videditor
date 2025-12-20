@@ -214,6 +214,29 @@ fly secrets set -a videditor-app POSTHOG_API_KEY="phc_..." POSTHOG_HOST="https:/
 
 ## Recent Refactors (Reference for Debugging)
 
+### UI/UX Refinements (Dec 2024)
+Several UI improvements to animations and typography.
+
+**Landing page animations:**
+- Replaced `glitch-hover` (jarring clip-path animation) with `text-glow-hover` (smooth glow on hover)
+- Replaced `chromatic-subtle` (static RGB split) with `text-shimmer` (flowing gradient animation)
+- Buttons now use `shine-hover` (light sweep) + `glow-hover` (expanding neon glow) instead of glitch effect
+- New CSS utilities: `text-shimmer`, `shine-hover`, `glow-hover`, `animate-fade-in-up`
+
+**Typography - normal case for entity titles:**
+- Project and asset titles now preserve user's original casing (no forced uppercase)
+- Section headers ("Projects", "Settings", etc.) remain UPPERCASE
+- Added `normal-case` to title elements in `LongFormAssetCard`, `SelectedAssetPanel`, project pages
+- `WorkspaceLayout` conditionally applies uppercase only for section headers (not when `onTitleSave` is provided)
+
+**Dialog positioning fix:**
+- Removed `scanlines-subtle` class from `DialogContent` - its `position: relative` was breaking the transform-based centering
+- Dialogs now properly center in viewport
+
+**If you see issues with:**
+- Titles appearing uppercase → Check if `normal-case` class is applied
+- Dialog appearing at bottom of screen → Ensure no `position: relative` ancestors interfere with fixed positioning
+
 ### Removed `project.status` (Dec 2024)
 Project-level status was removed because it was legacy from when 1 project = 1 video. Now each `media_asset` has its own `status` field.
 

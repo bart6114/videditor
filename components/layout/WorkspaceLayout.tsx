@@ -89,10 +89,10 @@ export default function WorkspaceLayout({ children, title, onTitleSave }: Worksp
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col md:overflow-hidden">
         {/* Mobile Header - visible only on mobile */}
-        <MobileHeader title={title} onMenuClick={() => setMobileMenuOpen(true)} />
+        <MobileHeader title={title} isEntityTitle={!!onTitleSave} onMenuClick={() => setMobileMenuOpen(true)} />
 
         {/* Desktop Top Bar - hidden on mobile */}
-        <div className="hidden md:flex h-16 bg-card border-b border-border items-center justify-between px-8">
+        <div className="hidden md:flex h-16 bg-card border-b-2 border-border items-center justify-between px-8 scanlines-subtle">
           <div className="flex items-center gap-2 min-w-0">
             {title && (
               isEditing ? (
@@ -105,7 +105,7 @@ export default function WorkspaceLayout({ children, title, onTitleSave }: Worksp
                     onKeyDown={handleKeyDown}
                     onBlur={handleSave}
                     disabled={isSaving}
-                    className="text-xl font-semibold text-foreground bg-transparent border-b-2 border-primary focus:outline-none px-0 py-0 min-w-[200px]"
+                    className="text-xl font-display tracking-widest text-primary bg-transparent border-b-2 border-primary focus:outline-none px-0 py-0 min-w-[200px]"
                     maxLength={255}
                   />
                   {isSaving ? (
@@ -118,7 +118,7 @@ export default function WorkspaceLayout({ children, title, onTitleSave }: Worksp
                         className="h-6 w-6"
                         onClick={(e) => { e.preventDefault(); handleSave(); }}
                       >
-                        <Check className="w-4 h-4 text-green-500" />
+                        <Check className="w-4 h-4 text-primary" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -133,7 +133,7 @@ export default function WorkspaceLayout({ children, title, onTitleSave }: Worksp
                 </div>
               ) : (
                 <div className="flex items-center gap-2 group">
-                  <h1 className="text-xl font-semibold text-foreground truncate">{title}</h1>
+                  <h1 className={`text-xl font-display tracking-widest text-primary truncate ${onTitleSave ? '' : 'uppercase'}`}>{title}</h1>
                   {onTitleSave && (
                     <Button
                       variant="ghost"
@@ -154,7 +154,7 @@ export default function WorkspaceLayout({ children, title, onTitleSave }: Worksp
         </div>
 
         {/* Content */}
-        <main className="flex-1 md:overflow-y-auto">
+        <main className="flex-1 md:overflow-y-auto circuit-grid">
           <div className="p-4 md:p-8">
             {children}
           </div>

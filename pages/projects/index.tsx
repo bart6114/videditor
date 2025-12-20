@@ -146,7 +146,7 @@ export default function Projects() {
       <WorkspaceLayout title="Projects">
         {/* Header with New Project button */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-foreground">Your Projects</h2>
+          <h2 className="text-2xl font-display uppercase tracking-widest text-primary">Your Projects</h2>
           <Button onClick={() => setCreateModalOpen(true)} data-tour="new-project-button">
             <Plus className="w-4 h-4 mr-2" />
             New Project
@@ -159,35 +159,34 @@ export default function Projects() {
           {loading ? (
             <div className="text-center py-12">
               <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
-              <p className="text-muted-foreground">Loading projects...</p>
+              <p className="text-muted-foreground font-mono">{'>'} Loading projects...</p>
             </div>
           ) : error ? (
             <Card className="bg-card border-destructive/30">
               <CardContent className="py-12 text-center">
                 <AlertCircle className="w-12 h-12 mx-auto mb-4 text-destructive" />
-                <p className="text-foreground mb-2 font-semibold">Failed to load projects</p>
-                <p className="text-sm text-muted-foreground mb-4">{error}</p>
-                <button
+                <p className="text-foreground mb-2 font-display uppercase tracking-wider">{'>'} Error: Failed to load projects</p>
+                <p className="text-sm text-muted-foreground font-mono mb-4">{error}</p>
+                <Button
                   onClick={() => {
                     setLoading(true)
                     setError(null)
                     loadProjects()
                   }}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
                 >
                   Try Again
-                </button>
+                </Button>
               </CardContent>
             </Card>
           ) : projects.length === 0 ? (
             <Card className="bg-card border-border border-dashed">
               <CardContent className="py-16 text-center">
-                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="w-20 h-20 mx-auto mb-6 cyber-clip bg-primary/10 flex items-center justify-center border border-primary/30">
                   <Video className="w-10 h-10 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">No projects yet</h3>
-                <p className="text-muted-foreground max-w-sm mx-auto mb-4">
-                  Create your first project to start organizing your videos and generating engaging shorts.
+                <h3 className="text-lg font-display uppercase tracking-wider text-foreground mb-2">No Projects Yet</h3>
+                <p className="text-muted-foreground font-mono max-w-sm mx-auto mb-4">
+                  {'>'} Create your first project to start organizing your videos.
                 </p>
                 <Button onClick={() => setCreateModalOpen(true)}>
                   <Plus className="w-4 h-4 mr-2" />
@@ -200,12 +199,12 @@ export default function Projects() {
               {projects.map((project) => (
                 <Card
                   key={project.id}
-                  className="bg-card border-border hover:border-primary/40 hover:shadow-soft-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group overflow-hidden"
+                  className="bg-card border-border hover:border-primary/50 hover:shadow-neon-subtle transition-all duration-200 cursor-pointer group overflow-hidden"
                   onClick={() => router.push(`/projects/${project.id}`)}
                 >
                   <div className="flex gap-3 p-3">
                     {/* Compact Thumbnail */}
-                    <div className="relative w-16 h-16 flex-shrink-0 rounded-lg bg-secondary overflow-hidden">
+                    <div className="relative w-16 h-16 flex-shrink-0 cyber-clip-sm bg-muted overflow-hidden border border-border">
                       {project.thumbnailUrl ? (
                         <Image
                           src={project.thumbnailUrl}
@@ -214,8 +213,8 @@ export default function Projects() {
                           className="object-cover transition-all duration-200"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">
-                          <Video className="w-6 h-6 text-muted-foreground" />
+                        <div className="w-full h-full flex items-center justify-center bg-muted">
+                          <Video className="w-6 h-6 text-primary/50" />
                         </div>
                       )}
                     </div>
@@ -223,24 +222,24 @@ export default function Projects() {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       {/* Title */}
-                      <h3 className="font-medium text-sm text-foreground truncate group-hover:text-primary transition-colors">
+                      <h3 className="font-mono text-sm text-foreground truncate group-hover:text-primary transition-colors normal-case">
                         {project.title}
                       </h3>
 
                       {/* Asset Counts */}
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 mt-1.5 text-xs font-mono text-muted-foreground">
                         <span className="flex items-center gap-1" title="Long-form videos">
-                          <Video className="w-3 h-3" />
+                          <Video className="w-3 h-3 text-primary" />
                           {project.longFormCount || 0}
                         </span>
                         <span className="flex items-center gap-1" title="Short-form clips">
-                          <Film className="w-3 h-3" />
+                          <Film className="w-3 h-3 text-primary" />
                           {project.shortFormCount || 0}
                         </span>
                       </div>
 
                       {/* Last Updated */}
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs font-mono text-muted-foreground mt-1">
                         {formatRelativeTime(project.updatedAt)}
                       </p>
                     </div>
@@ -248,7 +247,7 @@ export default function Projects() {
                     {/* Delete Button */}
                     <button
                       onClick={(e) => openDeleteDialog(project, e)}
-                      className="self-start opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 rounded-md hover:bg-destructive hover:text-white text-muted-foreground"
+                      className="self-start opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 cyber-clip-sm hover:bg-destructive hover:text-white text-muted-foreground"
                       aria-label="Delete project"
                     >
                       <Trash2 className="w-4 h-4" />
