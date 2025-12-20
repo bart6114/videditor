@@ -133,7 +133,7 @@ export default function WorkspaceLayout({ children, title, onTitleSave }: Worksp
                 </div>
               ) : (
                 <div className="flex items-center gap-2 group">
-                  <h1 className={`text-xl font-display tracking-widest text-primary truncate ${onTitleSave ? '' : 'uppercase'}`}>{title}</h1>
+                  <h1 className={`text-xl font-display tracking-widest text-primary truncate ${onTitleSave ? 'normal-case' : 'uppercase'}`}>{title}</h1>
                   {onTitleSave && (
                     <Button
                       variant="ghost"

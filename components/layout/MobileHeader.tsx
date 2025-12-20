@@ -27,7 +27,7 @@ export default function MobileHeader({ title, isEntityTitle, onMenuClick }: Mobi
       {/* Center - Title or Logo */}
       <div className="flex-1 flex justify-center">
         {title ? (
-          <h1 className={`text-base font-display tracking-widest text-primary truncate max-w-[200px] ${isEntityTitle ? '' : 'uppercase'}`}>
+          <h1 className={`text-base font-display tracking-widest text-primary truncate max-w-[200px] ${isEntityTitle ? 'normal-case' : 'uppercase'}`}>
             {title}
           </h1>
         ) : (
