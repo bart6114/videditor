@@ -887,11 +887,20 @@ export default function ProjectDetail() {
               <Card className="bg-card border-border" data-tour="shorts-table">
                 <CardHeader className="py-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {hasSelections && (
-                        <Badge variant="secondary" className="text-xs">
-                          {selectedShortIds.size} selected
-                        </Badge>
+                        <>
+                          <Badge variant="secondary" className="text-xs">
+                            {selectedShortIds.size} selected
+                          </Badge>
+                          <button
+                            onClick={clearSelection}
+                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                            Clear
+                          </button>
+                        </>
                       )}
                     </div>
                   <div className="flex flex-wrap gap-2">
