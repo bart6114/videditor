@@ -819,6 +819,7 @@ export default function ProjectDetail() {
               {/* Selected Asset Panel - shows when an asset is selected */}
               {selectedAsset && (
                 <SelectedAssetPanel
+                  key={selectedAsset.id}
                   asset={selectedAsset}
                   projectId={id as string}
                   onClose={() => setSelectedAssetId(null)}

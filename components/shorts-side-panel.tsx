@@ -1,6 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
-import dynamic from 'next/dynamic'
-import type ReactPlayerType from 'react-player'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useApi } from '@/lib/api/client'
+import { LazyVideoPlayer } from '@/components/LazyVideoPlayer'
 import type { Short } from '@server/db/schema'
 import type { SocialContent, SocialPlatform, ShortFormMetadata } from '@shared/index'
 import { getAssetFilename } from '@/lib/api/shorts'
@@ -36,8 +35,6 @@ const PLATFORM_LABELS: Record<SocialPlatform, string> = {
   tiktok: 'TikTok',
   linkedin: 'LinkedIn',
 }
-
-const ReactPlayer = dynamic(() => import('react-player'), { ssr: false })
 
 interface ShortsSidePanelProps {
   selectedShort: Short | null
@@ -94,8 +91,6 @@ export function ShortsSidePanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const playerRef = useRef<ReactPlayerType>(null)
 
   // Social content editing state
   const [isEditingSocialContent, setIsEditingSocialContent] = useState(false)
@@ -125,50 +120,44 @@ export function ShortsSidePanel({
   const hasPrevious = currentIndex > 0
   const hasNext = currentIndex < shorts.length - 1
 
-  // Fetch presigned URL when selected short changes
+  // Fetch presigned video URL (called on play or download)
+  const fetchVideoUrl = useCallback(async () => {
+    if (!selectedShort?.id) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Check if short is completed and has an output
+      if (selectedShort.status !== 'completed' || !selectedShort.sourceObjectKey) {
+        throw new Error('Short video is not ready yet')
+      }
+
+      // Fetch presigned URL from download endpoint
+      const data = await call<{ downloadUrl: string; filename: string }>(
+        `/v1/projects/${projectId}/shorts/${selectedShort.id}/download`
+      )
+
+      setVideoUrl(data.downloadUrl)
+    } catch (err) {
+      console.error('Error fetching video URL:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load video')
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedShort, projectId, call])
+
+  // Reset state when selected short changes
   useEffect(() => {
-    // Pause current video before switching
-    setIsPlaying(false)
+    // Reset video state when navigating to a different short
+    setVideoUrl(null)
+    setError(null)
+    setLoading(false)
 
     // Reset edit state when short changes
     setIsEditingSocialContent(false)
     setEditedSocialContent(null)
-
-    if (!selectedShort) {
-      setVideoUrl(null)
-      setError(null)
-      return
-    }
-
-    async function fetchVideoUrl() {
-      if (!selectedShort?.id) return
-
-      setLoading(true)
-      setError(null)
-      setVideoUrl(null)
-
-      try {
-        // Check if short is completed and has an output
-        if (selectedShort.status !== 'completed' || !selectedShort.sourceObjectKey) {
-          throw new Error('Short video is not ready yet')
-        }
-
-        // Fetch presigned URL from download endpoint
-        const data = await call<{ downloadUrl: string; filename: string }>(
-          `/v1/projects/${projectId}/shorts/${selectedShort.id}/download`
-        )
-
-        setVideoUrl(data.downloadUrl)
-      } catch (err) {
-        console.error('Error fetching video URL:', err)
-        setError(err instanceof Error ? err.message : 'Failed to load video')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchVideoUrl()
-  }, [selectedShort, projectId, call])
+  }, [selectedShort?.id])
 
   const handlePrevious = () => {
     if (hasPrevious) {
@@ -185,16 +174,29 @@ export function ShortsSidePanel({
   }
 
   const handleDownload = async () => {
-    if (!selectedShort || !videoUrl) return
+    if (!selectedShort) return
 
     setDownloading(true)
     try {
+      // Fetch URL if not already available
+      let downloadUrl = videoUrl
+      if (!downloadUrl) {
+        if (selectedShort.status !== 'completed' || !selectedShort.sourceObjectKey) {
+          throw new Error('Short video is not ready yet')
+        }
+        const data = await call<{ downloadUrl: string; filename: string }>(
+          `/v1/projects/${projectId}/shorts/${selectedShort.id}/download`
+        )
+        downloadUrl = data.downloadUrl
+        setVideoUrl(downloadUrl)
+      }
+
       // Generate filename using utility function
       const filename = getAssetFilename(selectedShort)
 
       // Trigger browser download
       const a = document.createElement('a')
-      a.href = videoUrl
+      a.href = downloadUrl
       a.download = filename
       document.body.appendChild(a)
       a.click()
@@ -536,7 +538,6 @@ export function ShortsSidePanel({
         e.preventDefault()
         handleNext()
       } else if (e.key === 'Escape') {
-        setIsPlaying(false)
         onClose()
       }
     }
@@ -545,13 +546,6 @@ export function ShortsSidePanel({
     return () => window.removeEventListener('keydown', handleKeyDown)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedShort, hasPrevious, hasNext, currentIndex])
-
-  // Ensure video is paused when component unmounts
-  useEffect(() => {
-    return () => {
-      setIsPlaying(false)
-    }
-  }, [])
 
   const shortMetadata = selectedShort?.metadata as ShortFormMetadata | null
   const duration = shortMetadata
@@ -568,7 +562,7 @@ export function ShortsSidePanel({
         className={`fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300 ${
           selectedShort ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
-        onClick={() => { setIsPlaying(false); onClose(); }}
+        onClick={onClose}
       />
 
       {/* Side Panel */}
@@ -639,7 +633,7 @@ export function ShortsSidePanel({
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => { setIsPlaying(false); onClose(); }}
+                onClick={onClose}
                 className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
               >
                 <X className="w-5 h-5" />
@@ -653,41 +647,16 @@ export function ShortsSidePanel({
             <div className="p-4 md:p-6 space-y-4 md:space-y-6">
               {/* Video Player */}
               <div className="relative">
-                <div className="relative bg-black aspect-video rounded-lg overflow-hidden">
-                  {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Loader2 className="h-12 w-12 text-white animate-spin" />
-                    </div>
-                  )}
-
-                  {error && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center px-4">
-                        <p className="text-red-400 mb-2">Failed to load video</p>
-                        <p className="text-sm text-gray-400">{error}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {videoUrl && !error && (
-                    <ReactPlayer
-                      ref={playerRef}
-                      url={videoUrl}
-                      controls
-                      playing={isPlaying}
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
-                      width="100%"
-                      height="100%"
-                      config={{
-                        file: {
-                          attributes: {
-                            controlsList: 'nodownload',
-                          },
-                        },
-                      }}
-                    />
-                  )}
+                <div className="relative">
+                  <LazyVideoPlayer
+                    videoUrl={videoUrl}
+                    thumbnailUrl={selectedShort.thumbnailUrl}
+                    title={selectedShort.title}
+                    onRequestPlay={fetchVideoUrl}
+                    isLoading={loading}
+                    error={error}
+                    className="rounded-lg"
+                  />
 
                   {/* Navigation arrows overlaid on video */}
                   {!loading && !error && (
@@ -696,7 +665,7 @@ export function ShortsSidePanel({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
+                          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
                           onClick={handlePrevious}
                         >
                           <ChevronLeft className="h-8 w-8" />
@@ -708,7 +677,7 @@ export function ShortsSidePanel({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
                           onClick={handleNext}
                         >
                           <ChevronRight className="h-8 w-8" />

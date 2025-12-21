@@ -1,65 +1,16 @@
-import { memo, useState } from 'react'
-import dynamic from 'next/dynamic'
-import Image from 'next/image'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { TranscriptionStatus } from '@/components/TranscriptionStatus'
 import { GenerateShortsForm } from '@/components/GenerateShortsForm'
 import { InlineManualEditor } from '@/components/InlineManualEditor'
-import { Play, Pencil, Loader2, X, Sparkles } from 'lucide-react'
+import { LazyVideoPlayer } from '@/components/LazyVideoPlayer'
+import { Pencil, X, Sparkles } from 'lucide-react'
 import type { MediaAsset } from '@/types/projects'
 import type { Transcription, Short } from '@server/db/schema'
 import type { UserSettings } from '@/hooks/useUserSettings'
 
-const ReactPlayer = dynamic(() => import('react-player'), { ssr: false })
-
 type PanelMode = 'ai' | 'manual'
-
-// Memoized video player to prevent re-renders during generation status updates
-interface VideoPlayerProps {
-  videoUrl?: string | null
-  thumbnailUrl?: string | null
-  title: string
-}
-
-const VideoPlayer = memo(function VideoPlayer({ videoUrl, thumbnailUrl, title }: VideoPlayerProps) {
-  if (videoUrl) {
-    return (
-      <ReactPlayer
-        url={videoUrl}
-        controls
-        width="100%"
-        height="100%"
-      />
-    )
-  }
-
-  if (thumbnailUrl) {
-    return (
-      <div className="relative w-full h-full">
-        <Image
-          src={thumbnailUrl}
-          alt={title}
-          fill
-          sizes="100vw"
-          className="object-contain"
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-          <div className="text-center text-foreground">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
-            <p className="text-sm font-mono">Video loading...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-      <Play className="w-12 h-12" />
-    </div>
-  )
-})
 
 interface TranscriptionJob {
   status: string
@@ -136,7 +87,7 @@ export function SelectedAssetPanel({
   const isReady = asset.status === 'ready' || asset.status === 'completed'
 
   return (
-    <Card className="bg-card border-border mt-6">
+    <Card className="bg-card border-border mt-6 animate-slide-up">
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -186,13 +137,12 @@ export function SelectedAssetPanel({
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Left: Video Player */}
             <div className="space-y-4">
-              <div className="aspect-video bg-background cyber-clip overflow-hidden relative border-2 border-border">
-                <VideoPlayer
-                  videoUrl={asset.videoUrl}
-                  thumbnailUrl={asset.thumbnailUrl}
-                  title={asset.title}
-                />
-              </div>
+              <LazyVideoPlayer
+                videoUrl={asset.videoUrl}
+                thumbnailUrl={asset.thumbnailUrl}
+                title={asset.title}
+                className="cyber-clip border-2 border-border"
+              />
             </div>
 
             {/* Right: Transcription + Generate Shorts */}
