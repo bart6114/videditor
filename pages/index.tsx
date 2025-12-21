@@ -104,8 +104,8 @@ export default function Home() {
           <Image
             src="/monkey-rec.jpeg"
             alt="Monkey mascot"
-            width={400}
-            height={400}
+            width={300}
+            height={300}
             className="object-contain"
             style={{ height: 'auto' }}
             priority
