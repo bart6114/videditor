@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@server/db';
 import { failure, success } from '@/lib/api/responses';
-import { getInviteByCode } from '@server/db/queries/organizations';
+import { getInviteByCode, getOrganizationMemberCount } from '@server/db/queries/organizations';
 
 /**
  * Public endpoint to preview an invite (no auth required)
@@ -30,12 +30,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 410, 'Invite has expired');
   }
 
+  // Get member count for the organization
+  const memberCount = await getOrganizationMemberCount(db, organization.id);
+
   // Return public info only
   return success(res, {
     invite: {
       code: invite.code,
       expiresAt: invite.expiresAt,
       organizationName: organization.name,
+      organizationSlug: organization.slug,
+      memberCount,
     },
   });
 }

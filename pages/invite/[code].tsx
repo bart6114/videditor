@@ -4,6 +4,7 @@ import { useAuth, SignIn } from '@clerk/nextjs';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Users, Check, X, AlertCircle } from 'lucide-react';
+import { useOrganizationSafe } from '@/contexts/OrganizationContext';
 
 interface InvitePreview {
   organizationName: string;
@@ -16,6 +17,7 @@ export default function InviteAcceptPage() {
   const router = useRouter();
   const { code } = router.query;
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  const orgContext = useOrganizationSafe();
 
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
@@ -34,7 +36,7 @@ export default function InviteAcceptPage() {
           throw new Error(data.error || 'Invalid or expired invite');
         }
         const data = await response.json();
-        setInvite(data.invite);
+        setInvite(data.data.invite);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load invite');
       } finally {
@@ -63,6 +65,11 @@ export default function InviteAcceptPage() {
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to accept invite');
+      }
+
+      // Refresh the organization list so the new org appears immediately
+      if (orgContext) {
+        await orgContext.refreshOrganizations();
       }
 
       setSuccess(true);
