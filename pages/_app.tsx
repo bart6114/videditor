@@ -8,7 +8,6 @@ import posthog from 'posthog-js'
 import { Toaster } from 'sonner'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
 import { OnboardingProvider } from '@/contexts/OnboardingContext'
-import { BetaBanner } from '@/components/BetaBanner'
 import { OnboardingTour, DevOnboardingTools } from '@/components/onboarding'
 
 const CrispWithNoSSR = dynamic(() => import('@/components/crisp'), {
@@ -48,7 +47,6 @@ function AppContent({ Component, pageProps }: AppProps) {
     <OrganizationProvider>
       <OnboardingProvider>
         <div className={`${manrope.variable} ${jetbrainsMono.variable} font-mono`}>
-          <BetaBanner />
           <Component {...pageProps} />
           <OnboardingTour />
           <DevOnboardingTools />
