@@ -149,9 +149,19 @@ export function OnboardingTour() {
         border-color: hsl(var(--card));
       }
 
+      .driver-overlay {
+        z-index: 10000 !important;
+      }
+
       .driver-active-element {
         outline: 3px solid hsl(var(--primary)) !important;
-        outline-offset: -3px;
+        outline-offset: 4px;
+        position: relative !important;
+        z-index: 10001 !important;
+      }
+
+      .driver-popover {
+        z-index: 10002 !important;
       }
     `;
     document.head.appendChild(style);

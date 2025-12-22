@@ -11,11 +11,11 @@ export const PROJECTS_OVERVIEW_STEPS: DriveStep[] = [
     },
   },
   {
-    element: '[data-tour="video-upload"]',
+    element: '[data-tour="new-project-button"]',
     popover: {
-      title: 'Upload Your Video',
+      title: 'Create a Project',
       description:
-        'Start by uploading a video. We support MP4 and MOV files up to 2GB. Once uploaded, we will automatically transcribe it.',
+        'Click here to create a new project. Projects help you organize your content. Once created, you can upload videos and generate shorts.',
       side: 'bottom',
       align: 'center',
     },
@@ -52,7 +52,7 @@ export const PROJECTS_OVERVIEW_STEPS: DriveStep[] = [
 ];
 
 export const PROJECTS_OVERVIEW_TARGETS = {
-  VIDEO_UPLOAD: 'video-upload',
+  NEW_PROJECT_BUTTON: 'new-project-button',
   SIDEBAR: 'sidebar',
   PROJECTS_LIST: 'projects-list',
 } as const;

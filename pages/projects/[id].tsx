@@ -788,7 +788,7 @@ export default function ProjectDetail() {
         <div className="space-y-6">
           {/* Header with Upload Button */}
           <div className="flex items-center justify-end">
-            <Button onClick={() => setUploadModalOpen(true)}>
+            <Button onClick={() => setUploadModalOpen(true)} data-tour="upload-asset-button">
               <Upload className="w-4 h-4 mr-2" />
               Upload Asset
             </Button>

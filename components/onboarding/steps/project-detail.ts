@@ -3,80 +3,43 @@ import type { DriveStep } from 'driver.js';
 export const PROJECT_DETAIL_STEPS: DriveStep[] = [
   {
     popover: {
-      title: 'Welcome to Your Project',
+      title: 'Welcome to Your Project!',
       description:
-        "This is where the magic happens. Let's walk through how to generate shorts from your video.",
+        "This is your workspace for creating short-form content. Let's get started.",
       side: 'over',
       align: 'center',
     },
   },
   {
-    element: '[data-tour="video-player"]',
+    element: '[data-tour="upload-asset-button"]',
     popover: {
-      title: 'Video Preview',
+      title: 'Upload a Video',
       description:
-        'Watch your uploaded video here. Click anywhere on the thumbnail to start playback.',
+        'Start by uploading a long-form video. We support MP4 and MOV files up to 2GB.',
       side: 'bottom',
       align: 'center',
     },
   },
   {
-    element: '[data-tour="transcription-status"]',
     popover: {
-      title: 'Transcription',
+      title: 'What Happens Next',
       description:
-        'Once your video is transcribed, click here to view and search through the full transcript.',
-      side: 'left',
-      align: 'start',
-    },
-  },
-  {
-    element: '[data-tour="generate-shorts"]',
-    popover: {
-      title: 'Generate Shorts',
-      description:
-        'Configure how many shorts you want, their length, and any custom instructions. Then click "Generate" to let AI find the best moments.',
-      side: 'left',
-      align: 'start',
-    },
-  },
-  {
-    element: '[data-tour="social-platforms"]',
-    popover: {
-      title: 'Social Platforms',
-      description:
-        'Select which platforms you want to publish to. We\'ll generate optimized titles and captions for each one.',
-      side: 'top',
+        "After upload, we'll automatically transcribe your video. Then you can use AI to find the best moments and generate engaging shorts for social media.",
+      side: 'over',
       align: 'center',
     },
   },
   {
-    element: '[data-tour="shorts-table"]',
     popover: {
-      title: 'Your Generated Shorts',
+      title: "You're Ready!",
       description:
-        'All your shorts appear here. Click any row to preview, download, or edit the social content.',
-      side: 'top',
-      align: 'center',
-    },
-  },
-  {
-    element: '[data-tour="schedule-button"]',
-    popover: {
-      title: 'Schedule & Publish',
-      description:
-        'Select shorts and schedule them to publish directly to YouTube. You can set dates and times for each one.',
-      side: 'bottom',
+        'Click "Upload Asset" to add your first video and start creating shorts.',
+      side: 'over',
       align: 'center',
     },
   },
 ];
 
 export const PROJECT_DETAIL_TARGETS = {
-  VIDEO_PLAYER: 'video-player',
-  TRANSCRIPTION_STATUS: 'transcription-status',
-  GENERATE_SHORTS: 'generate-shorts',
-  SOCIAL_PLATFORMS: 'social-platforms',
-  SHORTS_TABLE: 'shorts-table',
-  SCHEDULE_BUTTON: 'schedule-button',
+  UPLOAD_ASSET_BUTTON: 'upload-asset-button',
 } as const;
