@@ -288,20 +288,20 @@ function TimelineWithHandles({
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState<'start' | 'end' | null>(null)
 
-  // Convert mouse position to time
-  const mouseToTime = useCallback((clientX: number) => {
+  // Convert client position to time
+  const clientToTime = useCallback((clientX: number) => {
     if (!containerRef.current || totalDuration === 0) return 0
     const rect = containerRef.current.getBoundingClientRect()
     const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
     return percent * totalDuration
   }, [totalDuration])
 
-  // Handle mouse events for dragging
+  // Handle mouse and touch events for dragging
   useEffect(() => {
     if (!dragging) return
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const time = mouseToTime(e.clientX)
+    const handleMove = (clientX: number) => {
+      const time = clientToTime(clientX)
       if (dragging === 'start') {
         // Don't let start go past end - 1 second
         const newStart = Math.min(time, trimEnd - 1)
@@ -313,17 +313,25 @@ function TimelineWithHandles({
       }
     }
 
-    const handleMouseUp = () => {
-      setDragging(null)
+    const handleMouseMove = (e: MouseEvent) => handleMove(e.clientX)
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault() // Prevent scrolling while dragging
+      if (e.touches[0]) handleMove(e.touches[0].clientX)
     }
 
+    const handleEnd = () => setDragging(null)
+
     document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('mouseup', handleEnd)
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+    document.addEventListener('touchend', handleEnd)
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mouseup', handleEnd)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleEnd)
     }
-  }, [dragging, trimStart, trimEnd, totalDuration, mouseToTime, onTrimChange])
+  }, [dragging, trimStart, trimEnd, totalDuration, clientToTime, onTrimChange])
 
   if (totalDuration === 0) return <div className="h-6 bg-muted rounded-full" />
 
@@ -378,9 +386,13 @@ function TimelineWithHandles({
 
       {/* Start handle */}
       <div
-        className="absolute -top-1 -bottom-1 w-4 cursor-ew-resize group"
+        className="absolute -top-1 -bottom-1 w-4 cursor-ew-resize group touch-none"
         style={{ left: `calc(${startPercent}% - 8px)` }}
         onMouseDown={(e) => {
+          e.preventDefault()
+          setDragging('start')
+        }}
+        onTouchStart={(e) => {
           e.preventDefault()
           setDragging('start')
         }}
@@ -394,9 +406,13 @@ function TimelineWithHandles({
 
       {/* End handle */}
       <div
-        className="absolute -top-1 -bottom-1 w-4 cursor-ew-resize group"
+        className="absolute -top-1 -bottom-1 w-4 cursor-ew-resize group touch-none"
         style={{ left: `calc(${endPercent}% - 8px)` }}
         onMouseDown={(e) => {
+          e.preventDefault()
+          setDragging('end')
+        }}
+        onTouchStart={(e) => {
           e.preventDefault()
           setDragging('end')
         }}

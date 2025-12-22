@@ -109,8 +109,8 @@ export function LongFormAssetCard({
                 <Video className="w-6 h-6 text-primary/50" />
               </div>
             )}
-            {/* Play overlay */}
-            <div className="absolute inset-0 flex items-center justify-center bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Play overlay - visible on mobile, hover on desktop */}
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
               <div className="w-8 h-8 cyber-clip-sm bg-primary flex items-center justify-center">
                 <Play className="w-4 h-4 text-primary-foreground fill-primary-foreground ml-0.5" />
               </div>
@@ -144,12 +144,12 @@ export function LongFormAssetCard({
             )}
           </div>
 
-          {/* Delete button */}
+          {/* Delete button - visible on mobile, hover on desktop */}
           {onDelete && (
             <Button
               size="sm"
               variant="ghost"
-              className="absolute bottom-0 right-0 opacity-0 group-hover/card:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 p-2"
+              className="absolute bottom-0 right-0 opacity-100 md:opacity-0 md:group-hover/card:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 p-2"
               onClick={(e) => {
                 e.stopPropagation()
                 onDelete()

@@ -583,8 +583,8 @@ export default function CalendarPage() {
               </p>
             </div>
 
-            {/* View Switcher */}
-            <div className="flex items-center cyber-clip border-2 border-border bg-card p-1">
+            {/* View Switcher - hidden on mobile (day view only) */}
+            <div className="hidden md:flex items-center cyber-clip border-2 border-border bg-card p-1">
               <button
                 onClick={() => switchView('month')}
                 className={cn(
@@ -595,7 +595,7 @@ export default function CalendarPage() {
                 )}
               >
                 <LayoutGrid className="w-4 h-4" />
-                <span className="hidden sm:inline">MONTH</span>
+                <span>MONTH</span>
               </button>
               <button
                 onClick={() => switchView('week')}
@@ -607,7 +607,7 @@ export default function CalendarPage() {
                 )}
               >
                 <Calendar className="w-4 h-4" />
-                <span className="hidden sm:inline">WEEK</span>
+                <span>WEEK</span>
               </button>
               <button
                 onClick={() => switchView('day')}
@@ -619,7 +619,7 @@ export default function CalendarPage() {
                 )}
               >
                 <List className="w-4 h-4" />
-                <span className="hidden sm:inline">DAY</span>
+                <span>DAY</span>
               </button>
             </div>
           </div>
@@ -737,9 +737,127 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* Day View - Timeline */}
+        {/* Mobile Day View - Shows on mobile regardless of selected view */}
+        <div className="md:hidden">
+          {(() => {
+            // On mobile, always show day view using currentDate or selectedDay
+            const mobileDay = selectedDay || currentDate
+            const dayPosts = postsByDate[mobileDay.toDateString()] || []
+
+            return (
+              <Card className="cyber-clip border-2">
+                <CardContent className="pt-4 pb-4">
+                  {/* Mobile date display */}
+                  <div className="text-center mb-4">
+                    <div className="text-sm text-muted-foreground">
+                      {mobileDay.toLocaleDateString('default', { weekday: 'long' })}
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {mobileDay.toLocaleDateString('default', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+
+                  {/* Posts list (agenda style) */}
+                  {dayPosts.length > 0 ? (
+                    <div className="space-y-3">
+                      {dayPosts.map((post) => (
+                        <div
+                          key={post.id}
+                          className={cn(
+                            "flex items-center gap-3 p-3 cyber-clip-sm border",
+                            STATUS_COLORS[post.status] || STATUS_COLORS.scheduled
+                          )}
+                        >
+                          {/* Thumbnail */}
+                          <div className="w-14 h-10 cyber-clip-sm overflow-hidden bg-muted shrink-0">
+                            {post.short.thumbnailUrl ? (
+                              <Image
+                                src={post.short.thumbnailUrl}
+                                alt={post.title}
+                                width={56}
+                                height={40}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <PlatformIcon platform={post.socialAccount.platform} size={20} />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <PlatformIcon platform={post.socialAccount.platform} size={14} />
+                              <span className="font-mono text-sm">{formatTime(post.scheduledFor)}</span>
+                              {STATUS_ICONS[post.status]}
+                            </div>
+                            <Link
+                              href={`/projects/${post.project.id}?shortId=${post.short.id}`}
+                              className="block truncate text-sm hover:underline"
+                            >
+                              {post.title}
+                            </Link>
+                          </div>
+
+                          {/* Actions - always visible on mobile */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {post.status === 'scheduled' && (
+                              <>
+                                <button
+                                  onClick={() => openEditModal(post)}
+                                  className="p-2 hover:bg-muted cyber-clip-sm min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                  title="Edit"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteClick(post)}
+                                  disabled={deleting === post.id}
+                                  className="p-2 hover:bg-muted hover:text-red-500 cyber-clip-sm min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                  title="Delete"
+                                >
+                                  {deleting === post.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </>
+                            )}
+                            {post.status === 'published' && post.platformUrl && (
+                              <a
+                                href={post.platformUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 hover:bg-muted cyber-clip-sm min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                title="View on platform"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <CalendarDays className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+                      <h3 className="text-base font-medium mb-1">No posts scheduled</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Nothing scheduled for this day.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })()}
+        </div>
+
+        {/* Day View - Timeline (desktop only) */}
         {currentView === 'day' && selectedDay && (
-          <Card className="cyber-clip border-2">
+          <Card className="hidden md:block cyber-clip border-2">
             <CardContent className="pt-6">
               {(() => {
                 const dayPosts = postsByDate[selectedDay.toDateString()] || []
@@ -889,9 +1007,9 @@ export default function CalendarPage() {
           </Card>
         )}
 
-        {/* Week View */}
+        {/* Week View - desktop only */}
         {currentView === 'week' && (
-          <Card className="cyber-clip border-2">
+          <Card className="hidden md:block cyber-clip border-2">
             <CardContent className="pt-6">
               {/* Week view - horizontal scroll on mobile */}
               <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
@@ -979,9 +1097,9 @@ export default function CalendarPage() {
           </Card>
         )}
 
-        {/* Month View Calendar */}
+        {/* Month View Calendar - desktop only */}
         {currentView === 'month' && (
-          <Card className="cyber-clip border-2">
+          <Card className="hidden md:block cyber-clip border-2">
             <CardContent className="pt-6">
               {/* Day headers */}
               <div className="grid grid-cols-7 gap-1 mb-2">

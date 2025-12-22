@@ -81,7 +81,7 @@ export default function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) 
         {/* Drawer Content */}
         <DialogPrimitive.Content
           className={cn(
-            'fixed inset-y-0 left-0 z-50 h-full w-[280px] bg-card border-r-2 border-border circuit-grid',
+            'fixed inset-y-0 left-0 z-50 h-full w-[min(280px,85vw)] bg-card border-r-2 border-border circuit-grid',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
             'duration-300 ease-in-out'

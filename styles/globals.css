@@ -74,7 +74,7 @@
     @apply border-border;
   }
   html {
-    font-size: 14px;
+    font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background-color: hsl(var(--background));
@@ -94,6 +94,42 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* ============================================
+     SAFE AREA INSETS (iOS notch, home indicator)
+     ============================================ */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .safe-area-inset {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Dynamic viewport height (accounts for mobile browser UI) */
+  @supports (height: 100dvh) {
+    .min-h-screen-safe {
+      min-height: 100dvh;
+    }
+    .h-screen-safe {
+      height: 100dvh;
+    }
   }
 
   /* ============================================
