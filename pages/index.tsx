@@ -1,8 +1,9 @@
 import Head from 'next/head'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useState } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Sparkles, Upload, Download, ArrowRight, Calendar } from 'lucide-react'
+import { Sparkles, Upload, Download, ArrowRight, Calendar, Menu, X } from 'lucide-react'
 import { SiYoutube, SiInstagram, SiTiktok } from '@icons-pack/react-simple-icons'
 import { Button } from '@/components/ui/button'
 import { MonkeyLogo } from '@/components/MonkeyLogo'
@@ -10,6 +11,7 @@ import { AppPreviewMockup } from '@/components/AppPreviewMockup'
 
 export default function Home() {
   const { isSignedIn } = useUser()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
     <>
@@ -117,7 +119,9 @@ export default function Home() {
           <Link href="/" className="text-xl font-display uppercase tracking-widest text-primary hover:text-primary/80 transition-colors text-glow-hover">
             VidEditor.ai
           </Link>
-          <div className="flex items-center gap-3">
+
+          {/* Desktop navigation */}
+          <div className="hidden md:flex items-center gap-3">
             <Button asChild variant="ghost">
               <Link href="/roadmap">Roadmap</Link>
             </Button>
@@ -139,7 +143,44 @@ export default function Home() {
               </>
             )}
           </div>
+
+          {/* Mobile hamburger button */}
+          <button
+            className="md:hidden p-2 text-foreground hover:text-primary transition-colors"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </nav>
+
+        {/* Mobile menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden relative z-50 border-b border-border bg-background/95 backdrop-blur-sm">
+            <div className="container mx-auto px-4 py-4 flex flex-col gap-2">
+              <Button asChild variant="ghost" className="justify-start" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/roadmap">Roadmap</Link>
+              </Button>
+              <Button asChild variant="ghost" className="justify-start" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/pricing">Pricing</Link>
+              </Button>
+              {isSignedIn ? (
+                <Button asChild onClick={() => setMobileMenuOpen(false)}>
+                  <Link href="/projects">Dashboard</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild variant="ghost" className="justify-start" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/sign-in">Login</Link>
+                  </Button>
+                  <Button asChild onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/sign-up">Sign Up</Link>
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Hero Section */}
         <div className="relative container mx-auto px-4 py-32 md:py-40 text-center">
