@@ -36,8 +36,8 @@
   },
   {
     "topic": "Instagram Reels integration",
-    "description": "Currently in beta testing behind a feature flag. Available for select users.",
-    "priority": "beta"
+    "description": "Publish Instagram Reels directly from VidEditor. Fully integrated and available to all users.",
+    "priority": "delivered"
   },
   {
     "topic": "YouTube integration",
