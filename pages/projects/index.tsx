@@ -82,10 +82,12 @@ export default function Projects() {
     }
   }, [call])
 
-  // Initial load
+  // Initial load - only when fully authenticated
   useEffect(() => {
-    loadProjects()
-  }, [loadProjects])
+    if (isLoaded && isSignedIn) {
+      loadProjects()
+    }
+  }, [loadProjects, isLoaded, isSignedIn])
 
 
   async function handleDeleteProject() {
