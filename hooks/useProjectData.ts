@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApi } from '@/lib/api/client'
-import { extractTranscriptionJob, extractActiveAnalysisJob, type ApiJob, type TranscriptionJob, type AnalysisJob } from '@/lib/jobs/parsing'
+import { extractTranscriptionJob, extractActiveAnalysisJob, extractActiveProcessingJob, type ApiJob, type TranscriptionJob, type AnalysisJob, type ProcessingJob } from '@/lib/jobs/parsing'
 import type { Project, Short, Transcription } from '@server/db/schema'
 import type { MediaAsset } from '@/types/projects'
 
@@ -32,6 +32,7 @@ type ProjectDataState = {
 type JobState = {
   activeJob: AnalysisJob | null
   transcriptionJob: TranscriptionJob | null
+  processingJob: ProcessingJob | null
   lastAnalysisJobId: string | null
   isGeneratingShorts: boolean
 }
@@ -41,6 +42,7 @@ type UseProjectDataReturn = ProjectDataState & JobState & {
   setLastAnalysisJobId: (value: string | null) => void
   setActiveJob: (value: AnalysisJob | null) => void
   setTranscriptionJob: (value: TranscriptionJob | null) => void
+  setProcessingJob: (value: ProcessingJob | null) => void
   refresh: () => Promise<void>
   updateShorts: (shorts: Short[]) => void
 }
@@ -87,6 +89,7 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
   const [jobState, setJobState] = useState<JobState>({
     activeJob: null,
     transcriptionJob: null,
+    processingJob: null,
     lastAnalysisJobId: null,
     isGeneratingShorts: false,
   })
@@ -105,6 +108,10 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
 
   const setTranscriptionJob = useCallback((value: TranscriptionJob | null) => {
     setJobState((prev) => ({ ...prev, transcriptionJob: value }))
+  }, [])
+
+  const setProcessingJob = useCallback((value: ProcessingJob | null) => {
+    setJobState((prev) => ({ ...prev, processingJob: value }))
   }, [])
 
   const updateShorts = useCallback((shorts: Short[]) => {
@@ -159,6 +166,9 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
       const latestTranscriptionJob = extractTranscriptionJob(jobsData.jobs)
       setTranscriptionJob(latestTranscriptionJob)
 
+      const activeProcessingJob = extractActiveProcessingJob(jobsData.jobs)
+      setProcessingJob(activeProcessingJob)
+
       const activeAnalysisJob = extractActiveAnalysisJob(jobsData.jobs)
       if (activeAnalysisJob) {
         setActiveJob(activeAnalysisJob)
@@ -210,7 +220,7 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
         }))
       }
     }
-  }, [projectId, call, setTranscriptionJob, setActiveJob, setLastAnalysisJobId, setIsGeneratingShorts])
+  }, [projectId, call, setTranscriptionJob, setProcessingJob, setActiveJob, setLastAnalysisJobId, setIsGeneratingShorts])
 
   // Initial load
   useEffect(() => {
@@ -225,15 +235,18 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
 
   // Polling when there's active work
   useEffect(() => {
-    const { transcriptionJob, isGeneratingShorts, lastAnalysisJobId } = jobState
-    const { shorts } = state
+    const { transcriptionJob, processingJob, isGeneratingShorts } = jobState
+    const { shorts, transcription } = state
 
     // Determine if we should poll
-    const isTranscribing = transcriptionJob?.status === 'queued' || transcriptionJob?.status === 'running'
+    const hasActiveProcessing = processingJob?.status === 'queued' || processingJob?.status === 'running'
     const hasPendingShorts = shorts.some(
       (s) => s.status === 'uploading' || s.status === 'ready' || s.status === 'processing'
     )
-    const shouldPoll = isGeneratingShorts || hasPendingShorts || isTranscribing
+    // Keep polling if transcription job succeeded but transcription data not yet available
+    const transcriptionJobDone = transcriptionJob?.status === 'succeeded'
+    const waitingForTranscription = transcriptionJobDone && !transcription
+    const shouldPoll = isGeneratingShorts || hasPendingShorts || hasActiveProcessing || waitingForTranscription
 
     if (!shouldPoll || !projectId) return
 
@@ -283,6 +296,9 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
           setTranscriptionJob(latestTranscriptionJob)
         }
 
+        const activeProcessingJob = extractActiveProcessingJob(jobsData.jobs)
+        setProcessingJob(activeProcessingJob)
+
         const analysisJob = extractActiveAnalysisJob(jobsData.jobs)
         setActiveJob(analysisJob)
 
@@ -306,10 +322,12 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
     projectId,
     call,
     jobState.isGeneratingShorts,
-    jobState.lastAnalysisJobId,
     jobState.transcriptionJob,
+    jobState.processingJob,
     state.shorts,
+    state.transcription,
     setTranscriptionJob,
+    setProcessingJob,
     setActiveJob,
     setIsGeneratingShorts,
     setLastAnalysisJobId,
@@ -322,6 +340,7 @@ export function useProjectData(projectId: string | undefined): UseProjectDataRet
     setLastAnalysisJobId,
     setActiveJob,
     setTranscriptionJob,
+    setProcessingJob,
     refresh: loadProjectData,
     updateShorts,
   }

@@ -807,6 +807,7 @@ export default function ProjectDetail() {
                     <LongFormAssetCard
                       key={asset.id}
                       asset={asset}
+                      processingJob={projectData.processingJob}
                       isSelected={selectedAssetId === asset.id}
                       onSelect={() => setSelectedAssetId(selectedAssetId === asset.id ? null : asset.id)}
                       onPlayVideo={() => setPlayingAsset(asset)}
@@ -825,6 +826,7 @@ export default function ProjectDetail() {
                   onClose={() => setSelectedAssetId(null)}
                   transcription={selectedAssetTranscription}
                   transcriptionJob={transcriptionJob}
+                  processingJob={projectData.processingJob}
                   isRetryingTranscription={retryingTranscription}
                   onOpenTranscriptionPanel={() => setTranscriptionPanelOpen(true)}
                   onRetryTranscription={() => selectedAsset && handleRetryTranscriptionForAsset(selectedAsset)}

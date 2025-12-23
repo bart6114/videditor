@@ -12,8 +12,14 @@ import {
 } from 'lucide-react'
 import type { MediaAsset } from '@/types/projects'
 
+interface ProcessingJob {
+  type: string
+  status: string
+}
+
 interface LongFormAssetCardProps {
   asset: MediaAsset
+  processingJob?: ProcessingJob | null
   isSelected: boolean
   onSelect: () => void
   onPlayVideo: () => void
@@ -31,7 +37,17 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, '0')}`
 }
 
-function getStatusBadge(status: MediaAsset['status']) {
+function getStatusBadge(status: MediaAsset['status'], processingJob?: ProcessingJob | null) {
+  // If there's an active processing job, show "Processing" regardless of asset status
+  if (processingJob && ['queued', 'running'].includes(processingJob.status)) {
+    return (
+      <Badge variant="secondary" className="text-xs">
+        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+        Processing
+      </Badge>
+    )
+  }
+
   switch (status) {
     case 'uploading':
       return (
@@ -72,6 +88,7 @@ function getStatusBadge(status: MediaAsset['status']) {
 
 export function LongFormAssetCard({
   asset,
+  processingJob,
   isSelected,
   onSelect,
   onPlayVideo,
@@ -133,7 +150,7 @@ export function LongFormAssetCard({
                   )}
                 </div>
               </div>
-              {getStatusBadge(asset.status)}
+              {getStatusBadge(asset.status, processingJob)}
             </div>
 
             {/* Error message */}

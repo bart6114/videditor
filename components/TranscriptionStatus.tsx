@@ -6,6 +6,7 @@ import {
   AlertCircle,
   RefreshCw,
   ChevronRight,
+  Image,
 } from 'lucide-react'
 import type { Transcription } from '@server/db/schema'
 
@@ -19,9 +20,21 @@ interface TranscriptionJob {
   errorMessage?: string | null
 }
 
+interface ProcessingJob {
+  type: 'thumbnail' | 'transcription'
+  status: string
+  progress?: {
+    phase?: string
+    current?: number
+    total?: number
+  }
+  errorMessage?: string | null
+}
+
 interface TranscriptionStatusProps {
   transcription: Transcription | null
   transcriptionJob: TranscriptionJob | null
+  processingJob?: ProcessingJob | null
   isRetrying: boolean
   onOpenPanel: () => void
   onRetry: () => void
@@ -32,20 +45,46 @@ interface TranscriptionStatusProps {
 export function TranscriptionStatus({
   transcription,
   transcriptionJob,
+  processingJob,
   isRetrying,
   onOpenPanel,
   onRetry,
   compact = false,
   showRetranscribe = false,
 }: TranscriptionStatusProps) {
-  // Check for active processing FIRST (retrying or queued/running job)
-  // This must come before the transcription check so re-transcribe shows progress
-  const isProcessing = isRetrying || (transcriptionJob && ['queued', 'running'].includes(transcriptionJob.status))
+  // Check for thumbnail processing FIRST (before transcription starts)
+  const isThumbnailProcessing = processingJob?.type === 'thumbnail' && ['queued', 'running'].includes(processingJob.status)
 
-  // Processing state - job is running (takes priority over existing transcription)
+  // Check for transcription processing (retrying or queued/running job)
+  const isTranscribing = isRetrying || (transcriptionJob && ['queued', 'running'].includes(transcriptionJob.status))
+
+  // Also check processingJob if it's a transcription type
+  const isTranscribingFromProcessingJob = processingJob?.type === 'transcription' && ['queued', 'running'].includes(processingJob.status)
+  const isProcessing = isTranscribing || isTranscribingFromProcessingJob
+
+  // Thumbnail generation state - show before transcription starts
+  if (isThumbnailProcessing) {
+    return (
+      <div className="flex items-center gap-3 p-3 cyber-clip-sm border-2 border-primary/30 bg-primary/5">
+        <div className="w-8 h-8 cyber-clip-sm bg-primary/15 flex items-center justify-center flex-shrink-0">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-mono uppercase tracking-wider text-foreground">
+            {'>'} Generating thumbnail...
+          </p>
+          <p className="text-xs text-muted-foreground font-mono truncate">
+            {'>'} Extracting frame from video
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Transcription processing state - job is running (takes priority over existing transcription)
   if (isProcessing) {
-    const progress = transcriptionJob?.progress
-    const isQueued = isRetrying || transcriptionJob?.status === 'queued'
+    const progress = transcriptionJob?.progress || processingJob?.progress
+    const isQueued = isRetrying || transcriptionJob?.status === 'queued' || processingJob?.status === 'queued'
     const hasProgress = progress?.phase === 'transcribing' && typeof progress.current === 'number' && typeof progress.total === 'number' && progress.total > 0
 
     return (
@@ -66,7 +105,7 @@ export function TranscriptionStatus({
             {isQueued
               ? '> Waiting in queue...'
               : hasProgress && progress.total! > 1
-                ? `> Processing ${progress.current}/${progress.total} segments`
+                ? `> Processing segment ${progress.current}/${progress.total}`
                 : '> Processing audio'}
           </p>
         </div>

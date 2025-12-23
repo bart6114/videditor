@@ -34,6 +34,14 @@ export type AnalysisJob = {
   }
 }
 
+export type ProcessingJob = {
+  id: string
+  type: 'thumbnail' | 'transcription'
+  status: string
+  errorMessage?: string | null
+  progress?: JobProgress
+}
+
 /**
  * Extract the most recent transcription job from a list of jobs.
  * Sorts by createdAt descending to find the latest.
@@ -74,4 +82,43 @@ export function extractActiveAnalysisJob(jobs: ApiJob[]): AnalysisJob | null {
         ? (job.progress as AnalysisJob['progress'])
         : undefined,
   }
+}
+
+/**
+ * Extract the currently active processing job (thumbnail or transcription).
+ * Priority: running jobs first, then queued jobs.
+ * Returns null if no processing job is in progress.
+ */
+export function extractActiveProcessingJob(jobs: ApiJob[]): ProcessingJob | null {
+  const processingTypes = ['thumbnail', 'transcription']
+
+  // First, look for a running job (actively processing)
+  const runningJob = jobs.find(
+    (j) => processingTypes.includes(j.type) && j.status === 'running'
+  )
+  if (runningJob) {
+    return {
+      id: runningJob.id,
+      type: runningJob.type as 'thumbnail' | 'transcription',
+      status: runningJob.status,
+      errorMessage: runningJob.errorMessage,
+      progress: runningJob.progress,
+    }
+  }
+
+  // Then, look for a queued job (waiting to process)
+  const queuedJob = jobs.find(
+    (j) => processingTypes.includes(j.type) && j.status === 'queued'
+  )
+  if (queuedJob) {
+    return {
+      id: queuedJob.id,
+      type: queuedJob.type as 'thumbnail' | 'transcription',
+      status: queuedJob.status,
+      errorMessage: queuedJob.errorMessage,
+      progress: queuedJob.progress,
+    }
+  }
+
+  return null
 }

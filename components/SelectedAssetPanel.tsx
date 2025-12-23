@@ -22,6 +22,17 @@ interface TranscriptionJob {
   errorMessage?: string | null
 }
 
+interface ProcessingJob {
+  type: 'thumbnail' | 'transcription'
+  status: string
+  progress?: {
+    phase?: string
+    current?: number
+    total?: number
+  }
+  errorMessage?: string | null
+}
+
 type AnalysisJob = {
   id: string
   status: string
@@ -39,6 +50,7 @@ interface SelectedAssetPanelProps {
   // Transcription props
   transcription: Transcription | null
   transcriptionJob: TranscriptionJob | null
+  processingJob?: ProcessingJob | null
   isRetryingTranscription: boolean
   onOpenTranscriptionPanel: () => void
   onRetryTranscription: () => void
@@ -65,6 +77,7 @@ export function SelectedAssetPanel({
   onClose,
   transcription,
   transcriptionJob,
+  processingJob,
   isRetryingTranscription,
   onOpenTranscriptionPanel,
   onRetryTranscription,
@@ -151,6 +164,7 @@ export function SelectedAssetPanel({
               <TranscriptionStatus
                 transcription={transcription}
                 transcriptionJob={transcriptionJob}
+                processingJob={processingJob}
                 isRetrying={isRetryingTranscription}
                 onOpenPanel={onOpenTranscriptionPanel}
                 onRetry={onRetryTranscription}
