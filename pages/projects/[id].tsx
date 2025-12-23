@@ -52,7 +52,7 @@ import {
 } from 'lucide-react'
 import type { MediaAsset } from '@/types/projects'
 import type { Project, Short, Transcription } from '@server/db/schema'
-import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortTasks, type ShortFormMetadata } from '@shared/index'
+import { SOCIAL_PLATFORMS, type SocialPlatform, type ShortFormMetadata } from '@shared/index'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { useProjectData } from '@/hooks/useProjectData'
 import { formatTimeAgoShort } from '@/lib/utils'
@@ -110,7 +110,7 @@ type ScheduledPost = {
 }
 
 function renderShortStatusBadge(
-  short: Short & { tasks?: ShortTasks },
+  short: Short,
   scheduledPosts?: ScheduledPost[]
 ): React.ReactNode {
   // QUEUED (uploading or ready for processing)
@@ -125,23 +125,31 @@ function renderShortStatusBadge(
 
   // PROCESSING - show granular task status
   if (short.status === 'processing') {
-    let label = 'Processing'
+    const tasks = getShortMeta(short)?.tasks
+    let stepLabel: string | null = null
 
-    if (short.tasks) {
-      if (short.tasks.clip_extraction === 'processing') {
-        label = 'Extracting clip...'
-      } else if (short.tasks.thumbnail_extraction === 'processing') {
-        label = 'Generating thumbnail...'
-      } else if (short.tasks.social_content === 'processing') {
-        label = 'Generating social content...'
+    if (tasks) {
+      if (tasks.clip_extraction === 'processing') {
+        stepLabel = 'Extracting clip'
+      } else if (tasks.thumbnail_extraction === 'processing') {
+        stepLabel = 'Generating thumbnail'
+      } else if (tasks.social_content === 'processing') {
+        stepLabel = 'Generating captions'
       }
     }
 
     return (
-      <Badge variant="secondary" className="text-xs">
-        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-        {label}
-      </Badge>
+      <div className="flex flex-col gap-0.5">
+        <Badge variant="secondary" className="text-xs w-fit">
+          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+          Processing
+        </Badge>
+        {stepLabel && (
+          <span className="text-[10px] text-muted-foreground leading-tight">
+            {stepLabel}
+          </span>
+        )}
+      </div>
     )
   }
 
@@ -1085,7 +1093,7 @@ export default function ProjectDetail() {
                           {/* Status */}
                           <td className="py-3 pr-4">
                             {renderShortStatusBadge(
-                              short as Short & { tasks?: ShortTasks },
+                              short,
                               scheduledPostsByShort[short.id]
                             )}
                           </td>
