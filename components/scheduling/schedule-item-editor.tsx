@@ -103,10 +103,20 @@ export function ScheduleItemEditor({
   const hasErrors = !validation.valid
   const contentPreview = getContentPreview(item.content, item.platforms)
 
-  // Handle datetime change
+  // Handle datetime change - explicitly parse as local time to avoid timezone shifts
   const handleDateTimeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newDate = new Date(e.target.value)
+      const value = e.target.value // Format: "2025-04-01T10:00"
+      if (!value) return
+
+      const [dateStr, timeStr] = value.split('T')
+      if (!dateStr || !timeStr) return
+
+      const [year, month, day] = dateStr.split('-').map(Number)
+      const [hours, minutes] = timeStr.split(':').map(Number)
+
+      // Construct Date explicitly in local timezone
+      const newDate = new Date(year, month - 1, day, hours, minutes)
       if (!isNaN(newDate.getTime())) {
         onScheduleChange(newDate)
       }

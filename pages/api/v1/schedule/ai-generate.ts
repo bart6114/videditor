@@ -104,7 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return failure(res, 500, 'OpenRouter API key not configured');
   }
 
-  const model = process.env.OPENROUTER_SOCIAL_MODEL || 'openai/gpt-5-mini';
+  const model = process.env.OPENROUTER_SCHEDULE_MODEL || 'google/gemini-3-flash-preview';
 
   // Build time context for the AI (local time only, no UTC)
   const now = new Date();
@@ -158,7 +158,13 @@ Generate a schedule that assigns each short to a specific date and time based on
 - If the user says "evenings", schedule between 6pm-10pm in their timezone
 - Space out posts reasonably (at least 1 hour apart on the same day by default)
 - Keep the original order of shorts unless the user specifies otherwise
-- If no specific time preference given, default to 9am, 12pm, 3pm, 6pm slots`;
+- If no specific time preference given, default to 9am, 12pm, 3pm, 6pm slots
+
+## CRITICAL: End Date / Deadline Constraints
+- If the user specifies a maximum date, end date, or deadline (e.g., "max until Friday", "until January 4th", "don't schedule after Dec 20", "only this week", "before the 5th"), ALL scheduled times MUST be on or before that date
+- Never schedule anything past the user's specified end date, even if you run out of time slots
+- If there are too many shorts to fit before the deadline, schedule only what fits and leave the rest unscheduled (omit from the response)
+- Common end date phrases: "max until", "until", "by", "before", "no later than", "ending on", "through", "up to"`;
 
   const userPrompt = `Shorts to schedule:
 ${shortsInfo.map((s, i) => `${i + 1}. ID: ${s.id} | Title: "${s.title}" | Duration: ${s.duration}s`).join('\n')}
