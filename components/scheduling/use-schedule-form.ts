@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import type { ScheduleAccordionItem } from './schedule-accordion'
-import { parseLocalDateTime, type ScheduleItemContent } from './schedule-item-editor'
+import type { ScheduleItemContent } from './schedule-item-editor'
 import {
   validateAllPlatformContent,
   type PlatformType,
@@ -150,12 +150,6 @@ export function useScheduleForm({
   const [items, setItems] = useState<ScheduleAccordionItem[]>([])
   const [hasChanges, setHasChanges] = useState(false)
 
-  // Keep shorts in a ref for non-reactive access in draft loading effect
-  const shortsRef = useRef(shorts)
-  useEffect(() => {
-    shortsRef.current = shorts
-  }, [shorts])
-
   // Create default content for a short based on selected platforms
   const createDefaultContent = useCallback(
     (short: ScheduleFormShort, platformsToUse: Set<PlatformType>): ScheduleItemContent => {
@@ -189,7 +183,7 @@ export function useScheduleForm({
     []
   )
 
-  // Load draft once on mount (not on every shorts change)
+  // Load draft on mount
   useEffect(() => {
     if (!draftKey) return
 
@@ -198,19 +192,16 @@ export function useScheduleForm({
       // Restore platforms
       setPlatformsState(new Set(draft.platforms as PlatformType[]))
 
-      // Use ref to get current shorts without adding dependency
-      const currentShorts = shortsRef.current
-
       // Restore items (match by ID)
       const restoredItems: ScheduleAccordionItem[] = []
       for (const draftItem of draft.items) {
-        const short = currentShorts.find((s) => s.id === draftItem.id)
+        const short = shorts.find((s) => s.id === draftItem.id)
         if (short) {
           restoredItems.push({
             id: short.id,
             title: short.title || `Short ${short.id.slice(0, 8)}`,
             thumbnailUrl: short.thumbnailUrl,
-            scheduledFor: parseLocalDateTime(draftItem.scheduledFor),
+            scheduledFor: new Date(draftItem.scheduledFor),
             platforms: new Set(draft.platforms as PlatformType[]),
             content: draftItem.content,
           })
@@ -223,8 +214,7 @@ export function useScheduleForm({
         setHasChanges(true)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey]) // Only run when draftKey changes, not on shorts changes
+  }, [draftKey, shorts])
 
   // Save draft when items change
   useEffect(() => {
@@ -320,7 +310,7 @@ export function useScheduleForm({
           id: short.id,
           title: short.title || `Short ${short.id.slice(0, 8)}`,
           thumbnailUrl: short.thumbnailUrl,
-          scheduledFor: parseLocalDateTime(schedule.scheduledFor),
+          scheduledFor: new Date(schedule.scheduledFor),
           platforms,
           content: existing?.content || createDefaultContent(short, platforms),
         })

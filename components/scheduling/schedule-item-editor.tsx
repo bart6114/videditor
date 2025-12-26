@@ -51,44 +51,6 @@ const formatLocalDateTime = (d: Date) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-/**
- * Parse an ISO datetime string, handling two different formats:
- *
- * 1. WITH timezone (Z or +/-offset): From draft storage via .toISOString()
- *    Example: "2025-04-01T17:00:00.000Z" → Use native parser (preserves UTC instant)
- *
- * 2. WITHOUT timezone: From AI responses (meant to be local time)
- *    Example: "2025-04-01T09:00:00" → Parse components as local time
- *    (Native new Date() behavior is browser-dependent for this format)
- */
-export function parseLocalDateTime(isoString: string): Date {
-  // Guard against null/undefined
-  if (!isoString || typeof isoString !== 'string') {
-    return new Date() // fallback to now
-  }
-
-  // If string has Z suffix or timezone offset, it's UTC - use native parser
-  // This preserves the exact UTC instant, displayed in user's local timezone
-  if (isoString.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(isoString)) {
-    return new Date(isoString)
-  }
-
-  // For strings WITHOUT timezone indicator (from AI), parse as local time
-  const [dateStr, timeStr] = isoString.split('T')
-  if (!dateStr || !timeStr) return new Date(isoString) // fallback
-
-  const [year, month, day] = dateStr.split('-').map(Number)
-  // Strip milliseconds if present (e.g., "09:00:00.000" → "09:00:00")
-  const cleanTime = timeStr.replace(/\.\d+$/, '')
-  const timeParts = cleanTime.split(':').map(Number)
-  const hours = timeParts[0] ?? 0
-  const minutes = timeParts[1] ?? 0
-  const seconds = timeParts[2] ?? 0
-
-  // new Date(year, month-1, day, hours, minutes, seconds) always uses local timezone
-  return new Date(year, month - 1, day, hours, minutes, seconds)
-}
-
 // Get preview text for collapsed state
 const getContentPreview = (content: ScheduleItemContent, platforms: Set<PlatformType>): string => {
   if (platforms.has('youtube') && content.youtube?.title) {
@@ -141,20 +103,10 @@ export function ScheduleItemEditor({
   const hasErrors = !validation.valid
   const contentPreview = getContentPreview(item.content, item.platforms)
 
-  // Handle datetime change - explicitly parse as local time to avoid timezone shifts
+  // Handle datetime change
   const handleDateTimeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value // Format: "2025-04-01T10:00"
-      if (!value) return
-
-      const [dateStr, timeStr] = value.split('T')
-      if (!dateStr || !timeStr) return
-
-      const [year, month, day] = dateStr.split('-').map(Number)
-      const [hours, minutes] = timeStr.split(':').map(Number)
-
-      // Construct Date explicitly in local timezone
-      const newDate = new Date(year, month - 1, day, hours, minutes)
+      const newDate = new Date(e.target.value)
       if (!isNaN(newDate.getTime())) {
         onScheduleChange(newDate)
       }

@@ -219,8 +219,15 @@ export default function CalendarPage() {
   // Auto-scroll ref for current hour in day view
   const currentHourRef = useRef<HTMLDivElement>(null)
 
-  // Initialize from URL query params
+  // Track if URL initialization has happened (prevents navigation state reset on shallow route updates)
+  const initializedFromUrl = useRef(false)
+
+  // Initialize from URL query params (only on first mount)
   useEffect(() => {
+    // Only initialize once to prevent shallow route updates from resetting navigation state
+    if (initializedFromUrl.current) return
+    initializedFromUrl.current = true
+
     const { view, date, platform, status } = router.query
     if (view && ['month', 'week', 'day'].includes(view as string)) {
       setCurrentView(view as CalendarView)
@@ -265,11 +272,11 @@ export default function CalendarPage() {
     }
   }, [isLoaded, isSignedIn, router])
 
-  // Load posts for the current month
+  // Load posts for the visible date range (depends on view type and selected dates)
   useEffect(() => {
     loadPosts()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentYear, currentMonth])
+  }, [currentYear, currentMonth, currentView, selectedDay])
 
   // Auto-scroll to current hour when viewing today in day view
   useEffect(() => {
@@ -283,8 +290,28 @@ export default function CalendarPage() {
   }, [currentView, selectedDay])
 
   async function loadPosts() {
-    const startDate = new Date(currentYear, currentMonth, 1)
-    const endDate = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59)
+    // Calculate visible date range based on current view
+    let startDate: Date
+    let endDate: Date
+
+    if (currentView === 'month') {
+      // Month view shows days from adjacent months to fill the grid
+      const monthDays = getMonthDays(currentYear, currentMonth)
+      startDate = monthDays[0] // First visible day (may be from prev month)
+      const lastDay = monthDays[monthDays.length - 1]
+      endDate = new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate(), 23, 59, 59)
+    } else if (currentView === 'week') {
+      // Week view may span month boundaries
+      const weekDays = getWeekDays(currentDate)
+      startDate = weekDays[0]
+      endDate = new Date(weekDays[6])
+      endDate.setHours(23, 59, 59)
+    } else {
+      // Day view - just that day
+      const day = selectedDay || currentDate
+      startDate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0)
+      endDate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59)
+    }
 
     setLoading(true)
     try {
