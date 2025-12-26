@@ -62,7 +62,8 @@ function getTimelineRange(items: TimelineItem[], daysToShow: number) {
   const minEndDate = new Date(startOfToday)
   minEndDate.setDate(minEndDate.getDate() + daysToShow)
 
-  const endDate = latestDate > minEndDate ? latestDate : minEndDate
+  // Clone to avoid mutating the original item's Date object
+  const endDate = new Date(latestDate > minEndDate ? latestDate : minEndDate)
 
   // Add buffer of 1 day after latest item
   endDate.setDate(endDate.getDate() + 1)
