@@ -51,6 +51,26 @@ const formatLocalDateTime = (d: Date) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/**
+ * Parse an ISO datetime string as LOCAL time (not UTC).
+ * JavaScript's new Date("2025-04-01T09:00:00") parses as UTC, which causes timezone shifts.
+ * This function explicitly parses the components and constructs a local Date.
+ * Handles formats: "2025-04-01T09:00:00" or "2025-04-01T09:00"
+ */
+export function parseLocalDateTime(isoString: string): Date {
+  const [dateStr, timeStr] = isoString.split('T')
+  if (!dateStr || !timeStr) return new Date(isoString) // fallback for unexpected formats
+
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const timeParts = timeStr.split(':').map(Number)
+  const hours = timeParts[0] ?? 0
+  const minutes = timeParts[1] ?? 0
+  const seconds = timeParts[2] ?? 0
+
+  // new Date(year, month-1, day, hours, minutes, seconds) uses LOCAL timezone
+  return new Date(year, month - 1, day, hours, minutes, seconds)
+}
+
 // Get preview text for collapsed state
 const getContentPreview = (content: ScheduleItemContent, platforms: Set<PlatformType>): string => {
   if (platforms.has('youtube') && content.youtube?.title) {

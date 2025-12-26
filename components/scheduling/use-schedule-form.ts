@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import type { ScheduleAccordionItem } from './schedule-accordion'
-import type { ScheduleItemContent } from './schedule-item-editor'
+import { parseLocalDateTime, type ScheduleItemContent } from './schedule-item-editor'
 import {
   validateAllPlatformContent,
   type PlatformType,
@@ -201,7 +201,7 @@ export function useScheduleForm({
             id: short.id,
             title: short.title || `Short ${short.id.slice(0, 8)}`,
             thumbnailUrl: short.thumbnailUrl,
-            scheduledFor: new Date(draftItem.scheduledFor),
+            scheduledFor: parseLocalDateTime(draftItem.scheduledFor),
             platforms: new Set(draft.platforms as PlatformType[]),
             content: draftItem.content,
           })
@@ -310,7 +310,7 @@ export function useScheduleForm({
           id: short.id,
           title: short.title || `Short ${short.id.slice(0, 8)}`,
           thumbnailUrl: short.thumbnailUrl,
-          scheduledFor: new Date(schedule.scheduledFor),
+          scheduledFor: parseLocalDateTime(schedule.scheduledFor),
           platforms,
           content: existing?.content || createDefaultContent(short, platforms),
         })
